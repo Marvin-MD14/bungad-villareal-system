@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import CrudTable from './components/CrudTable';
+import SalesPage from './components/SalesPage';
+import ClientsPage from './components/ClientsPage';
+import AdministrationPage from './components/AdministrationPage';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
@@ -19,12 +22,38 @@ import {
 // ============ API CONFIGURATION ============
 const API_BASE_URL = 'http://localhost:8000/api';
 
+const DEMO_ACCOUNTS = {
+  Superadmin: { username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
+  Owner: { username: 'demo_owner', password: 'DemoOwner!2026' },
+  'Branch Admin': { username: 'demo_branch_admin', password: 'DemoBranchAdmin!2026' },
+  Cashier: { username: 'demo_cashier', password: 'DemoCashier!2026' },
+  Staff: { username: 'demo_staff', password: 'DemoStaff!2026' },
+};
+
+const ROLE_CAPABILITIES = {
+  Superadmin: ['dashboard', 'sales', 'clients', 'administration', 'users', 'user_manage', 'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog', 'catalog_manage', 'client_manage'],
+  Owner: ['dashboard', 'sales', 'clients', 'users', 'rooms', 'inventory', 'audit', 'catalog'],
+  'Branch Admin': ['dashboard', 'sales', 'clients', 'users', 'user_manage', 'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog', 'catalog_manage', 'client_manage'],
+  Cashier: ['dashboard', 'sales', 'clients', 'rooms', 'room_manage', 'inventory', 'catalog', 'client_manage'],
+  Staff: ['dashboard', 'clients', 'rooms', 'room_manage', 'catalog'],
+};
+
+const canAccess = (role, capability) => ROLE_CAPABILITIES[role]?.includes(capability);
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 10000,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    config.headers.Authorization = `Token ${token}`;
+  }
+  return config;
 });
 
 // ============ LOADING SPINNER ============
@@ -34,15 +63,24 @@ const LoadingSpinner = () => (
   </div>
 );
 
+const AccessDenied = () => (
+  <div className="p-8 text-center text-slate-500">
+    You do not have permission to view this page.
+  </div>
+);
+
 // ============ SIDEBAR COMPONENT ============
-function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, isDarkMode, toggleDarkMode }) {
+function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, isDarkMode, toggleDarkMode, onLogout }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Activity size={16} /> },
+    { id: 'sales', label: 'Sales & POS', icon: <CreditCard size={16} /> },
+    { id: 'clients', label: 'Clients', icon: <Users size={16} /> },
+    { id: 'administration', label: 'Administration', icon: <Settings size={16} /> },
     { id: 'users', label: 'User Profiling', icon: <Users size={16} /> },
     { id: 'rooms', label: 'Room Status', icon: <DoorOpen size={16} /> },
     { id: 'inventory', label: 'Inventory', icon: <Package size={16} /> },
     { id: 'audit_controls', label: 'Audit Logs', icon: <ShieldAlert size={16} /> },
-  ];
+  ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id));
 
   // ✅ TINANGGAL NA ANG PANGANAN MENU DITO
  const productMenus = [
@@ -50,7 +88,7 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, isDarkMode, toggle
   { path: '/vreal-products', label: 'VREAL Products', icon: <Sparkles size={14} /> },
   { path: '/bb-products', label: 'BB Products', icon: <ShoppingBag size={14} /> },
   // ❌ TANGGALIN ANG PANGANAN MENU
-];
+].filter(() => canAccess(currentUserRole, 'catalog'));
 
   return (
     <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} ${
@@ -136,7 +174,7 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, isDarkMode, toggle
         </button>
 
         {/* Logout Button */}
-        <button className={`w-full ${
+        <button onClick={onLogout} className={`w-full ${
           isDarkMode ? 'bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400' : 'bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400'
         } font-semibold text-xs p-2.5 rounded-xl flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 transition-all duration-200 border border-slate-700/50 hover:border-red-500/30`}>
           <LogOut size={14} /> {!sidebarCollapsed && <span>Logout</span>}
@@ -166,12 +204,24 @@ export default function App() {
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   // --- SYSTEM LOGIC & SESSION STATES ---
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(
+    localStorage.getItem('authToken') && localStorage.getItem('authUser')
+  ));
+  const [loginForm, setLoginForm] = useState(DEMO_ACCOUNTS.Superadmin);
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState('Superadmin');
+  const [currentUserRole, setCurrentUserRole] = useState(() => {
+    const savedUser = localStorage.getItem('authUser');
+    return savedUser ? JSON.parse(savedUser).role : 'Superadmin';
+  });
+
+  useEffect(() => {
+    const capability = activeTab === 'audit_controls' ? 'audit' : activeTab;
+    if (activeTab !== 'dashboard' && !canAccess(currentUserRole, capability)) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, currentUserRole]);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -434,15 +484,38 @@ export default function App() {
     setSweetAlert({ show: true, type, title, message });
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (loginForm.username && loginForm.password) {
+    setIsLoading(true);
+    setLoginError('');
+
+    try {
+      const response = await api.post('/auth/login/', loginForm);
+      localStorage.setItem('authToken', response.data.token);
+      localStorage.setItem('authUser', JSON.stringify(response.data.user));
       setIsLoggedIn(true);
-      setLoginError('');
-      triggerSweetAlert('success', 'Welcome Back!', `Successfully logged in as ${currentUserRole}.`);
-    } else {
-      setLoginError('Please type your username and password.');
+      setCurrentUserRole(response.data.user.role);
+      triggerSweetAlert('success', 'Welcome Back!', `Successfully logged in as ${response.data.user.username}.`);
+    } catch (error) {
+      setLoginError(error.response?.data?.detail || 'Unable to connect to the authentication server.');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
+    setIsLoggedIn(false);
+    setLoginForm({ username: '', password: '' });
+    setLoginError('');
+  };
+
+  const handleDemoRoleChange = (event) => {
+    const role = event.target.value;
+    setCurrentUserRole(role);
+    setLoginForm(DEMO_ACCOUNTS[role]);
+    setLoginError('');
   };
 
   const handleSaveUser = (e) => {
@@ -608,12 +681,15 @@ export default function App() {
           {loginError && <p className="text-xs text-red-300 text-center font-medium bg-red-500/20 p-2 rounded-lg border border-red-500/30">{loginError}</p>}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-cyan-300 uppercase block">Select Simulated User Role</label>
-              <select value={currentUserRole} onChange={(e) => setCurrentUserRole(e.target.value)} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white font-medium">
+              <label className="text-xs font-semibold text-cyan-300 uppercase block">Select Demo Account</label>
+              <select value={currentUserRole} onChange={handleDemoRoleChange} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white font-medium">
                 <option value="Superadmin">Superadmin Node</option>
-                <option value="Admin">Admin Staff</option>
+                <option value="Owner">Owner</option>
+                <option value="Branch Admin">Branch Admin</option>
                 <option value="Cashier">Cashier Account</option>
+                <option value="Staff">Staff Account</option>
               </select>
+              <p className="text-[10px] text-slate-400">Demo credentials are filled automatically for local testing.</p>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-cyan-300 uppercase block">Username</label>
@@ -622,6 +698,17 @@ export default function App() {
             <div className="space-y-1">
               <label className="text-xs font-semibold text-cyan-300 uppercase block">Password</label>
               <input type="password" required value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white" />
+            </div>
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-[10px] text-cyan-200">
+              <p className="font-semibold uppercase tracking-wider mb-2">Available demo accounts</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {Object.entries(DEMO_ACCOUNTS).map(([role, account]) => (
+                  <button key={role} type="button" onClick={() => { setCurrentUserRole(role); setLoginForm(account); }} className="text-left hover:text-white">
+                    <span className="font-semibold">{role}:</span> {account.username}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-slate-400">Demo passwords are for local development only.</p>
             </div>
             <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-sm py-3 rounded-xl transition-all shadow-lg shadow-cyan-600/20">Access Dashboard</button>
           </form>
@@ -737,11 +824,11 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t border-slate-100">
-                  <button onClick={() => { setShowProfileModal(false); initEditUser(selectedProfileUser); }} className={`flex-1 ${
+                  {canAccess(currentUserRole, 'user_manage') && <button onClick={() => { setShowProfileModal(false); initEditUser(selectedProfileUser); }} className={`flex-1 ${
                     isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   } font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1`}>
                     <Edit3 size={12} /> Edit Profile
-                  </button>
+                  </button>}
                   <button onClick={() => setShowProfileModal(false)} className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1">
                     Close
                   </button>
@@ -817,10 +904,9 @@ export default function App() {
                     isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
                   } border p-2 text-sm rounded-xl font-medium`}>
                     <option value="Cashier">Cashier</option>
-                    <option value="Admin">Admin Staff</option>
-                    <option value="Staff Specialist">Staff Specialist</option>
-                    <option value="Spa Therapist">Spa Therapist</option>
-                    <option value="Massage Therapist">Massage Therapist</option>
+                    <option value="Owner">Owner</option>
+                    <option value="Branch Admin">Branch Admin</option>
+                    <option value="Staff">Staff</option>
                   </select>
                 </div>
                 <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
@@ -941,8 +1027,10 @@ export default function App() {
           sidebarCollapsed={sidebarCollapsed}
           setActiveTab={setActiveTab}
           activeTab={activeTab}
+          currentUserRole={currentUserRole}
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
+          onLogout={handleLogout}
         />
 
         {/* MAIN CONTENT */}
@@ -961,6 +1049,9 @@ export default function App() {
                 isDarkMode ? 'text-white' : 'bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent'
               }`}>
                 {activeTab === 'dashboard' && "System Performance Insights"}
+                {activeTab === 'sales' && "Sales & Point of Sale"}
+                {activeTab === 'clients' && "Client Directory"}
+                {activeTab === 'administration' && "System Administration"}
                 {activeTab === 'users' && "User Management Directory"}
                 {activeTab === 'rooms' && "Live Service Room Tracking"}
                 {activeTab === 'inventory' && "Product & Sales Stock Registry"}
@@ -981,13 +1072,9 @@ export default function App() {
               } border px-3 py-1 rounded-xl text-xs`}>
                 <UserCheck size={14} className="text-cyan-600" />
                 <span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Role:</span>
-                <select value={currentUserRole} onChange={(e) => setCurrentUserRole(e.target.value)} className={`${
-                  isDarkMode ? 'bg-slate-800 text-cyan-400' : 'bg-transparent text-cyan-700'
-                } font-bold outline-none cursor-pointer`}>
-                  <option value="Superadmin">Superadmin</option>
-                  <option value="Admin">Admin Staff</option>
-                  <option value="Cashier">Cashier</option>
-                </select>
+                <span className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>
+                  {currentUserRole}
+                </span>
               </div>
 
               <div className={`h-5 w-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
@@ -1028,6 +1115,21 @@ export default function App() {
           <div className={`flex-1 overflow-y-auto p-6 space-y-6 ${
             isDarkMode ? 'bg-slate-950/50' : 'bg-slate-50/30'
           }`}>
+
+            {activeTab === 'sales' && canAccess(currentUserRole, 'sales') && (
+              <SalesPage isDarkMode={isDarkMode} readOnly={currentUserRole === 'Owner'} />
+            )}
+
+            {activeTab === 'clients' && canAccess(currentUserRole, 'clients') && (
+              <ClientsPage
+                isDarkMode={isDarkMode}
+                readOnly={!canAccess(currentUserRole, 'client_manage')}
+              />
+            )}
+
+            {activeTab === 'administration' && canAccess(currentUserRole, 'administration') && (
+              <AdministrationPage isDarkMode={isDarkMode} />
+            )}
 
             {/* DASHBOARD */}
             {activeTab === 'dashboard' && (
@@ -1192,7 +1294,7 @@ export default function App() {
             )}
 
             {/* USERS TAB */}
-            {activeTab === 'users' && (
+            {canAccess(currentUserRole, 'users') && activeTab === 'users' && (
               <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-3">
                   <div>
@@ -1208,9 +1310,9 @@ export default function App() {
                     >
                       <Download size={14} /> Export
                     </button>
-                    <button onClick={() => setShowUserModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
+                    {canAccess(currentUserRole, 'user_manage') && <button onClick={() => setShowUserModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
                       <UserPlus size={14} /> Add User
-                    </button>
+                      </button>}
                   </div>
                 </div>
 
@@ -1227,10 +1329,9 @@ export default function App() {
                     <select value={userRoleFilter} onChange={(e) => { setUserRoleFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
                       <option value="All">All Roles</option>
                       <option value="Cashier">Cashier</option>
-                      <option value="Admin">Admin</option>
-                      <option value="Staff Specialist">Staff Specialist</option>
-                      <option value="Spa Therapist">Spa Therapist</option>
-                      <option value="Massage Therapist">Massage Therapist</option>
+                      <option value="Owner">Owner</option>
+                      <option value="Branch Admin">Branch Admin</option>
+                      <option value="Staff">Staff</option>
                     </select>
                   </div>
 
@@ -1315,18 +1416,18 @@ export default function App() {
                               } border rounded-lg transition-all hover:scale-110`} title="View Profile">
                                 <Eye size={13} />
                               </button>
-                              <button onClick={() => initEditUser(staff)} className={`p-1.5 ${
+                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => initEditUser(staff)} className={`p-1.5 ${
                                 isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
                               } border rounded-lg transition-all hover:scale-110`} title="Edit">
                                 <Edit3 size={13} />
-                              </button>
-                              <button onClick={() => toggleUserStatus(staff.id, staff.status)} className={`p-1.5 border rounded-lg transition-all hover:scale-110 ${(
+                              </button>}
+                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => toggleUserStatus(staff.id, staff.status)} className={`p-1.5 border rounded-lg transition-all hover:scale-110 ${(
                                 staff.status === 'Active' ?
                                 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100' :
                                 'bg-emerald-50 border-emerald-100 text-emerald-500 hover:bg-emerald-100'
                               )}`} title={staff.status === 'Active' ? 'Deactivate' : 'Activate'}>
                                 {staff.status === 'Active' ? <EyeOff size={13} /> : <Check size={13} />}
-                              </button>
+                              </button>}
                             </div>
                           </td>
                         </tr>
@@ -1366,7 +1467,7 @@ export default function App() {
             )}
 
             {/* ROOMS TAB */}
-            {activeTab === 'rooms' && (
+            {canAccess(currentUserRole, 'rooms') && activeTab === 'rooms' && (
               <div className="space-y-6">
                 <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${
                   isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-blue-50 via-cyan-50 to-sky-50 border-cyan-100'
@@ -1440,11 +1541,11 @@ export default function App() {
                             </div>
 
                             <div className="mt-4 pt-2 border-t">
-                              {isOccupied ? (
+                              {isOccupied && canAccess(currentUserRole, 'room_manage') ? (
                                 <button onClick={() => handleEvacuateRoom(room.id)} className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-[11px] py-1.5 rounded-lg transition-all">
                                   Release Room
                                 </button>
-                              ) : (
+                              ) : !isOccupied && canAccess(currentUserRole, 'room_manage') ? (
                                 <button disabled={unassignedStaff.length === 0} onClick={() => { setSelectedRoomId(room.id); setShowRoomModal(true); }} className={`w-full ${(
                                   unassignedStaff.length === 0 ?
                                   'bg-slate-100 text-slate-400 cursor-not-allowed' :
@@ -1452,6 +1553,8 @@ export default function App() {
                                 )} font-semibold text-[11px] py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all`}>
                                   <Plus size={12} /> <span>Check-In</span>
                                 </button>
+                              ) : (
+                                <span className="block text-center text-[10px] italic text-slate-400">Read-only view</span>
                               )}
                             </div>
                           </div>
@@ -1464,7 +1567,7 @@ export default function App() {
             )}
 
             {/* INVENTORY TAB */}
-            {activeTab === 'inventory' && (
+            {canAccess(currentUserRole, 'inventory') && activeTab === 'inventory' && (
               <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
                 <div className="flex justify-between items-center border-b pb-3">
                   <div>
@@ -1480,9 +1583,9 @@ export default function App() {
                     >
                       <Download size={14} /> Export
                     </button>
-                    <button onClick={() => setShowProductModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
+                    {canAccess(currentUserRole, 'inventory_manage') && <button onClick={() => setShowProductModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
                       <Plus size={14} /> Add Product
-                    </button>
+                    </button>}
                   </div>
                 </div>
 
@@ -1598,7 +1701,7 @@ export default function App() {
             )}
 
             {/* AUDIT LOGS TAB */}
-            {activeTab === 'audit_controls' && (
+            {canAccess(currentUserRole, 'audit') && activeTab === 'audit_controls' && (
               <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
                 <div className="flex justify-between items-center">
                   <div>
@@ -1681,29 +1784,35 @@ export default function App() {
 
             {/* PRODUCT MANAGEMENT ROUTES - ✅ WALA NA ANG PANGANAN MENU DITO */}
            <Routes>
-  <Route path="/vss-services" element={
+  <Route path="/vss-services" element={canAccess(currentUserRole, 'catalog') ?
     <CrudTable
       title="VSS Services"
       apiEndpoint="vss-services"
       columns={['Category', 'Description', 'Price']}
       isDarkMode={isDarkMode}
+      readOnly={!canAccess(currentUserRole, 'catalog_manage')}
     />
+    : <AccessDenied />
   } />
-  <Route path="/vreal-products" element={
+  <Route path="/vreal-products" element={canAccess(currentUserRole, 'catalog') ?
     <CrudTable
       title="VREAL Products"
       apiEndpoint="vreal-products"
       columns={['Category', 'Product', 'Price']}
       isDarkMode={isDarkMode}
+      readOnly={!canAccess(currentUserRole, 'catalog_manage')}
     />
+    : <AccessDenied />
   } />
-  <Route path="/bb-products" element={
+  <Route path="/bb-products" element={canAccess(currentUserRole, 'catalog') ?
     <CrudTable
       title="BB Products"
       apiEndpoint="bb-products"
       columns={['Product Name', 'Price']}
       isDarkMode={isDarkMode}
+      readOnly={!canAccess(currentUserRole, 'catalog_manage')}
     />
+    : <AccessDenied />
   } />
   {/* ❌ TANGGALIN ANG PANGANAN MENU ROUTE */}
 </Routes>

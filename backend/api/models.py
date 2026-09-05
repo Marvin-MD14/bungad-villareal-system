@@ -21,6 +21,37 @@ class Branch(models.Model):
         verbose_name_plural = "Branches"
 
 
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('SUPERADMIN', 'Superadmin'),
+        ('OWNER', 'Owner'),
+        ('BRANCH_ADMIN', 'Branch Admin'),
+        ('CASHIER', 'Cashier'),
+        ('STAFF', 'Staff'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF')
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_profiles',
+    )
+    services = models.ManyToManyField(
+        'VSSService',
+        blank=True,
+        related_name='staff_profiles',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        branch_name = self.branch.name if self.branch else 'All branches'
+        return f"{self.user.username} - {self.get_role_display()} ({branch_name})"
+
+
 class Product(models.Model):
     CATEGORY_CHOICES = [
         ('DAY_CREAM', 'Realnew Day Cream'),

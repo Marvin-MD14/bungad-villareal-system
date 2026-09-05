@@ -13,6 +13,7 @@ router.register(r'bb-products', BBProductViewSet)
 router.register(r'panganan-menus', PangananMenuViewSet)
 router.register(r'kb-items', KBItemViewSet)
 router.register(r'auto-spa', AutoSpaServiceViewSet)
+router.register(r'user-profiles', UserProfileViewSet)
 
 # Inventory Management
 router.register(r'branches', BranchViewSet)
@@ -32,5 +33,6 @@ router.register(r'transactions', TransactionViewSet)
 router.register(r'dashboard', DashboardStatsViewSet, basename='dashboard')
 
 urlpatterns = [
+    path('auth/login/', login_view, name='auth-login'),
     path('', include(router.urls)),
 ]

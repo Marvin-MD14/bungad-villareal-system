@@ -4,7 +4,7 @@ import { Search, Plus, Edit3, Trash2, RefreshCw, ChevronLeft, ChevronRight, Down
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
-export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = false }) {
+export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = false, readOnly = false }) {
   const [data, setData] = useState([]); // Default to empty array
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -16,12 +16,19 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
   
   const itemsPerPage = 10;
 
+  const authHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Token ${token}` } : {};
+  };
+
   // ============ FETCH DATA ============
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/${apiEndpoint}/`);
+      const res = await fetch(`${API_BASE_URL}/${apiEndpoint}/`, {
+        headers: authHeaders(),
+      });
       
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -70,7 +77,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
     try {
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(formData)
       });
       
@@ -122,7 +129,8 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
     if (result.isConfirmed) {
       try {
         await fetch(`${API_BASE_URL}/${apiEndpoint}/${id}/`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: authHeaders(),
         });
         Swal.fire({
           icon: 'success',
@@ -267,7 +275,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
           </button>
 
           {/* Add Button */}
-          <button
+          {!readOnly && <button
             onClick={() => {
               setEditingId(null);
               setFormData({});
@@ -276,7 +284,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
             className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md"
           >
             <Plus size={14} /> Add New
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -340,7 +348,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
                     ))}
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-2">
-                        <button
+                        {!readOnly && <button
                           onClick={() => handleEdit(item)}
                           className={`p-1.5 border rounded-lg transition-all ${
                             isDarkMode 
@@ -350,8 +358,8 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
                           title="Edit"
                         >
                           <Edit3 size={14} />
-                        </button>
-                        <button
+                        </button>}
+                        {!readOnly && <button
                           onClick={() => handleDelete(item.id)}
                           className={`p-1.5 border rounded-lg transition-all ${
                             isDarkMode 
@@ -361,7 +369,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
                           title="Delete"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>
