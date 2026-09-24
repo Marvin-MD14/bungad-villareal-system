@@ -5,9 +5,15 @@ from django.contrib.auth.models import User
 from .models import (
     VSSService, VRealProduct, BBProduct, PangananMenu, KBItem, AutoSpaService,
     Branch, Product, BranchInventory, ClientProfile, RoomTable,
-    Transaction, TransactionItem, DailySales, UserProfile
+    Transaction, TransactionItem, DailySales, UserProfile,
+    Attendance, CustomerFeedback, Expense, AuditLog,
+    CustomerReward, RewardClaim,
 )
 
+
+# ============================================================
+# USER PROFILE SERIALIZER
+# ============================================================
 
 class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
@@ -80,65 +86,154 @@ class UserProfileSerializer(serializers.ModelSerializer):
             instance.services.set(services)
         return instance
 
+
+# ============================================================
+# BRANCH SERIALIZER
+# ============================================================
+
 class BranchSerializer(serializers.ModelSerializer):
+    total_staff = serializers.SerializerMethodField(read_only=True)
+    total_rooms = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Branch
         fields = '__all__'
 
+    def get_total_staff(self, obj):
+        return obj.user_profiles.filter(user__is_active=True).count()
+
+    def get_total_rooms(self, obj):
+        return obj.rooms.count()
+
+
+# ============================================================
+# PRODUCT SERIALIZER
+# ============================================================
 
 class ProductSerializer(serializers.ModelSerializer):
     stock_quantity = serializers.IntegerField(read_only=True)
     is_low_stock = serializers.BooleanField(read_only=True)
-    
+
     class Meta:
         model = Product
         fields = '__all__'
 
 
+# ============================================================
+# BRANCH INVENTORY SERIALIZER
+# ============================================================
+
 class BranchInventorySerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
-    
+    is_low_stock = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = BranchInventory
         fields = '__all__'
 
+    def get_is_low_stock(self, obj):
+        return obj.stock_qty <= obj.product.min_stock
+
+
+# ============================================================
+# CLIENT PROFILE SERIALIZER (with Loyalty & Tier Info)
+# ============================================================
 
 class ClientProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
-    
+    total_transactions = serializers.SerializerMethodField(read_only=True)
+    discount_rate = serializers.SerializerMethodField(read_only=True)
+    next_tier_info = serializers.SerializerMethodField(read_only=True)
+    available_rewards_count = serializers.SerializerMethodField(read_only=True)
+    tier_display = serializers.CharField(source='get_loyalty_tier_display', read_only=True)
+
     class Meta:
         model = ClientProfile
         fields = '__all__'
 
+    def get_total_transactions(self, obj):
+        return obj.transaction_set.count() if hasattr(obj, 'transaction_set') else 0
+
+    def get_discount_rate(self, obj):
+        return obj.get_discount_rate()
+
+    def get_next_tier_info(self, obj):
+        return obj.get_next_tier_info()
+
+    def get_available_rewards_count(self, obj):
+        return obj.rewards.filter(status='AVAILABLE').count()
+
+
+# ============================================================
+# CUSTOMER REWARD SERIALIZER
+# ============================================================
+
+class CustomerRewardSerializer(serializers.ModelSerializer):
+    reward_type_display = serializers.CharField(source='get_reward_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    customer_name = serializers.CharField(source='customer.full_name', read_only=True)
+
+    class Meta:
+        model = CustomerReward
+        fields = '__all__'
+
+
+# ============================================================
+# REWARD CLAIM SERIALIZER
+# ============================================================
+
+class RewardClaimSerializer(serializers.ModelSerializer):
+    reward_title = serializers.CharField(source='reward.title', read_only=True)
+    customer_name = serializers.CharField(source='reward.customer.full_name', read_only=True)
+    claimed_by_name = serializers.CharField(source='claimed_by.username', read_only=True)
+
+    class Meta:
+        model = RewardClaim
+        fields = '__all__'
+
+
+# ============================================================
+# ROOM TABLE SERIALIZER
+# ============================================================
 
 class RoomTableSerializer(serializers.ModelSerializer):
     time_remaining = serializers.IntegerField(read_only=True)
     branch_name = serializers.CharField(source='branch.name', read_only=True)
     assigned_staff_name = serializers.CharField(source='assigned_staff.username', read_only=True)
-    
+
     class Meta:
         model = RoomTable
         fields = '__all__'
 
 
-# ============ VSS SERVICES SERIALIZER ============
+# ============================================================
+# VSS SERVICE SERIALIZER
+# ============================================================
+
 class VSSServiceSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
-    
+
     class Meta:
         model = VSSService
         fields = '__all__'
 
 
-# ============ VREAL PRODUCTS SERIALIZER ============
+# ============================================================
+# VREAL PRODUCT SERIALIZER
+# ============================================================
+
 class VRealProductSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
-    
+
     class Meta:
         model = VRealProduct
         fields = '__all__'
 
+
+# ============================================================
+# BB PRODUCT SERIALIZER
+# ============================================================
 
 class BBProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -146,11 +241,21 @@ class BBProductSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# ============================================================
+# PANGANAN MENU SERIALIZER
+# ============================================================
+
 class PangananMenuSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
     class Meta:
         model = PangananMenu
         fields = '__all__'
 
+
+# ============================================================
+# KB ITEM SERIALIZER
+# ============================================================
 
 class KBItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -158,29 +263,113 @@ class KBItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+# ============================================================
+# AUTO SPA SERVICE SERIALIZER
+# ============================================================
+
 class AutoSpaServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = AutoSpaService
         fields = '__all__'
 
 
+# ============================================================
+# TRANSACTION ITEM SERIALIZER
+# ============================================================
+
 class TransactionItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    service_name = serializers.CharField(source='service.description', read_only=True)
+
     class Meta:
         model = TransactionItem
         fields = '__all__'
 
 
+# ============================================================
+# TRANSACTION SERIALIZER
+# ============================================================
+
 class TransactionSerializer(serializers.ModelSerializer):
     items = TransactionItemSerializer(many=True, read_only=True)
     customer_name = serializers.CharField(source='customer.full_name', read_only=True)
     staff_name = serializers.CharField(source='staff.username', read_only=True)
-    
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    rewards_applied_details = CustomerRewardSerializer(source='rewards_applied', many=True, read_only=True)
+
     class Meta:
         model = Transaction
         fields = '__all__'
 
 
+# ============================================================
+# DAILY SALES SERIALIZER
+# ============================================================
+
 class DailySalesSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+
     class Meta:
         model = DailySales
+        fields = '__all__'
+
+
+# ============================================================
+# ATTENDANCE SERIALIZER
+# ============================================================
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.SerializerMethodField(read_only=True)
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    hours_worked = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = Attendance
+        fields = '__all__'
+
+    def get_full_name(self, obj):
+        full = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full or obj.user.username
+
+
+# ============================================================
+# CUSTOMER FEEDBACK SERIALIZER
+# ============================================================
+
+class CustomerFeedbackSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.full_name', read_only=True)
+    staff_name = serializers.CharField(source='staff.username', read_only=True)
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+
+    class Meta:
+        model = CustomerFeedback
+        fields = '__all__'
+
+
+# ============================================================
+# EXPENSE SERIALIZER
+# ============================================================
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    recorded_by_name = serializers.CharField(source='recorded_by.username', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    class Meta:
+        model = Expense
+        fields = '__all__'
+        read_only_fields = ['recorded_by']
+
+
+# ============================================================
+# AUDIT LOG SERIALIZER
+# ============================================================
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+
+    class Meta:
+        model = AuditLog
         fields = '__all__'
