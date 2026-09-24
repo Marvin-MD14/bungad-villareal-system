@@ -3,20 +3,23 @@ import CrudTable from './components/CrudTable';
 import SalesPage from './components/SalesPage';
 import ClientsPage from './components/ClientsPage';
 import AdministrationPage from './components/AdministrationPage';
+import CashierPOS from './components/CashierPOS';
+import CustomersRewardsPage from './components/CustomersRewardsPage';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
-import { 
+import {
   Users, DoorOpen, ShieldAlert, LogOut, Plus, Menu, X, UserPlus,
-  Package, Search, Bell, Layers, TrendingUp, AlertTriangle, CheckCircle, 
+  Package, Search, Bell, Layers, TrendingUp, AlertTriangle, CheckCircle,
   Edit3, Check, EyeOff, Filter, Info, UserCheck, Briefcase, Calendar,
   DollarSign, Activity, Archive, Star, Clock, Zap, Box, UserCog, Eye, History,
   Mail, Phone, MapPin, Award, Target, ChevronLeft, ChevronRight,
   RefreshCw, Download, Loader2, Sun, Moon, Settings, HelpCircle,
-  CreditCard, Gift, ShoppingBag, Scissors, Sparkles, Shield
+  CreditCard, Gift, ShoppingBag, Scissors, Sparkles, Shield,
+  Maximize2, Minimize2, Crown
 } from 'lucide-react';
 
 // ============ API CONFIGURATION ============
@@ -31,28 +34,40 @@ const DEMO_ACCOUNTS = {
 };
 
 const ROLE_CAPABILITIES = {
-  Superadmin: ['dashboard', 'sales', 'clients', 'administration', 'users', 'user_manage', 'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog', 'catalog_manage', 'client_manage'],
-  Owner: ['dashboard', 'sales', 'clients', 'users', 'rooms', 'inventory', 'audit', 'catalog'],
-  'Branch Admin': ['dashboard', 'sales', 'clients', 'users', 'user_manage', 'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog', 'catalog_manage', 'client_manage'],
-  Cashier: ['dashboard', 'sales', 'clients', 'rooms', 'room_manage', 'inventory', 'catalog', 'client_manage'],
-  Staff: ['dashboard', 'clients', 'rooms', 'room_manage', 'catalog'],
+  Superadmin: [
+    'dashboard', 'sales', 'clients', 'administration', 'users', 'user_manage',
+    'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit',
+    'catalog', 'catalog_manage', 'client_manage', 'customer_rewards'
+  ],
+  Owner: [
+    'dashboard', 'sales', 'clients', 'users', 'rooms', 'inventory',
+    'audit', 'catalog', 'customer_rewards'
+  ],
+  'Branch Admin': [
+    'dashboard', 'sales', 'clients', 'users', 'user_manage', 'rooms',
+    'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog',
+    'catalog_manage', 'client_manage', 'customer_rewards'
+  ],
+  Cashier: [
+    'dashboard', 'sales', 'clients', 'rooms', 'room_manage',
+    'inventory', 'catalog', 'client_manage', 'customer_rewards'
+  ],
+  Staff: [
+    'dashboard', 'clients', 'rooms', 'room_manage', 'catalog'
+  ],
 };
 
 const canAccess = (role, capability) => ROLE_CAPABILITIES[role]?.includes(capability);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Token ${token}`;
-  }
+  if (token) config.headers.Authorization = `Token ${token}`;
   return config;
 });
 
@@ -75,6 +90,7 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
     { id: 'dashboard', label: 'Dashboard', icon: <Activity size={16} /> },
     { id: 'sales', label: 'Sales & POS', icon: <CreditCard size={16} /> },
     { id: 'clients', label: 'Clients', icon: <Users size={16} /> },
+    { id: 'customer_rewards', label: 'Customer Rewards', icon: <Crown size={16} /> },
     { id: 'administration', label: 'Administration', icon: <Settings size={16} /> },
     { id: 'users', label: 'User Profiling', icon: <Users size={16} /> },
     { id: 'rooms', label: 'Room Status', icon: <DoorOpen size={16} /> },
@@ -82,13 +98,11 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
     { id: 'audit_controls', label: 'Audit Logs', icon: <ShieldAlert size={16} /> },
   ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id));
 
-  // ✅ TINANGGAL NA ANG PANGANAN MENU DITO
- const productMenus = [
-  { path: '/vss-services', label: 'VSS Services', icon: <Scissors size={14} /> },
-  { path: '/vreal-products', label: 'VREAL Products', icon: <Sparkles size={14} /> },
-  { path: '/bb-products', label: 'BB Products', icon: <ShoppingBag size={14} /> },
-  // ❌ TANGGALIN ANG PANGANAN MENU
-].filter(() => canAccess(currentUserRole, 'catalog'));
+  const productMenus = [
+    { path: '/vss-services', label: 'VSS Services', icon: <Scissors size={14} /> },
+    { path: '/vreal-products', label: 'VREAL Products', icon: <Sparkles size={14} /> },
+    { path: '/bb-products', label: 'BB Products', icon: <ShoppingBag size={14} /> },
+  ].filter(() => canAccess(currentUserRole, 'catalog'));
 
   return (
     <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} ${
@@ -134,7 +148,6 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
           ))}
         </nav>
 
-        {/* Product Management Dropdown */}
         <div className="px-3 mt-4">
           <details className="group">
             <summary className={`cursor-pointer p-2.5 text-xs font-semibold uppercase tracking-wider ${
@@ -162,7 +175,6 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
       </div>
 
       <div className="p-3 border-t border-slate-700/50 mt-auto space-y-2">
-        {/* Dark Mode Toggle */}
         <button
           onClick={toggleDarkMode}
           className={`w-full ${
@@ -173,7 +185,6 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
           {!sidebarCollapsed && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
         </button>
 
-        {/* Logout Button */}
         <button onClick={onLogout} className={`w-full ${
           isDarkMode ? 'bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400' : 'bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400'
         } font-semibold text-xs p-2.5 rounded-xl flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 transition-all duration-200 border border-slate-700/50 hover:border-red-500/30`}>
@@ -203,6 +214,9 @@ export default function App() {
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
+  // --- FULL SCREEN POS MODE ---
+  const [isPOSFullScreen, setIsPOSFullScreen] = useState(false);
+
   // --- SYSTEM LOGIC & SESSION STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(
     localStorage.getItem('authToken') && localStorage.getItem('authUser')
@@ -222,6 +236,28 @@ export default function App() {
       setActiveTab('dashboard');
     }
   }, [activeTab, currentUserRole]);
+
+  // Auto-exit full screen when leaving Sales tab
+  useEffect(() => {
+    if (activeTab !== 'sales' && isPOSFullScreen) {
+      setIsPOSFullScreen(false);
+    }
+  }, [activeTab]);
+
+  // F11 keyboard shortcut for full screen POS (Cashier only)
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'F11' && (currentUserRole === 'Cashier' || currentUserRole === 'CASHIER')) {
+        e.preventDefault();
+        setIsPOSFullScreen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [currentUserRole]);
+
+  const togglePOSFullScreen = () => setIsPOSFullScreen(prev => !prev);
+
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -271,105 +307,23 @@ export default function App() {
 
   // --- INPUT FORM OBJECTS ---
   const [userForm, setUserForm] = useState({
-    name: '',
-    address: '',
-    age: '',
-    gender: 'Female',
-    role: 'Cashier',
-    email: '',
-    phone: '',
-    startDate: new Date().toISOString().split('T')[0]
+    name: '', address: '', age: '', gender: 'Female', role: 'Cashier',
+    email: '', phone: '', startDate: new Date().toISOString().split('T')[0]
   });
   const [roomForm, setRoomForm] = useState({
-    staffId: '',
-    customerName: '',
-    serviceType: 'Pedicure & Manicure',
-    minutes: '30'
+    staffId: '', customerName: '', serviceType: 'Pedicure & Manicure', minutes: '30'
   });
   const [productForm, setProductForm] = useState({
-    name: '',
-    category: 'Cosmetics',
-    quantity: '',
-    price: ''
+    name: '', category: 'Cosmetics', quantity: '', price: ''
   });
 
   // --- DEFAULT DATA REGISTRIES ---
   const [staffList, setStaffList] = useState([
-    {
-      id: 1,
-      name: 'Maria Santos',
-      address: 'Virac, Catanduanes',
-      age: 28,
-      gender: 'Female',
-      role: 'Cashier',
-      status: 'Active',
-      assignment: 'Counter 1',
-      email: 'maria.santos@bungad.com',
-      phone: '+63 912 3456 789',
-      startDate: '2024-01-15',
-      history: ['Completed Cashier Training (Jan 2024)', 'Processed 500+ transactions', 'Employee of the Month - March 2024'],
-      avatar: 'MS'
-    },
-    {
-      id: 2,
-      name: 'Jane Doe',
-      address: 'San Andres, Catanduanes',
-      age: 24,
-      gender: 'Female',
-      role: 'Staff Specialist',
-      status: 'Active',
-      assignment: 'Room 2',
-      email: 'jane.doe@bungad.com',
-      phone: '+63 923 4567 890',
-      startDate: '2024-02-20',
-      history: ['Specialist Certification (Feb 2024)', 'Handled 200+ client sessions', 'Received 5-star rating from 50 clients'],
-      avatar: 'JD'
-    },
-    {
-      id: 3,
-      name: 'Grace Luna',
-      address: 'Bato, Catanduanes',
-      age: 31,
-      gender: 'Female',
-      role: 'Spa Therapist',
-      status: 'Active',
-      assignment: 'Room 7',
-      email: 'grace.luna@bungad.com',
-      phone: '+63 934 5678 901',
-      startDate: '2023-11-10',
-      history: ['Advanced Spa Therapy Workshop', 'Completed 300+ massage sessions', 'Top Rated Therapist - Q1 2024'],
-      avatar: 'GL'
-    },
-    {
-      id: 4,
-      name: 'Rose Cruz',
-      address: 'Baras, Catanduanes',
-      age: 27,
-      gender: 'Female',
-      role: 'Massage Therapist',
-      status: 'Deactivated',
-      assignment: 'Unassigned',
-      email: 'rose.cruz@bungad.com',
-      phone: '+63 945 6789 012',
-      startDate: '2024-03-05',
-      history: ['Massage Certification (Mar 2024)', 'Handled 80+ sessions before deactivation'],
-      avatar: 'RC'
-    },
-    {
-      id: 5,
-      name: 'Alex Gonzaga',
-      address: 'Gigmoto, Catanduanes',
-      age: 29,
-      gender: 'Male',
-      role: 'Admin',
-      status: 'Active',
-      assignment: 'Unassigned',
-      email: 'alex.gonzaga@bungad.com',
-      phone: '+63 956 7890 123',
-      startDate: '2023-09-01',
-      history: ['Admin Training Completion', 'System Management Expert', 'Staff Training Facilitator'],
-      avatar: 'AG'
-    },
+    { id: 1, name: 'Maria Santos', address: 'Virac, Catanduanes', age: 28, gender: 'Female', role: 'Cashier', status: 'Active', assignment: 'Counter 1', email: 'maria.santos@bungad.com', phone: '+63 912 3456 789', startDate: '2024-01-15', history: ['Completed Cashier Training (Jan 2024)', 'Processed 500+ transactions', 'Employee of the Month - March 2024'], avatar: 'MS' },
+    { id: 2, name: 'Jane Doe', address: 'San Andres, Catanduanes', age: 24, gender: 'Female', role: 'Staff Specialist', status: 'Active', assignment: 'Room 2', email: 'jane.doe@bungad.com', phone: '+63 923 4567 890', startDate: '2024-02-20', history: ['Specialist Certification (Feb 2024)', 'Handled 200+ client sessions', 'Received 5-star rating from 50 clients'], avatar: 'JD' },
+    { id: 3, name: 'Grace Luna', address: 'Bato, Catanduanes', age: 31, gender: 'Female', role: 'Spa Therapist', status: 'Active', assignment: 'Room 7', email: 'grace.luna@bungad.com', phone: '+63 934 5678 901', startDate: '2023-11-10', history: ['Advanced Spa Therapy Workshop', 'Completed 300+ massage sessions', 'Top Rated Therapist - Q1 2024'], avatar: 'GL' },
+    { id: 4, name: 'Rose Cruz', address: 'Baras, Catanduanes', age: 27, gender: 'Female', role: 'Massage Therapist', status: 'Deactivated', assignment: 'Unassigned', email: 'rose.cruz@bungad.com', phone: '+63 945 6789 012', startDate: '2024-03-05', history: ['Massage Certification (Mar 2024)', 'Handled 80+ sessions before deactivation'], avatar: 'RC' },
+    { id: 5, name: 'Alex Gonzaga', address: 'Gigmoto, Catanduanes', age: 29, gender: 'Male', role: 'Admin', status: 'Active', assignment: 'Unassigned', email: 'alex.gonzaga@bungad.com', phone: '+63 956 7890 123', startDate: '2023-09-01', history: ['Admin Training Completion', 'System Management Expert', 'Staff Training Facilitator'], avatar: 'AG' },
   ]);
 
   const [inventoryList, setInventoryList] = useState([
@@ -387,30 +341,9 @@ export default function App() {
   ]);
 
   const [roomsState, setRoomsState] = useState([
-    ...Array.from({ length: 5 }, (_, i) => ({
-      id: i + 1,
-      type: 'Pedicure & Manicure',
-      customer: i === 0 ? 'John Smith' : '',
-      service: i === 0 ? 'Pedicure & Manicure' : '',
-      timeLeft: i === 0 ? 18 : 0,
-      startTime: i === 0 ? new Date().toISOString() : null,
-    })),
-    ...Array.from({ length: 5 }, (_, i) => ({
-      id: i + 6,
-      type: 'Foot Spa',
-      customer: '',
-      service: '',
-      timeLeft: 0,
-      startTime: null,
-    })),
-    ...Array.from({ length: 5 }, (_, i) => ({
-      id: i + 11,
-      type: 'Massage',
-      customer: '',
-      service: '',
-      timeLeft: 0,
-      startTime: null,
-    })),
+    ...Array.from({ length: 5 }, (_, i) => ({ id: i + 1, type: 'Pedicure & Manicure', customer: i === 0 ? 'John Smith' : '', service: i === 0 ? 'Pedicure & Manicure' : '', timeLeft: i === 0 ? 18 : 0, startTime: i === 0 ? new Date().toISOString() : null })),
+    ...Array.from({ length: 5 }, (_, i) => ({ id: i + 6, type: 'Foot Spa', customer: '', service: '', timeLeft: 0, startTime: null })),
+    ...Array.from({ length: 5 }, (_, i) => ({ id: i + 11, type: 'Massage', customer: '', service: '', timeLeft: 0, startTime: null })),
   ]);
 
   const roomZones = [
@@ -467,11 +400,8 @@ export default function App() {
     const interval = setInterval(() => {
       setRoomsState(prevRooms =>
         prevRooms.map(room => {
-          if (room.timeLeft > 0) {
-            return { ...room, timeLeft: room.timeLeft - 1 };
-          } else if (room.timeLeft === 0 && room.customer !== '') {
-            return { ...room, customer: '', service: '', timeLeft: 0, startTime: null };
-          }
+          if (room.timeLeft > 0) return { ...room, timeLeft: room.timeLeft - 1 };
+          else if (room.timeLeft === 0 && room.customer !== '') return { ...room, customer: '', service: '', timeLeft: 0, startTime: null };
           return room;
         })
       );
@@ -488,7 +418,6 @@ export default function App() {
     e.preventDefault();
     setIsLoading(true);
     setLoginError('');
-
     try {
       const response = await api.post('/auth/login/', loginForm);
       localStorage.setItem('authToken', response.data.token);
@@ -509,6 +438,7 @@ export default function App() {
     setIsLoggedIn(false);
     setLoginForm({ username: '', password: '' });
     setLoginError('');
+    setIsPOSFullScreen(false);
   };
 
   const handleDemoRoleChange = (event) => {
@@ -528,10 +458,7 @@ export default function App() {
         setEditingUser(null);
       } else {
         const newUser = {
-          id: Date.now(),
-          ...userForm,
-          status: 'Active',
-          assignment: 'Unassigned',
+          id: Date.now(), ...userForm, status: 'Active', assignment: 'Unassigned',
           history: [`Started employment on ${new Date(userForm.startDate).toLocaleDateString()}`],
           avatar: userForm.name.split(' ').map(n => n[0]).join('')
         };
@@ -547,11 +474,8 @@ export default function App() {
   const handleAddProduct = (e) => {
     e.preventDefault();
     const newProduct = {
-      id: Date.now(),
-      name: productForm.name,
-      category: productForm.category,
-      quantity: parseInt(productForm.quantity) || 0,
-      price: parseFloat(productForm.price) || 0,
+      id: Date.now(), name: productForm.name, category: productForm.category,
+      quantity: parseInt(productForm.quantity) || 0, price: parseFloat(productForm.price) || 0,
       sku: `${productForm.category.substring(0, 3)}-${String(Date.now()).slice(-4)}`
     };
     setInventoryList([...inventoryList, newProduct]);
@@ -568,16 +492,7 @@ export default function App() {
 
   const initEditUser = (user) => {
     setEditingUser(user);
-    setUserForm({
-      name: user.name,
-      address: user.address,
-      age: user.age,
-      gender: user.gender,
-      role: user.role,
-      email: user.email || '',
-      phone: user.phone || '',
-      startDate: user.startDate || new Date().toISOString().split('T')[0]
-    });
+    setUserForm({ name: user.name, address: user.address, age: user.age, gender: user.gender, role: user.role, email: user.email || '', phone: user.phone || '', startDate: user.startDate || new Date().toISOString().split('T')[0] });
     setShowUserModal(true);
   };
 
@@ -589,16 +504,8 @@ export default function App() {
   const handleDeployRoomServices = (e) => {
     e.preventDefault();
     if (!roomForm.staffId) return;
-
     setStaffList(staffList.map(s => s.id === parseInt(roomForm.staffId) ? { ...s, assignment: `Room ${selectedRoomId}` } : s));
-    setRoomsState(roomsState.map(r => r.id === selectedRoomId ? {
-      ...r,
-      customer: roomForm.customerName,
-      service: roomForm.serviceType,
-      timeLeft: parseInt(roomForm.minutes),
-      startTime: new Date().toISOString()
-    } : r));
-
+    setRoomsState(roomsState.map(r => r.id === selectedRoomId ? { ...r, customer: roomForm.customerName, service: roomForm.serviceType, timeLeft: parseInt(roomForm.minutes), startTime: new Date().toISOString() } : r));
     setShowRoomModal(false);
     setRoomForm({ staffId: '', customerName: '', serviceType: 'Pedicure & Manicure', minutes: '30' });
     triggerSweetAlert('success', 'Room Timer Started', `Room ${selectedRoomId} is now active.`);
@@ -612,18 +519,13 @@ export default function App() {
 
   const unassignedStaff = staffList.filter(s => s.assignment === 'Unassigned' && s.status === 'Active');
 
-  // --- EXPORT FUNCTION ---
   const exportToCSV = (data, filename) => {
     if (data.length === 0) {
       triggerSweetAlert('info', 'No Data', 'There is no data to export.');
       return;
     }
     const headers = Object.keys(data[0]);
-    const csv = [
-      headers.join(','),
-      ...data.map(row => headers.map(h => row[h] ?? '').join(','))
-    ].join('\n');
-
+    const csv = [headers.join(','), ...data.map(row => headers.map(h => row[h] ?? '').join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -727,9 +629,7 @@ export default function App() {
         {/* SWEETALERT */}
         {sweetAlert.show && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-            <div className={`${
-              isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-            } border rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4`}>
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-md">
                 {sweetAlert.type === 'success' ? <CheckCircle size={28} className="text-white" /> : <Info size={28} className="text-white" />}
               </div>
@@ -737,9 +637,7 @@ export default function App() {
                 <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{sweetAlert.title}</h3>
                 <p className={`text-xs font-medium mt-1 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{sweetAlert.message}</p>
               </div>
-              <button onClick={() => setSweetAlert({ ...sweetAlert, show: false })} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl uppercase tracking-wider transition-all">
-                Okay
-              </button>
+              <button onClick={() => setSweetAlert({ ...sweetAlert, show: false })} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl uppercase tracking-wider transition-all">Okay</button>
             </div>
           </div>
         )}
@@ -747,50 +645,34 @@ export default function App() {
         {/* PROFILE MODAL */}
         {showProfileModal && selectedProfileUser && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className={`${
-              isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white'
-            } rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl border`}>
-              <div className={`sticky top-0 ${
-                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-              } border-b p-4 flex justify-between items-center`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white'} rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl border`}>
+              <div className={`sticky top-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-b p-4 flex justify-between items-center`}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
                     <UserCog size={20} className="text-white" />
                   </div>
                   <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Staff Profile Details</h3>
                 </div>
-                <button onClick={() => setShowProfileModal(false)} className={`p-2 ${
-                  isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'
-                } rounded-xl transition-all`}>
-                  <X size={18} />
-                </button>
+                <button onClick={() => setShowProfileModal(false)} className={`p-2 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} rounded-xl transition-all`}><X size={18} /></button>
               </div>
-
               <div className="p-6 space-y-6">
                 <div className={`flex items-center gap-4 pb-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                  <div className={`w-20 h-20 ${
-                    isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-cyan-100 to-blue-100'
-                  } rounded-2xl flex items-center justify-center`}>
+                  <div className={`w-20 h-20 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-cyan-100 to-blue-100'} rounded-2xl flex items-center justify-center`}>
                     <Users size={36} className="text-cyan-600" />
                   </div>
                   <div>
                     <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedProfileUser.name}</h2>
                     <p className="text-sm text-cyan-600 font-medium">{selectedProfileUser.role}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        selectedProfileUser.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedProfileUser.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                         {selectedProfileUser.status}
                       </span>
                       <span className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>ID: {selectedProfileUser.id}</span>
                     </div>
                   </div>
                 </div>
-
                 <div>
-                  <h4 className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase tracking-wider mb-3 flex items-center gap-2`}>
-                    <UserCheck size={12} /> Personal Information
-                  </h4>
+                  <h4 className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase tracking-wider mb-3 flex items-center gap-2`}><UserCheck size={12} /> Personal Information</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div><p className={`${isDarkMode ? 'text-slate-500' : 'text-slate-400'} text-[10px] uppercase`}>Email Address</p><p className={`font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} flex items-center gap-1`}><Mail size={12} /> {selectedProfileUser.email || 'Not provided'}</p></div>
                     <div><p className={`${isDarkMode ? 'text-slate-500' : 'text-slate-400'} text-[10px] uppercase`}>Phone Number</p><p className={`font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} flex items-center gap-1`}><Phone size={12} /> {selectedProfileUser.phone || 'Not provided'}</p></div>
@@ -800,17 +682,12 @@ export default function App() {
                     <div><p className={`${isDarkMode ? 'text-slate-500' : 'text-slate-400'} text-[10px] uppercase`}>Current Assignment</p><p className={`font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'} flex items-center gap-1`}><Target size={12} /> {selectedProfileUser.assignment}</p></div>
                   </div>
                 </div>
-
                 <div>
-                  <h4 className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase tracking-wider mb-3 flex items-center gap-2`}>
-                    <History size={12} /> Employment History & Achievements
-                  </h4>
+                  <h4 className={`text-xs font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase tracking-wider mb-3 flex items-center gap-2`}><History size={12} /> Employment History & Achievements</h4>
                   <div className="space-y-2">
                     {selectedProfileUser.history && selectedProfileUser.history.length > 0 ? (
                       selectedProfileUser.history.map((item, idx) => (
-                        <div key={idx} className={`flex items-start gap-3 p-3 ${
-                          isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-slate-50 border-slate-100'
-                        } rounded-xl border`}>
+                        <div key={idx} className={`flex items-start gap-3 p-3 ${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-slate-50 border-slate-100'} rounded-xl border`}>
                           <div className="w-5 h-5 bg-cyan-100 rounded-full flex items-center justify-center mt-0.5">
                             <Award size={10} className="text-cyan-600" />
                           </div>
@@ -822,16 +699,9 @@ export default function App() {
                     )}
                   </div>
                 </div>
-
                 <div className="flex gap-3 pt-4 border-t border-slate-100">
-                  {canAccess(currentUserRole, 'user_manage') && <button onClick={() => { setShowProfileModal(false); initEditUser(selectedProfileUser); }} className={`flex-1 ${
-                    isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  } font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1`}>
-                    <Edit3 size={12} /> Edit Profile
-                  </button>}
-                  <button onClick={() => setShowProfileModal(false)} className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1">
-                    Close
-                  </button>
+                  {canAccess(currentUserRole, 'user_manage') && <button onClick={() => { setShowProfileModal(false); initEditUser(selectedProfileUser); }} className={`flex-1 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1`}><Edit3 size={12} /> Edit Profile</button>}
+                  <button onClick={() => setShowProfileModal(false)} className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1">Close</button>
                 </div>
               </div>
             </div>
@@ -841,52 +711,36 @@ export default function App() {
         {/* USER MODAL */}
         {showUserModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
-            <div className={`${
-              isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-            } border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4`}>
               <div className="flex justify-between items-center border-b pb-2">
-                <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                  {editingUser ? 'Edit User Profile' : 'Register New User'}
-                </h3>
+                <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{editingUser ? 'Edit User Profile' : 'Register New User'}</h3>
                 <button onClick={() => { setShowUserModal(false); setEditingUser(null); }} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
               </div>
               <form onSubmit={handleSaveUser} className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Full Name</label>
-                  <input type="text" required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Email Address</label>
-                  <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Phone Number</label>
-                  <input type="text" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="text" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Address</label>
-                  <input type="text" required value={userForm.address} onChange={(e) => setUserForm({ ...userForm, address: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={userForm.address} onChange={(e) => setUserForm({ ...userForm, address: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Age</label>
-                    <input type="number" required value={userForm.age} onChange={(e) => setUserForm({ ...userForm, age: e.target.value })} className={`w-full ${
-                      isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                    } border p-2 text-sm rounded-xl`} />
+                    <input type="number" required value={userForm.age} onChange={(e) => setUserForm({ ...userForm, age: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Gender</label>
-                    <select value={userForm.gender} onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })} className={`w-full ${
-                      isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                    } border p-2 text-sm rounded-xl font-medium`}>
+                    <select value={userForm.gender} onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
                       <option value="Female">Female</option>
                       <option value="Male">Male</option>
                     </select>
@@ -894,15 +748,11 @@ export default function App() {
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Start Date</label>
-                  <input type="date" required value={userForm.startDate} onChange={(e) => setUserForm({ ...userForm, startDate: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="date" required value={userForm.startDate} onChange={(e) => setUserForm({ ...userForm, startDate: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>System Role Assigned</label>
-                  <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl font-medium`}>
+                  <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
                     <option value="Cashier">Cashier</option>
                     <option value="Owner">Owner</option>
                     <option value="Branch Admin">Branch Admin</option>
@@ -921,9 +771,7 @@ export default function App() {
         {/* ROOM MODAL */}
         {showRoomModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
-            <div className={`${
-              isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-            } border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
               <div className="flex justify-between items-center border-b pb-2">
                 <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Assign Room {selectedRoomId}</h3>
                 <button onClick={() => setShowRoomModal(false)} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
@@ -931,9 +779,7 @@ export default function App() {
               <form onSubmit={handleDeployRoomServices} className="space-y-3">
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Assign Available Specialist</label>
-                  <select required value={roomForm.staffId} onChange={(e) => setRoomForm({ ...roomForm, staffId: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl font-medium`}>
+                  <select required value={roomForm.staffId} onChange={(e) => setRoomForm({ ...roomForm, staffId: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
                     <option value="">-- Select Available Specialist --</option>
                     {unassignedStaff.map(s => (
                       <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
@@ -942,16 +788,12 @@ export default function App() {
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Customer Name</label>
-                  <input type="text" required value={roomForm.customerName} onChange={(e) => setRoomForm({ ...roomForm, customerName: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={roomForm.customerName} onChange={(e) => setRoomForm({ ...roomForm, customerName: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Service Type</label>
-                    <select value={roomForm.serviceType} onChange={(e) => setRoomForm({ ...roomForm, serviceType: e.target.value })} className={`w-full ${
-                      isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                    } border p-2 text-xs rounded-xl font-medium`}>
+                    <select value={roomForm.serviceType} onChange={(e) => setRoomForm({ ...roomForm, serviceType: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-xs rounded-xl font-medium`}>
                       <option value="Pedicure & Manicure">Pedicure & Manicure</option>
                       <option value="Foot Spa Therapy">Foot Spa Therapy</option>
                       <option value="Therapeutic Massage">Therapeutic Massage</option>
@@ -959,9 +801,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Duration</label>
-                    <select value={roomForm.minutes} onChange={(e) => setRoomForm({ ...roomForm, minutes: e.target.value })} className={`w-full ${
-                      isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                    } border p-2 text-xs rounded-xl font-medium`}>
+                    <select value={roomForm.minutes} onChange={(e) => setRoomForm({ ...roomForm, minutes: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-xs rounded-xl font-medium`}>
                       <option value="1">1 Minute (Test)</option>
                       <option value="30">30 Minutes</option>
                       <option value="60">60 Minutes (1 Hour)</option>
@@ -978,9 +818,7 @@ export default function App() {
         {/* PRODUCT MODAL */}
         {showProductModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
-            <div className={`${
-              isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-            } border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
               <div className="flex justify-between items-center border-b pb-2">
                 <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Add New Product</h3>
                 <button onClick={() => setShowProductModal(false)} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
@@ -988,15 +826,11 @@ export default function App() {
               <form onSubmit={handleAddProduct} className="space-y-3">
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Product Name</label>
-                  <input type="text" required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Category</label>
-                  <select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className={`w-full ${
-                    isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                  } border p-2 text-sm rounded-xl font-medium`}>
+                  <select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
                     <option value="Cosmetics">Cosmetics</option>
                     <option value="Supplies">Supplies</option>
                     <option value="Equipment">Equipment</option>
@@ -1005,15 +839,11 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Quantity</label>
-                    <input type="number" required value={productForm.quantity} onChange={(e) => setProductForm({ ...productForm, quantity: e.target.value })} className={`w-full ${
-                      isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                    } border p-2 text-sm rounded-xl`} />
+                    <input type="number" required value={productForm.quantity} onChange={(e) => setProductForm({ ...productForm, quantity: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Price (₱)</label>
-                    <input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} className={`w-full ${
-                      isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'
-                    } border p-2 text-sm rounded-xl`} />
+                    <input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                 </div>
                 <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all">Confirm Stock Entry</button>
@@ -1022,109 +852,109 @@ export default function App() {
           </div>
         )}
 
-        {/* SIDEBAR */}
-        <Sidebar
-          sidebarCollapsed={sidebarCollapsed}
-          setActiveTab={setActiveTab}
-          activeTab={activeTab}
-          currentUserRole={currentUserRole}
-          isDarkMode={isDarkMode}
-          toggleDarkMode={toggleDarkMode}
-          onLogout={handleLogout}
-        />
+        {/* SIDEBAR - Hidden in full screen mode */}
+        {!isPOSFullScreen && (
+          <Sidebar
+            sidebarCollapsed={sidebarCollapsed}
+            setActiveTab={setActiveTab}
+            activeTab={activeTab}
+            currentUserRole={currentUserRole}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={toggleDarkMode}
+            onLogout={handleLogout}
+          />
+        )}
 
         {/* MAIN CONTENT */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* HEADER */}
-          <header className={`${
-            isDarkMode ? 'bg-slate-900/80 border-slate-700/30' : 'bg-white/80 border-slate-200'
-          } backdrop-blur-sm border-b px-6 py-3 flex justify-between items-center shadow-sm z-20`}>
-            <div className="flex items-center space-x-3">
-              <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className={`p-2 border ${
-                isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
-              } rounded-xl transition-all`}>
-                <Menu size={15} />
-              </button>
-              <h2 className={`text-base font-bold ${
-                isDarkMode ? 'text-white' : 'bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent'
-              }`}>
-                {activeTab === 'dashboard' && "System Performance Insights"}
-                {activeTab === 'sales' && "Sales & Point of Sale"}
-                {activeTab === 'clients' && "Client Directory"}
-                {activeTab === 'administration' && "System Administration"}
-                {activeTab === 'users' && "User Management Directory"}
-                {activeTab === 'rooms' && "Live Service Room Tracking"}
-                {activeTab === 'inventory' && "Product & Sales Stock Registry"}
-                {activeTab === 'audit_controls' && "Security Exception Records"}
-              </h2>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className={`text-right font-mono text-xs ${
-                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
-              } border px-3 py-1.5 rounded-xl`}>
-                <span className="text-slate-400 mr-1.5">{formattedDate}</span>
-                <span className="text-cyan-600 font-semibold">{formattedTime}</span>
-              </div>
-
-              <div className={`flex items-center gap-2 ${
-                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-slate-100 to-slate-50 border-slate-200'
-              } border px-3 py-1 rounded-xl text-xs`}>
-                <UserCheck size={14} className="text-cyan-600" />
-                <span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Role:</span>
-                <span className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>
-                  {currentUserRole}
-                </span>
-              </div>
-
-              <div className={`h-5 w-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-
-              <div className="relative">
-                <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} className={`p-2 border ${
-                  isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                } rounded-xl relative transition-all`}>
-                  <Bell size={15} />
-                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-[8px] w-4 h-4 flex items-center justify-center rounded-full shadow-md">{systemNotifications.length}</span>
+          {/* HEADER - Hidden in full screen mode */}
+          {!isPOSFullScreen && (
+            <header className={`${
+              isDarkMode ? 'bg-slate-900/80 border-slate-700/30' : 'bg-white/80 border-slate-200'
+            } backdrop-blur-sm border-b px-6 py-3 flex justify-between items-center shadow-sm z-20`}>
+              <div className="flex items-center space-x-3">
+                <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className={`p-2 border ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'} rounded-xl transition-all`}>
+                  <Menu size={15} />
                 </button>
-
-                {showNotifDropdown && (
-                  <div className={`absolute right-0 mt-2 w-72 ${
-                    isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-                  } border rounded-xl shadow-xl p-2 z-50 space-y-1`}>
-                    <div className={`px-2 py-1 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex justify-between items-center`}>
-                      <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase`}>Notifications</span>
-                      <button onClick={() => setShowNotifDropdown(false)} className="text-[10px] text-cyan-600">Dismiss</button>
-                    </div>
-                    {systemNotifications.map(n => (
-                      <div key={n.id} className={`p-2 rounded-lg text-xs flex items-start gap-2 ${
-                        isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 mt-1.5 rounded-full shrink-0 ${
-                          n.type === 'alert' ? 'bg-orange-500' : n.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
-                        }`}></span>
-                        <p className={`font-medium leading-snug ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{n.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <h2 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent'}`}>
+                  {activeTab === 'dashboard' && "System Performance Insights"}
+                  {activeTab === 'sales' && (currentUserRole === 'Cashier' ? "Cashier Point of Sale" : "Sales & Point of Sale")}
+                  {activeTab === 'clients' && "Client Directory"}
+                  {activeTab === 'customer_rewards' && "Customer Loyalty & Rewards"}
+                  {activeTab === 'administration' && "System Administration"}
+                  {activeTab === 'users' && "User Management Directory"}
+                  {activeTab === 'rooms' && "Live Service Room Tracking"}
+                  {activeTab === 'inventory' && "Product & Sales Stock Registry"}
+                  {activeTab === 'audit_controls' && "Security Exception Records"}
+                </h2>
               </div>
-            </div>
-          </header>
 
-          {/* WORKSPACE CONTENT */}
-          <div className={`flex-1 overflow-y-auto p-6 space-y-6 ${
+              <div className="flex items-center space-x-4">
+                <div className={`text-right font-mono text-xs ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'} border px-3 py-1.5 rounded-xl`}>
+                  <span className="text-slate-400 mr-1.5">{formattedDate}</span>
+                  <span className="text-cyan-600 font-semibold">{formattedTime}</span>
+                </div>
+
+                <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-slate-100 to-slate-50 border-slate-200'} border px-3 py-1 rounded-xl text-xs`}>
+                  <UserCheck size={14} className="text-cyan-600" />
+                  <span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Role:</span>
+                  <span className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{currentUserRole}</span>
+                </div>
+
+                <div className={`h-5 w-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+
+                <div className="relative">
+                  <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} className={`p-2 border ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} rounded-xl relative transition-all`}>
+                    <Bell size={15} />
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-[8px] w-4 h-4 flex items-center justify-center rounded-full shadow-md">{systemNotifications.length}</span>
+                  </button>
+
+                  {showNotifDropdown && (
+                    <div className={`absolute right-0 mt-2 w-72 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-xl shadow-xl p-2 z-50 space-y-1`}>
+                      <div className={`px-2 py-1 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex justify-between items-center`}>
+                        <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase`}>Notifications</span>
+                        <button onClick={() => setShowNotifDropdown(false)} className="text-[10px] text-cyan-600">Dismiss</button>
+                      </div>
+                      {systemNotifications.map(n => (
+                        <div key={n.id} className={`p-2 rounded-lg text-xs flex items-start gap-2 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}>
+                          <span className={`w-1.5 h-1.5 mt-1.5 rounded-full shrink-0 ${n.type === 'alert' ? 'bg-orange-500' : n.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
+                          <p className={`font-medium leading-snug ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{n.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </header>
+          )}
+
+          {/* WORKSPACE CONTENT - Adjusted padding in full screen */}
+          <div className={`flex-1 overflow-y-auto space-y-6 ${
+            isPOSFullScreen ? 'p-2' : 'p-6'
+          } ${
             isDarkMode ? 'bg-slate-950/50' : 'bg-slate-50/30'
           }`}>
 
+            {/* SALES TAB */}
             {activeTab === 'sales' && canAccess(currentUserRole, 'sales') && (
-              <SalesPage isDarkMode={isDarkMode} readOnly={currentUserRole === 'Owner'} />
+              (currentUserRole === 'Cashier' || currentUserRole === 'CASHIER') ? (
+                <CashierPOS
+                  isDarkMode={isDarkMode}
+                  onToggleFullScreen={togglePOSFullScreen}
+                  isFullScreen={isPOSFullScreen}
+                />
+              ) : (
+                <SalesPage isDarkMode={isDarkMode} readOnly={currentUserRole === 'Owner'} />
+              )
             )}
 
             {activeTab === 'clients' && canAccess(currentUserRole, 'clients') && (
-              <ClientsPage
-                isDarkMode={isDarkMode}
-                readOnly={!canAccess(currentUserRole, 'client_manage')}
-              />
+              <ClientsPage isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'client_manage')} />
+            )}
+
+            {/* CUSTOMER REWARDS TAB */}
+            {activeTab === 'customer_rewards' && canAccess(currentUserRole, 'customer_rewards') && (
+              <CustomersRewardsPage isDarkMode={isDarkMode} />
             )}
 
             {activeTab === 'administration' && canAccess(currentUserRole, 'administration') && (
@@ -1135,52 +965,36 @@ export default function App() {
             {activeTab === 'dashboard' && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                  <div className={`${
-                    isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-100'
-                  } border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
+                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
                     <div>
                       <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Active Rooms</span>
                       <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{occupiedRoomsCount} / 15</h3>
                     </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-cyan-100 to-blue-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                      <Layers size={20} />
-                    </div>
+                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-cyan-100 to-blue-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}><Layers size={20} /></div>
                   </div>
 
-                  <div className={`${
-                    isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100'
-                  } border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
+                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
                     <div>
                       <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Available Staff</span>
                       <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{unassignedStaff.length} Standby</h3>
                     </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-emerald-100 to-teal-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                      <Briefcase size={20} />
-                    </div>
+                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-emerald-100 to-teal-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}><Briefcase size={20} /></div>
                   </div>
 
-                  <div className={`${
-                    isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'
-                  } border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
+                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
                     <div>
                       <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Stock Warnings</span>
                       <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>{lowStockItemsCount} Alerts</h3>
                     </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-amber-100 to-orange-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-amber-400' : 'text-orange-600'}`}>
-                      <AlertTriangle size={20} />
-                    </div>
+                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-amber-100 to-orange-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-amber-400' : 'text-orange-600'}`}><AlertTriangle size={20} /></div>
                   </div>
 
-                  <div className={`${
-                    isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'
-                  } border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
+                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
                     <div>
                       <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>Today's Sales</span>
                       <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>₱{totalSales.toLocaleString()}</h3>
                     </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-blue-100 to-indigo-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                      <DollarSign size={20} />
-                    </div>
+                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-blue-100 to-indigo-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}><DollarSign size={20} /></div>
                   </div>
                 </div>
 
@@ -1299,31 +1113,24 @@ export default function App() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-3">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>User Management Directory</h3>
-                    <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                      {staffList.length} total users · {staffList.filter(s => s.status === 'Active').length} active
-                    </p>
+                    <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{staffList.length} total users · {staffList.filter(s => s.status === 'Active').length} active</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => exportToCSV(staffList, 'users')}
-                      className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}
-                    >
+                    <button onClick={() => exportToCSV(staffList, 'users')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
                       <Download size={14} /> Export
                     </button>
                     {canAccess(currentUserRole, 'user_manage') && <button onClick={() => setShowUserModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
                       <UserPlus size={14} /> Add User
-                      </button>}
+                    </button>}
                   </div>
                 </div>
 
                 <div className={`${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-200'} border p-3 rounded-xl flex flex-col md:flex-row items-center gap-3 text-xs font-semibold`}>
                   <div className="flex items-center gap-1 text-slate-600"><Filter size={13} /> <span>Filters:</span></div>
-
                   <div className="w-full md:w-44 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Search</span>
                     <input type="text" placeholder="Type name or address..." value={userSearch} onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all`} />
                   </div>
-
                   <div className="w-full md:w-40 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Role</span>
                     <select value={userRoleFilter} onChange={(e) => { setUserRoleFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
@@ -1334,7 +1141,6 @@ export default function App() {
                       <option value="Staff">Staff</option>
                     </select>
                   </div>
-
                   <div className="w-full md:w-36 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Gender</span>
                     <select value={userGenderFilter} onChange={(e) => { setUserGenderFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
@@ -1343,7 +1149,6 @@ export default function App() {
                       <option value="Male">Male</option>
                     </select>
                   </div>
-
                   <div className="w-full md:w-36 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Status</span>
                     <select value={userStatusFilter} onChange={(e) => { setUserStatusFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
@@ -1370,9 +1175,7 @@ export default function App() {
                         <tr key={staff.id} className={`${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'} transition-colors ${staff.status === 'Deactivated' ? 'opacity-60' : ''}`}>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 ${
-                                isDarkMode ? 'bg-slate-700 text-cyan-400' : 'bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-600'
-                              } rounded-full flex items-center justify-center font-bold text-xs`}>
+                              <div className={`w-8 h-8 ${isDarkMode ? 'bg-slate-700 text-cyan-400' : 'bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-600'} rounded-full flex items-center justify-center font-bold text-xs`}>
                                 {staff.avatar || staff.name.split(' ').map(n => n[0]).join('')}
                               </div>
                               <div>
@@ -1382,50 +1185,30 @@ export default function App() {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                              staff.role === 'Admin' ? 'bg-purple-100 text-purple-700' :
-                              staff.role === 'Cashier' ? 'bg-cyan-100 text-cyan-700' :
-                              staff.role === 'Spa Therapist' ? 'bg-pink-100 text-pink-700' :
-                              'bg-slate-100 text-slate-700'
-                            }`}>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${staff.role === 'Admin' ? 'bg-purple-100 text-purple-700' : staff.role === 'Cashier' ? 'bg-cyan-100 text-cyan-700' : staff.role === 'Spa Therapist' ? 'bg-pink-100 text-pink-700' : 'bg-slate-100 text-slate-700'}`}>
                               {staff.role}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                              {staff.assignment === 'Unassigned' ?
-                                <span className="text-amber-600">🔄 Unassigned</span> :
-                                <span className="text-cyan-600">📍 {staff.assignment}</span>
-                              }
+                              {staff.assignment === 'Unassigned' ? <span className="text-amber-600">🔄 Unassigned</span> : <span className="text-cyan-600">📍 {staff.assignment}</span>}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                              staff.status === 'Active' ?
-                              'bg-emerald-50 text-emerald-600 border border-emerald-200' :
-                              'bg-red-50 text-red-600 border border-red-200'
-                            }`}>
+                            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${staff.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${staff.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                               {staff.status.toUpperCase()}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center justify-center gap-1.5">
-                              <button onClick={() => viewUserProfile(staff)} className={`p-1.5 ${
-                                isDarkMode ? 'bg-slate-700 border-slate-600 text-cyan-400 hover:bg-slate-600' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'
-                              } border rounded-lg transition-all hover:scale-110`} title="View Profile">
+                              <button onClick={() => viewUserProfile(staff)} className={`p-1.5 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-cyan-400 hover:bg-slate-600' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'} border rounded-lg transition-all hover:scale-110`} title="View Profile">
                                 <Eye size={13} />
                               </button>
-                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => initEditUser(staff)} className={`p-1.5 ${
-                                isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
-                              } border rounded-lg transition-all hover:scale-110`} title="Edit">
+                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => initEditUser(staff)} className={`p-1.5 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'} border rounded-lg transition-all hover:scale-110`} title="Edit">
                                 <Edit3 size={13} />
                               </button>}
-                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => toggleUserStatus(staff.id, staff.status)} className={`p-1.5 border rounded-lg transition-all hover:scale-110 ${(
-                                staff.status === 'Active' ?
-                                'bg-red-50 border-red-100 text-red-500 hover:bg-red-100' :
-                                'bg-emerald-50 border-emerald-100 text-emerald-500 hover:bg-emerald-100'
-                              )}`} title={staff.status === 'Active' ? 'Deactivate' : 'Activate'}>
+                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => toggleUserStatus(staff.id, staff.status)} className={`p-1.5 border rounded-lg transition-all hover:scale-110 ${staff.status === 'Active' ? 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100' : 'bg-emerald-50 border-emerald-100 text-emerald-500 hover:bg-emerald-100'}`} title={staff.status === 'Active' ? 'Deactivate' : 'Activate'}>
                                 {staff.status === 'Active' ? <EyeOff size={13} /> : <Check size={13} />}
                               </button>}
                             </div>
@@ -1448,11 +1231,7 @@ export default function App() {
                     {Array.from({ length: Math.min(totalUserPages, 5) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
-                        <button key={pageNum} onClick={() => setUserPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                          userPage === pageNum ?
-                          'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' :
-                          isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}>
+                        <button key={pageNum} onClick={() => setUserPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${userPage === pageNum ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                           {pageNum}
                         </button>
                       );
@@ -1469,9 +1248,7 @@ export default function App() {
             {/* ROOMS TAB */}
             {canAccess(currentUserRole, 'rooms') && activeTab === 'rooms' && (
               <div className="space-y-6">
-                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${
-                  isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-blue-50 via-cyan-50 to-sky-50 border-cyan-100'
-                } p-5 border rounded-xl shadow-sm`}>
+                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-blue-50 via-cyan-50 to-sky-50 border-cyan-100'} p-5 border rounded-xl shadow-sm`}>
                   <div className="text-center md:border-r border-cyan-100">
                     <span className={`text-xs block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Occupied Rooms</span>
                     <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{roomsState.filter(r => r.customer !== '').length} Active</div>
@@ -1488,9 +1265,7 @@ export default function App() {
 
                 {roomZones.map((zone, idx) => (
                   <div key={idx} className="space-y-3">
-                    <h4 className={`text-[11px] font-bold uppercase ${
-                      isDarkMode ? 'text-slate-400 bg-slate-800 border-slate-700' : 'text-slate-500 bg-slate-100 border-slate-200'
-                    } border px-3 py-1.5 rounded-lg w-fit tracking-wide`}>
+                    <h4 className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-slate-400 bg-slate-800 border-slate-700' : 'text-slate-500 bg-slate-100 border-slate-200'} border px-3 py-1.5 rounded-lg w-fit tracking-wide`}>
                       {zone.icon} {zone.title}
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -1499,16 +1274,10 @@ export default function App() {
                         const isOccupied = room.customer !== '';
 
                         return (
-                          <div key={room.id} className={`${
-                            isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
-                          } border rounded-xl p-4 shadow-sm flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
-                            isOccupied ? 'border-cyan-500' : 'hover:border-slate-300'
-                          }`}>
+                          <div key={room.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-xl p-4 shadow-sm flex flex-col justify-between transition-all duration-200 hover:shadow-md ${isOccupied ? 'border-cyan-500' : 'hover:border-slate-300'}`}>
                             <div className="flex justify-between items-center border-b pb-2">
                               <span className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Room Suite {room.id}</span>
-                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${
-                                isOccupied ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'
-                              }`}>
+                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${isOccupied ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
                                 {isOccupied ? 'RUNNING' : 'VACANT'}
                               </span>
                             </div>
@@ -1546,11 +1315,7 @@ export default function App() {
                                   Release Room
                                 </button>
                               ) : !isOccupied && canAccess(currentUserRole, 'room_manage') ? (
-                                <button disabled={unassignedStaff.length === 0} onClick={() => { setSelectedRoomId(room.id); setShowRoomModal(true); }} className={`w-full ${(
-                                  unassignedStaff.length === 0 ?
-                                  'bg-slate-100 text-slate-400 cursor-not-allowed' :
-                                  'bg-slate-50 hover:bg-gradient-to-r hover:from-cyan-600 hover:to-blue-600 hover:text-white border border-slate-200'
-                                )} font-semibold text-[11px] py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all`}>
+                                <button disabled={unassignedStaff.length === 0} onClick={() => { setSelectedRoomId(room.id); setShowRoomModal(true); }} className={`w-full ${unassignedStaff.length === 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 hover:bg-gradient-to-r hover:from-cyan-600 hover:to-blue-600 hover:text-white border border-slate-200'} font-semibold text-[11px] py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all`}>
                                   <Plus size={12} /> <span>Check-In</span>
                                 </button>
                               ) : (
@@ -1572,15 +1337,10 @@ export default function App() {
                 <div className="flex justify-between items-center border-b pb-3">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Product Warehouse Stock Registry</h3>
-                    <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
-                      {inventoryList.length} total items · {inventoryList.filter(i => i.quantity <= 5).length} low stock
-                    </p>
+                    <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{inventoryList.length} total items · {inventoryList.filter(i => i.quantity <= 5).length} low stock</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => exportToCSV(inventoryList, 'inventory')}
-                      className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}
-                    >
+                    <button onClick={() => exportToCSV(inventoryList, 'inventory')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
                       <Download size={14} /> Export
                     </button>
                     {canAccess(currentUserRole, 'inventory_manage') && <button onClick={() => setShowProductModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
@@ -1591,12 +1351,10 @@ export default function App() {
 
                 <div className={`${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-200'} border p-3 rounded-xl flex flex-col md:flex-row items-center gap-3 text-xs font-semibold`}>
                   <div className="flex items-center gap-1 text-slate-600"><Filter size={13} /> <span>Filters:</span></div>
-
                   <div className="w-full md:w-44 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Search</span>
                     <input type="text" placeholder="Search product..." value={productSearch} onChange={(e) => { setProductSearch(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all`} />
                   </div>
-
                   <div className="w-full md:w-40 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Category</span>
                     <select value={productCategoryFilter} onChange={(e) => { setProductCategoryFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
@@ -1606,7 +1364,6 @@ export default function App() {
                       <option value="Equipment">Equipment</option>
                     </select>
                   </div>
-
                   <div className="w-full md:w-40 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Stock Level</span>
                     <select value={productStockFilter} onChange={(e) => { setProductStockFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
@@ -1641,18 +1398,14 @@ export default function App() {
                           <tr key={item.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'} transition-colors>
                             <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.name}</td>
                             <td className="py-3 px-4">
-                              <span className={`text-xs ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2 py-1 rounded-full`}>
-                                {item.category}
-                              </span>
+                              <span className={`text-xs ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2 py-1 rounded-full`}>{item.category}</span>
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <span className={`font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.quantity}</span>
                                 <div className="flex-1 min-w-[40px]">
                                   <div className={`w-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'} rounded-full h-1.5`}>
-                                    <div className={`h-1.5 rounded-full transition-all duration-500 ${
-                                      stockLevel === 'low' ? 'bg-orange-500' : 'bg-emerald-500'
-                                    }`} style={{ width: `${Math.min((item.quantity / 50) * 100, 100)}%` }} />
+                                    <div className={`h-1.5 rounded-full transition-all duration-500 ${stockLevel === 'low' ? 'bg-orange-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min((item.quantity / 50) * 100, 100)}%` }} />
                                   </div>
                                 </div>
                               </div>
@@ -1682,11 +1435,7 @@ export default function App() {
                     {Array.from({ length: Math.min(totalProductPages, 5) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
-                        <button key={pageNum} onClick={() => setProductPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                          productPage === pageNum ?
-                          'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' :
-                          isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}>
+                        <button key={pageNum} onClick={() => setProductPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${productPage === pageNum ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                           {pageNum}
                         </button>
                       );
@@ -1708,10 +1457,7 @@ export default function App() {
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Security Audit Log Records</h3>
                     <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>System tracking log mapping security updates and modifications.</p>
                   </div>
-                  <button
-                    onClick={() => exportToCSV(auditLogs, 'audit_logs')}
-                    className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}
-                  >
+                  <button onClick={() => exportToCSV(auditLogs, 'audit_logs')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
                     <Download size={14} /> Export
                   </button>
                 </div>
@@ -1737,9 +1483,7 @@ export default function App() {
                         <tr key={log.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'} transition-colors>
                           <td className={`py-3 px-4 font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{log.time}</td>
                           <td className="py-3 px-4">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                              log.type === 'VOID' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
-                            }`}>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'VOID' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
                               {log.type}
                             </span>
                           </td>
@@ -1764,11 +1508,7 @@ export default function App() {
                     {Array.from({ length: Math.min(totalAuditPages, 5) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
-                        <button key={pageNum} onClick={() => setAuditPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                          auditPage === pageNum ?
-                          'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' :
-                          isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}>
+                        <button key={pageNum} onClick={() => setAuditPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${auditPage === pageNum ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                           {pageNum}
                         </button>
                       );
@@ -1782,40 +1522,21 @@ export default function App() {
               </div>
             )}
 
-            {/* PRODUCT MANAGEMENT ROUTES - ✅ WALA NA ANG PANGANAN MENU DITO */}
-           <Routes>
-  <Route path="/vss-services" element={canAccess(currentUserRole, 'catalog') ?
-    <CrudTable
-      title="VSS Services"
-      apiEndpoint="vss-services"
-      columns={['Category', 'Description', 'Price']}
-      isDarkMode={isDarkMode}
-      readOnly={!canAccess(currentUserRole, 'catalog_manage')}
-    />
-    : <AccessDenied />
-  } />
-  <Route path="/vreal-products" element={canAccess(currentUserRole, 'catalog') ?
-    <CrudTable
-      title="VREAL Products"
-      apiEndpoint="vreal-products"
-      columns={['Category', 'Product', 'Price']}
-      isDarkMode={isDarkMode}
-      readOnly={!canAccess(currentUserRole, 'catalog_manage')}
-    />
-    : <AccessDenied />
-  } />
-  <Route path="/bb-products" element={canAccess(currentUserRole, 'catalog') ?
-    <CrudTable
-      title="BB Products"
-      apiEndpoint="bb-products"
-      columns={['Product Name', 'Price']}
-      isDarkMode={isDarkMode}
-      readOnly={!canAccess(currentUserRole, 'catalog_manage')}
-    />
-    : <AccessDenied />
-  } />
-  {/* ❌ TANGGALIN ANG PANGANAN MENU ROUTE */}
-</Routes>
+            {/* PRODUCT MANAGEMENT ROUTES */}
+            <Routes>
+              <Route path="/vss-services" element={canAccess(currentUserRole, 'catalog') ?
+                <CrudTable title="VSS Services" apiEndpoint="vss-services" columns={['Category', 'Description', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
+                : <AccessDenied />
+              } />
+              <Route path="/vreal-products" element={canAccess(currentUserRole, 'catalog') ?
+                <CrudTable title="VREAL Products" apiEndpoint="vreal-products" columns={['Category', 'Product', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
+                : <AccessDenied />
+              } />
+              <Route path="/bb-products" element={canAccess(currentUserRole, 'catalog') ?
+                <CrudTable title="BB Products" apiEndpoint="bb-products" columns={['Product Name', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
+                : <AccessDenied />
+              } />
+            </Routes>
 
           </div>
         </main>
