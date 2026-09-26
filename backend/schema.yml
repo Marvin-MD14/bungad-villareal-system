@@ -1,0 +1,6167 @@
+openapi: 3.0.3
+info:
+  title: Bungad & Villareal Management System API
+  version: 1.0.0
+  description: Comprehensive REST API documentation for POS, Multi-Branch Inventory,
+    Loyalty & Rewards, and Staff Management.
+paths:
+  /api/attendance/:
+    get:
+      operationId: attendance_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - attendance
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAttendanceList'
+          description: ''
+    post:
+      operationId: attendance_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - attendance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/attendance/{id}/:
+    get:
+      operationId: attendance_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Attendance.
+        required: true
+      tags:
+      - attendance
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+    put:
+      operationId: attendance_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Attendance.
+        required: true
+      tags:
+      - attendance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+    patch:
+      operationId: attendance_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Attendance.
+        required: true
+      tags:
+      - attendance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAttendanceRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+    delete:
+      operationId: attendance_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Attendance.
+        required: true
+      tags:
+      - attendance
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/attendance/check_in/:
+    post:
+      operationId: attendance_check_in_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - attendance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/attendance/check_out/:
+    post:
+      operationId: attendance_check_out_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - attendance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/attendance/my_records/:
+    get:
+      operationId: attendance_my_records_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - attendance
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/attendance/today/:
+    get:
+      operationId: attendance_today_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - attendance
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/audit-logs/:
+    get:
+      operationId: audit_logs_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - audit-logs
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+  /api/audit-logs/{id}/:
+    get:
+      operationId: audit_logs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Audit Log.
+        required: true
+      tags:
+      - audit-logs
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/audit-logs/recent/:
+    get:
+      operationId: audit_logs_recent_retrieve
+      tags:
+      - audit-logs
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Verifies username/password and returns a DRF token plus profile
+        data. Rate limited to 10 requests per minute.
+      summary: Authenticate and obtain an API token
+      tags:
+      - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestRequest'
+        required: true
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+          description: ''
+        '400':
+          description: Missing username or password.
+        '401':
+          description: Invalid credentials.
+        '429':
+          description: Too many login attempts. Try again later.
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Deletes the caller's token and writes a LOGOUT audit entry.
+      summary: Revoke the current API token
+      tags:
+      - Auth
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+          description: ''
+  /api/auto-spa/:
+    get:
+      operationId: auto_spa_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - auto-spa
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAutoSpaServiceList'
+          description: ''
+    post:
+      operationId: auto_spa_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - auto-spa
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoSpaServiceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoSpaService'
+          description: ''
+  /api/auto-spa/{id}/:
+    get:
+      operationId: auto_spa_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Auto Spa Service.
+        required: true
+      tags:
+      - auto-spa
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoSpaService'
+          description: ''
+    put:
+      operationId: auto_spa_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Auto Spa Service.
+        required: true
+      tags:
+      - auto-spa
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoSpaServiceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoSpaService'
+          description: ''
+    patch:
+      operationId: auto_spa_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Auto Spa Service.
+        required: true
+      tags:
+      - auto-spa
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAutoSpaServiceRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoSpaService'
+          description: ''
+    delete:
+      operationId: auto_spa_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Auto Spa Service.
+        required: true
+      tags:
+      - auto-spa
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/bb-products/:
+    get:
+      operationId: bb_products_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - bb-products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBBProductList'
+          description: ''
+    post:
+      operationId: bb_products_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - bb-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BBProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BBProduct'
+          description: ''
+  /api/bb-products/{id}/:
+    get:
+      operationId: bb_products_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this BB Product.
+        required: true
+      tags:
+      - bb-products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BBProduct'
+          description: ''
+    put:
+      operationId: bb_products_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this BB Product.
+        required: true
+      tags:
+      - bb-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BBProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BBProduct'
+          description: ''
+    patch:
+      operationId: bb_products_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this BB Product.
+        required: true
+      tags:
+      - bb-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBBProductRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BBProduct'
+          description: ''
+    delete:
+      operationId: bb_products_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this BB Product.
+        required: true
+      tags:
+      - bb-products
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/branch-catalog/by-branch/{branch_id}/:
+    get:
+      operationId: branch_catalog_by_branch_retrieve
+      description: Returns the VSS/VReal/BB catalog applicable to the given branch
+        type.
+      summary: POS catalog for a branch
+      parameters:
+      - in: path
+        name: branch_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Branch Catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/branch-inventory/:
+    get:
+      operationId: branch_inventory_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - branch-inventory
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBranchInventoryList'
+          description: ''
+    post:
+      operationId: branch_inventory_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - branch-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInventoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchInventory'
+          description: ''
+  /api/branch-inventory/{id}/:
+    get:
+      operationId: branch_inventory_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch Inventory.
+        required: true
+      tags:
+      - branch-inventory
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchInventory'
+          description: ''
+    put:
+      operationId: branch_inventory_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch Inventory.
+        required: true
+      tags:
+      - branch-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInventoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchInventory'
+          description: ''
+    patch:
+      operationId: branch_inventory_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch Inventory.
+        required: true
+      tags:
+      - branch-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBranchInventoryRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchInventory'
+          description: ''
+    delete:
+      operationId: branch_inventory_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch Inventory.
+        required: true
+      tags:
+      - branch-inventory
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/branch-inventory/{id}/restock/:
+    post:
+      operationId: branch_inventory_restock_create
+      description: Add stock to a branch inventory item.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch Inventory.
+        required: true
+      tags:
+      - branch-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInventoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchInventory'
+          description: ''
+  /api/branch-inventory/by_branch/:
+    get:
+      operationId: branch_inventory_by_branch_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - branch-inventory
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchInventory'
+          description: ''
+  /api/branches/:
+    get:
+      operationId: branches_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - branches
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBranchList'
+          description: ''
+    post:
+      operationId: branches_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - branches
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+  /api/branches/{id}/:
+    get:
+      operationId: branches_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch.
+        required: true
+      tags:
+      - branches
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+    put:
+      operationId: branches_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch.
+        required: true
+      tags:
+      - branches
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+    patch:
+      operationId: branches_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch.
+        required: true
+      tags:
+      - branches
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBranchRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+    delete:
+      operationId: branches_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch.
+        required: true
+      tags:
+      - branches
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/branches/{id}/staffing/:
+    get:
+      operationId: branches_staffing_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch.
+        required: true
+      tags:
+      - branches
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+  /api/branches/{id}/stats/:
+    get:
+      operationId: branches_stats_retrieve
+      description: Return summary stats for a specific branch.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Branch.
+        required: true
+      tags:
+      - branches
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: ''
+  /api/clients/:
+    get:
+      operationId: clients_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClientProfileList'
+          description: ''
+    post:
+      operationId: clients_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - clients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientProfileRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/clients/{id}/:
+    get:
+      operationId: clients_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+    put:
+      operationId: clients_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientProfileRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+    patch:
+      operationId: clients_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedClientProfileRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+    delete:
+      operationId: clients_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/clients/{id}/feedback/:
+    get:
+      operationId: clients_feedback_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/clients/{id}/rewards/:
+    get:
+      operationId: clients_rewards_retrieve
+      description: Return all rewards for a customer.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/clients/{id}/tier_info/:
+    get:
+      operationId: clients_tier_info_retrieve
+      description: |-
+        Return full tier info for a customer.
+
+        Shares ``build_tier_payload`` with /customer-tier/by-customer/<id>/ so
+        the two routes can never drift apart again.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/clients/{id}/transactions/:
+    get:
+      operationId: clients_transactions_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Client Profile.
+        required: true
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/clients/find_by_phone/:
+    get:
+      operationId: clients_find_by_phone_retrieve
+      description: Find customer by phone number for auto-detection.
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/clients/search/:
+    get:
+      operationId: clients_search_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - clients
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/customer-detection/detect/:
+    post:
+      operationId: customer_detection_detect_create
+      description: Search by phone or name; returns matching customers with tier info
+        and rewards.
+      summary: Auto-detect returning customer
+      tags:
+      - Customer Detection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+              description: Unspecified request body
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/customer-rewards/:
+    get:
+      operationId: customer_rewards_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - customer-rewards
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCustomerRewardList'
+          description: ''
+    post:
+      operationId: customer_rewards_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - customer-rewards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerRewardRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerReward'
+          description: ''
+  /api/customer-rewards/{id}/:
+    get:
+      operationId: customer_rewards_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Reward.
+        required: true
+      tags:
+      - customer-rewards
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerReward'
+          description: ''
+    put:
+      operationId: customer_rewards_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Reward.
+        required: true
+      tags:
+      - customer-rewards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerRewardRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerReward'
+          description: ''
+    patch:
+      operationId: customer_rewards_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Reward.
+        required: true
+      tags:
+      - customer-rewards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCustomerRewardRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerReward'
+          description: ''
+    delete:
+      operationId: customer_rewards_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Reward.
+        required: true
+      tags:
+      - customer-rewards
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/customer-rewards/{id}/claim/:
+    post:
+      operationId: customer_rewards_claim_create
+      description: Claim a reward.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Reward.
+        required: true
+      tags:
+      - customer-rewards
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerRewardRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerReward'
+          description: ''
+  /api/customer-rewards/by_customer/:
+    get:
+      operationId: customer_rewards_by_customer_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - customer-rewards
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerReward'
+          description: ''
+  /api/customer-tier/by-customer/{customer_id}/:
+    get:
+      operationId: customer_tier_by_customer_retrieve
+      summary: Loyalty tier for a customer
+      parameters:
+      - in: path
+        name: customer_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Customer Detection
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/daily-sales/:
+    get:
+      operationId: daily_sales_list
+      description: Read-only view of the per-branch daily ledger updated on checkout/void.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - daily-sales
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDailySalesList'
+          description: ''
+  /api/daily-sales/{id}/:
+    get:
+      operationId: daily_sales_retrieve
+      description: Read-only view of the per-branch daily ledger updated on checkout/void.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Daily Sales.
+        required: true
+      tags:
+      - daily-sales
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySales'
+          description: ''
+  /api/dashboard/branch_comparison/:
+    get:
+      operationId: dashboard_branch_comparison_retrieve
+      description: Organization-wide sales stats grouped by active branch.
+      summary: Per-branch sales comparison
+      tags:
+      - Dashboard
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/dashboard/summary/:
+    get:
+      operationId: dashboard_summary_retrieve
+      description: Rooms, stock, sales, expenses, ratings and top staff for the caller's
+        scope.
+      summary: Dashboard KPI summary
+      tags:
+      - Dashboard
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/expenses/:
+    get:
+      operationId: expenses_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - expenses
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedExpenseList'
+          description: ''
+    post:
+      operationId: expenses_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - expenses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+          description: ''
+  /api/expenses/{id}/:
+    get:
+      operationId: expenses_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Expense.
+        required: true
+      tags:
+      - expenses
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+          description: ''
+    put:
+      operationId: expenses_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Expense.
+        required: true
+      tags:
+      - expenses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+          description: ''
+    patch:
+      operationId: expenses_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Expense.
+        required: true
+      tags:
+      - expenses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedExpenseRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+          description: ''
+    delete:
+      operationId: expenses_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Expense.
+        required: true
+      tags:
+      - expenses
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/expenses/summary/:
+    get:
+      operationId: expenses_summary_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - expenses
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+          description: ''
+  /api/feedback/:
+    get:
+      operationId: feedback_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - feedback
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCustomerFeedbackList'
+          description: ''
+    post:
+      operationId: feedback_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - feedback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerFeedbackRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerFeedback'
+          description: ''
+  /api/feedback/{id}/:
+    get:
+      operationId: feedback_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Feedback.
+        required: true
+      tags:
+      - feedback
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerFeedback'
+          description: ''
+    put:
+      operationId: feedback_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Feedback.
+        required: true
+      tags:
+      - feedback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerFeedbackRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerFeedback'
+          description: ''
+    patch:
+      operationId: feedback_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Feedback.
+        required: true
+      tags:
+      - feedback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCustomerFeedbackRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerFeedback'
+          description: ''
+    delete:
+      operationId: feedback_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Customer Feedback.
+        required: true
+      tags:
+      - feedback
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/feedback/stats/:
+    get:
+      operationId: feedback_stats_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - feedback
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerFeedback'
+          description: ''
+  /api/kb-items/:
+    get:
+      operationId: kb_items_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - kb-items
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedKBItemList'
+          description: ''
+    post:
+      operationId: kb_items_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - kb-items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KBItemRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBItem'
+          description: ''
+  /api/kb-items/{id}/:
+    get:
+      operationId: kb_items_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this KB Item.
+        required: true
+      tags:
+      - kb-items
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBItem'
+          description: ''
+    put:
+      operationId: kb_items_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this KB Item.
+        required: true
+      tags:
+      - kb-items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KBItemRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBItem'
+          description: ''
+    patch:
+      operationId: kb_items_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this KB Item.
+        required: true
+      tags:
+      - kb-items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedKBItemRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KBItem'
+          description: ''
+    delete:
+      operationId: kb_items_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this KB Item.
+        required: true
+      tags:
+      - kb-items
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/notifications/customer_alerts/:
+    get:
+      operationId: notifications_customer_alerts_retrieve
+      description: Lists customers with available rewards so cashiers can announce
+        them.
+      summary: Customer reward alerts for cashiers
+      tags:
+      - Notifications
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: Unspecified response body
+          description: ''
+  /api/panganan-menus/:
+    get:
+      operationId: panganan_menus_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - panganan-menus
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPangananMenuList'
+          description: ''
+    post:
+      operationId: panganan_menus_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - panganan-menus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PangananMenuRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PangananMenu'
+          description: ''
+  /api/panganan-menus/{id}/:
+    get:
+      operationId: panganan_menus_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Panganan Menu.
+        required: true
+      tags:
+      - panganan-menus
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PangananMenu'
+          description: ''
+    put:
+      operationId: panganan_menus_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Panganan Menu.
+        required: true
+      tags:
+      - panganan-menus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PangananMenuRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PangananMenu'
+          description: ''
+    patch:
+      operationId: panganan_menus_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Panganan Menu.
+        required: true
+      tags:
+      - panganan-menus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPangananMenuRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PangananMenu'
+          description: ''
+    delete:
+      operationId: panganan_menus_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Panganan Menu.
+        required: true
+      tags:
+      - panganan-menus
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/panganan-menus/categories/:
+    get:
+      operationId: panganan_menus_categories_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - panganan-menus
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PangananMenu'
+          description: ''
+  /api/products/:
+    get:
+      operationId: products_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProductList'
+          description: ''
+    post:
+      operationId: products_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+  /api/products/{id}/:
+    get:
+      operationId: products_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Product.
+        required: true
+      tags:
+      - products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    put:
+      operationId: products_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Product.
+        required: true
+      tags:
+      - products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    patch:
+      operationId: products_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Product.
+        required: true
+      tags:
+      - products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProductRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    delete:
+      operationId: products_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Product.
+        required: true
+      tags:
+      - products
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/products/by_category/:
+    get:
+      operationId: products_by_category_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+  /api/products/low_stock/:
+    get:
+      operationId: products_low_stock_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+  /api/reward-claims/:
+    get:
+      operationId: reward_claims_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - reward-claims
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRewardClaimList'
+          description: ''
+  /api/reward-claims/{id}/:
+    get:
+      operationId: reward_claims_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Reward Claim.
+        required: true
+      tags:
+      - reward-claims
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewardClaim'
+          description: ''
+  /api/rooms/:
+    get:
+      operationId: rooms_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - rooms
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRoomTableList'
+          description: ''
+    post:
+      operationId: rooms_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomTableRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+  /api/rooms/{id}/:
+    get:
+      operationId: rooms_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Room Table.
+        required: true
+      tags:
+      - rooms
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+    put:
+      operationId: rooms_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Room Table.
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomTableRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+    patch:
+      operationId: rooms_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Room Table.
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRoomTableRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+    delete:
+      operationId: rooms_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Room Table.
+        required: true
+      tags:
+      - rooms
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/rooms/{id}/check_in/:
+    post:
+      operationId: rooms_check_in_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Room Table.
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomTableRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+  /api/rooms/{id}/check_out/:
+    post:
+      operationId: rooms_check_out_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Room Table.
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomTableRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+  /api/rooms/available/:
+    get:
+      operationId: rooms_available_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - rooms
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+  /api/rooms/occupied/:
+    get:
+      operationId: rooms_occupied_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - rooms
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomTable'
+          description: ''
+  /api/transactions/:
+    get:
+      operationId: transactions_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - transactions
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionList'
+          description: ''
+    post:
+      operationId: transactions_create
+      description: |-
+        Block raw transaction creation: sales must go through checkout.
+
+        POST /transactions/ would bypass stock validation, tier discounts and
+        loyalty accrual, so only /transactions/checkout/ may create a sale.
+      tags:
+      - transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+  /api/transactions/{id}/:
+    get:
+      operationId: transactions_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaction.
+        required: true
+      tags:
+      - transactions
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+    put:
+      operationId: transactions_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaction.
+        required: true
+      tags:
+      - transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+    patch:
+      operationId: transactions_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaction.
+        required: true
+      tags:
+      - transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTransactionRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+    delete:
+      operationId: transactions_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaction.
+        required: true
+      tags:
+      - transactions
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/transactions/{id}/void/:
+    post:
+      operationId: transactions_void_create
+      description: Void a transaction and restore stock.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaction.
+        required: true
+      tags:
+      - transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+  /api/transactions/checkout/:
+    post:
+      operationId: transactions_checkout_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+  /api/transactions/stats/:
+    get:
+      operationId: transactions_stats_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - transactions
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+  /api/transactions/today/:
+    get:
+      operationId: transactions_today_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - transactions
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+  /api/user-profiles/:
+    get:
+      operationId: user_profiles_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - user-profiles
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserProfileList'
+          description: ''
+    post:
+      operationId: user_profiles_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - user-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+  /api/user-profiles/{id}/:
+    get:
+      operationId: user_profiles_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this User Profile.
+        required: true
+      tags:
+      - user-profiles
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    put:
+      operationId: user_profiles_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this User Profile.
+        required: true
+      tags:
+      - user-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    patch:
+      operationId: user_profiles_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this User Profile.
+        required: true
+      tags:
+      - user-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    delete:
+      operationId: user_profiles_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this User Profile.
+        required: true
+      tags:
+      - user-profiles
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/user-profiles/me/:
+    get:
+      operationId: user_profiles_me_retrieve
+      description: Return the current user's profile.
+      tags:
+      - user-profiles
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+  /api/vreal-products/:
+    get:
+      operationId: vreal_products_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - vreal-products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVRealProductList'
+          description: ''
+    post:
+      operationId: vreal_products_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vreal-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VRealProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+  /api/vreal-products/{id}/:
+    get:
+      operationId: vreal_products_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VReal Product.
+        required: true
+      tags:
+      - vreal-products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+    put:
+      operationId: vreal_products_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VReal Product.
+        required: true
+      tags:
+      - vreal-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VRealProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+    patch:
+      operationId: vreal_products_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VReal Product.
+        required: true
+      tags:
+      - vreal-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVRealProductRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+    delete:
+      operationId: vreal_products_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VReal Product.
+        required: true
+      tags:
+      - vreal-products
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/vreal-products/categories/:
+    get:
+      operationId: vreal_products_categories_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vreal-products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+  /api/vreal-products/preview/:
+    post:
+      operationId: vreal_products_preview_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vreal-products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VRealProductRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+  /api/vreal-products/stats/:
+    get:
+      operationId: vreal_products_stats_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vreal-products
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VRealProduct'
+          description: ''
+  /api/vss-services/:
+    get:
+      operationId: vss_services_list
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - vss-services
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVSSServiceList'
+          description: ''
+    post:
+      operationId: vss_services_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vss-services
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VSSServiceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+  /api/vss-services/{id}/:
+    get:
+      operationId: vss_services_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VSS Service.
+        required: true
+      tags:
+      - vss-services
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+    put:
+      operationId: vss_services_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VSS Service.
+        required: true
+      tags:
+      - vss-services
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VSSServiceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+    patch:
+      operationId: vss_services_partial_update
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VSS Service.
+        required: true
+      tags:
+      - vss-services
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVSSServiceRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+    delete:
+      operationId: vss_services_destroy
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this VSS Service.
+        required: true
+      tags:
+      - vss-services
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/vss-services/categories/:
+    get:
+      operationId: vss_services_categories_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vss-services
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+  /api/vss-services/preview/:
+    post:
+      operationId: vss_services_preview_create
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vss-services
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VSSServiceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+  /api/vss-services/stats/:
+    get:
+      operationId: vss_services_stats_retrieve
+      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      tags:
+      - vss-services
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VSSService'
+          description: ''
+components:
+  schemas:
+    ActionEnum:
+      enum:
+      - CREATE
+      - UPDATE
+      - DELETE
+      - LOGIN
+      - LOGOUT
+      - VOID
+      - RESTOCK
+      type: string
+      description: |-
+        * `CREATE` - Create
+        * `UPDATE` - Update
+        * `DELETE` - Delete
+        * `LOGIN` - Login
+        * `LOGOUT` - Logout
+        * `VOID` - Void
+        * `RESTOCK` - Restock
+    Attendance:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+        branch:
+          type: integer
+        date:
+          type: string
+          format: date
+        time_in:
+          type: string
+          format: date-time
+          nullable: true
+        time_out:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/AttendanceStatusEnum'
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+        hours_worked:
+          type: number
+          format: double
+          readOnly: true
+      required:
+      - branch
+      - branch_name
+      - created_at
+      - date
+      - full_name
+      - hours_worked
+      - id
+      - user
+      - user_name
+    AttendanceRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+        branch:
+          type: integer
+        date:
+          type: string
+          format: date
+        time_in:
+          type: string
+          format: date-time
+          nullable: true
+        time_out:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/AttendanceStatusEnum'
+        notes:
+          type: string
+          nullable: true
+      required:
+      - branch
+      - date
+      - user
+    AttendanceStatusEnum:
+      enum:
+      - PRESENT
+      - LATE
+      - ABSENT
+      - HALF_DAY
+      type: string
+      description: |-
+        * `PRESENT` - Present
+        * `LATE` - Late
+        * `ABSENT` - Absent
+        * `HALF_DAY` - Half Day
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          nullable: true
+        branch:
+          type: integer
+          nullable: true
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        model_name:
+          type: string
+          maxLength: 100
+        object_id:
+          type: string
+          nullable: true
+          maxLength: 50
+        description:
+          type: string
+        ip_address:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+      required:
+      - action
+      - branch_name
+      - created_at
+      - description
+      - id
+      - model_name
+      - user_name
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+        role_code:
+          type: string
+        branch:
+          type: object
+          additionalProperties: {}
+          nullable: true
+        services:
+          type: array
+          items:
+            type: string
+        is_staff:
+          type: boolean
+        is_superuser:
+          type: boolean
+      required:
+      - branch
+      - id
+      - is_staff
+      - is_superuser
+      - role
+      - role_code
+      - services
+      - username
+    AutoSpaService:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        service:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - price
+      - service
+      - updated_at
+    AutoSpaServiceRequest:
+      type: object
+      properties:
+        service:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+      required:
+      - price
+      - service
+    BBProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product_name:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        category:
+          type: string
+          nullable: true
+          maxLength: 100
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - price
+      - product_name
+      - updated_at
+    BBProductRequest:
+      type: object
+      properties:
+        product_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        category:
+          type: string
+          nullable: true
+          maxLength: 100
+        is_active:
+          type: boolean
+      required:
+      - price
+      - product_name
+    BlankEnum:
+      enum:
+      - ''
+    Branch:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        branch_type:
+          allOf:
+          - $ref: '#/components/schemas/BranchTypeEnum'
+          description: |-
+            Determines which catalog this branch offers in POS
+
+            * `VSS` - VSS Services Branch
+            * `VREAL` - VReal Products Branch
+            * `BB` - BB Products Branch
+            * `MIXED` - Mixed (VSS + VReal + BB)
+        address:
+          type: string
+          nullable: true
+        contact_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        email:
+          nullable: true
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        total_staff:
+          type: string
+          readOnly: true
+        total_rooms:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - total_rooms
+      - total_staff
+      - updated_at
+    BranchInventory:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch:
+          type: integer
+        product:
+          type: integer
+        stock_qty:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        last_updated:
+          type: string
+          format: date-time
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+        product_name:
+          type: string
+          readOnly: true
+        is_low_stock:
+          type: string
+          readOnly: true
+      required:
+      - branch
+      - branch_name
+      - id
+      - is_low_stock
+      - last_updated
+      - product
+      - product_name
+    BranchInventoryRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        product:
+          type: integer
+        stock_qty:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+      required:
+      - branch
+      - product
+    BranchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        branch_type:
+          allOf:
+          - $ref: '#/components/schemas/BranchTypeEnum'
+          description: |-
+            Determines which catalog this branch offers in POS
+
+            * `VSS` - VSS Services Branch
+            * `VREAL` - VReal Products Branch
+            * `BB` - BB Products Branch
+            * `MIXED` - Mixed (VSS + VReal + BB)
+        address:
+          type: string
+          nullable: true
+        contact_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        email:
+          nullable: true
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        is_active:
+          type: boolean
+      required:
+      - name
+    BranchTypeEnum:
+      enum:
+      - VSS
+      - VREAL
+      - BB
+      - MIXED
+      type: string
+      description: |-
+        * `VSS` - VSS Services Branch
+        * `VREAL` - VReal Products Branch
+        * `BB` - BB Products Branch
+        * `MIXED` - Mixed (VSS + VReal + BB)
+    CatalogSourceEnum:
+      enum:
+      - VSS
+      - VREAL
+      - BB
+      - GENERIC
+      type: string
+      description: |-
+        * `VSS` - VSS Service
+        * `VREAL` - VReal Product
+        * `BB` - BB Product
+        * `GENERIC` - Generic Product
+    ClientProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        age:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        address:
+          type: string
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        email:
+          nullable: true
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        loyalty_points:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        total_spent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        loyalty_tier:
+          allOf:
+          - $ref: '#/components/schemas/LoyaltyTierEnum'
+          readOnly: true
+        free_items_available:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        tier_display:
+          type: string
+          readOnly: true
+        discount_rate:
+          type: string
+          readOnly: true
+        next_tier_info:
+          type: string
+          readOnly: true
+        total_transactions:
+          type: string
+          readOnly: true
+        available_rewards_count:
+          type: string
+          readOnly: true
+      required:
+      - available_rewards_count
+      - created_at
+      - discount_rate
+      - first_name
+      - free_items_available
+      - full_name
+      - id
+      - last_name
+      - loyalty_points
+      - loyalty_tier
+      - next_tier_info
+      - tier_display
+      - total_spent
+      - total_transactions
+      - updated_at
+    ClientProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        age:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        address:
+          type: string
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        email:
+          nullable: true
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - first_name
+      - last_name
+    CustomerFeedback:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        customer:
+          type: integer
+          nullable: true
+        transaction:
+          type: integer
+          nullable: true
+        branch:
+          type: integer
+        staff:
+          type: integer
+          nullable: true
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/RatingEnum'
+          minimum: -9223372036854775808
+          maximum: 9223372036854775807
+        comment:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        customer_name:
+          type: string
+          readOnly: true
+        staff_name:
+          type: string
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+      required:
+      - branch
+      - branch_name
+      - created_at
+      - customer_name
+      - id
+      - staff_name
+    CustomerFeedbackRequest:
+      type: object
+      properties:
+        customer:
+          type: integer
+          nullable: true
+        transaction:
+          type: integer
+          nullable: true
+        branch:
+          type: integer
+        staff:
+          type: integer
+          nullable: true
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/RatingEnum'
+          minimum: -9223372036854775808
+          maximum: 9223372036854775807
+        comment:
+          type: string
+          nullable: true
+      required:
+      - branch
+    CustomerReward:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        customer:
+          type: integer
+        reward_type:
+          $ref: '#/components/schemas/RewardTypeEnum'
+        status:
+          $ref: '#/components/schemas/CustomerRewardStatusEnum'
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: Discount amount or points value
+        discount_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Discount percentage (if applicable)
+        earned_at:
+          type: string
+          format: date-time
+          readOnly: true
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        transaction:
+          type: integer
+          nullable: true
+          description: Transaction where this reward was earned
+        claimed_in_transaction:
+          type: integer
+          nullable: true
+          description: Transaction where this reward was claimed
+        reward_type_display:
+          type: string
+          readOnly: true
+        status_display:
+          type: string
+          readOnly: true
+        customer_name:
+          type: string
+          readOnly: true
+      required:
+      - customer
+      - customer_name
+      - earned_at
+      - id
+      - reward_type
+      - reward_type_display
+      - status_display
+      - title
+    CustomerRewardRequest:
+      type: object
+      properties:
+        customer:
+          type: integer
+        reward_type:
+          $ref: '#/components/schemas/RewardTypeEnum'
+        status:
+          $ref: '#/components/schemas/CustomerRewardStatusEnum'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: Discount amount or points value
+        discount_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Discount percentage (if applicable)
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        transaction:
+          type: integer
+          nullable: true
+          description: Transaction where this reward was earned
+        claimed_in_transaction:
+          type: integer
+          nullable: true
+          description: Transaction where this reward was claimed
+      required:
+      - customer
+      - reward_type
+      - title
+    CustomerRewardStatusEnum:
+      enum:
+      - AVAILABLE
+      - CLAIMED
+      - EXPIRED
+      type: string
+      description: |-
+        * `AVAILABLE` - Available
+        * `CLAIMED` - Claimed
+        * `EXPIRED` - Expired
+    DailySales:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch:
+          type: integer
+        date:
+          type: string
+          format: date
+        total_sales:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+        total_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+        total_void:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+        transaction_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+      required:
+      - branch
+      - branch_name
+      - created_at
+      - date
+      - id
+      - updated_at
+    Expense:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch:
+          type: integer
+        category:
+          $ref: '#/components/schemas/ExpenseCategoryEnum'
+        description:
+          type: string
+          maxLength: 255
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        expense_date:
+          type: string
+          format: date
+        receipt:
+          type: string
+          format: uri
+          nullable: true
+        recorded_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+        recorded_by_name:
+          type: string
+          readOnly: true
+        category_display:
+          type: string
+          readOnly: true
+      required:
+      - amount
+      - branch
+      - branch_name
+      - category
+      - category_display
+      - created_at
+      - description
+      - expense_date
+      - id
+      - recorded_by
+      - recorded_by_name
+    ExpenseCategoryEnum:
+      enum:
+      - SUPPLIES
+      - UTILITIES
+      - RENT
+      - SALARY
+      - MAINTENANCE
+      - OTHERS
+      type: string
+      description: |-
+        * `SUPPLIES` - Supplies
+        * `UTILITIES` - Utilities
+        * `RENT` - Rent
+        * `SALARY` - Salary
+        * `MAINTENANCE` - Maintenance
+        * `OTHERS` - Others
+    ExpenseRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        category:
+          $ref: '#/components/schemas/ExpenseCategoryEnum'
+        description:
+          type: string
+          minLength: 1
+          maxLength: 255
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        expense_date:
+          type: string
+          format: date
+        receipt:
+          type: string
+          format: binary
+          nullable: true
+      required:
+      - amount
+      - branch
+      - category
+      - description
+      - expense_date
+    GenderEnum:
+      enum:
+      - Male
+      - Female
+      type: string
+      description: |-
+        * `Male` - Male
+        * `Female` - Female
+    ItemTypeEnum:
+      enum:
+      - PRODUCT
+      - SERVICE
+      type: string
+      description: |-
+        * `PRODUCT` - Product
+        * `SERVICE` - Service
+    KBItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - price
+      - updated_at
+    KBItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+      required:
+      - name
+      - price
+    LoginRequestRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Login username.
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: Login password.
+      required:
+      - password
+      - username
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthUser'
+      required:
+      - token
+      - user
+    LogoutResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    LoyaltyTierEnum:
+      enum:
+      - BRONZE
+      - SILVER
+      - GOLD
+      - PLATINUM
+      type: string
+      description: |-
+        * `BRONZE` - Bronze
+        * `SILVER` - Silver
+        * `GOLD` - Gold
+        * `PLATINUM` - Platinum
+    NullEnum:
+      enum:
+      - null
+    PaginatedAttendanceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attendance'
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+    PaginatedAutoSpaServiceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoSpaService'
+    PaginatedBBProductList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BBProduct'
+    PaginatedBranchInventoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BranchInventory'
+    PaginatedBranchList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Branch'
+    PaginatedClientProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientProfile'
+    PaginatedCustomerFeedbackList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerFeedback'
+    PaginatedCustomerRewardList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerReward'
+    PaginatedDailySalesList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailySales'
+    PaginatedExpenseList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Expense'
+    PaginatedKBItemList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/KBItem'
+    PaginatedPangananMenuList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PangananMenu'
+    PaginatedProductList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+    PaginatedRewardClaimList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RewardClaim'
+    PaginatedRoomTableList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomTable'
+    PaginatedTransactionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+    PaginatedUserProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+    PaginatedVRealProductList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VRealProduct'
+    PaginatedVSSServiceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VSSService'
+    PangananMenu:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          $ref: '#/components/schemas/PangananMenuCategoryEnum'
+        menu:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        category_display:
+          type: string
+          readOnly: true
+      required:
+      - category_display
+      - created_at
+      - id
+      - menu
+      - price
+      - updated_at
+    PangananMenuCategoryEnum:
+      enum:
+      - BURGER
+      - SILOG
+      - SIZZLING
+      - WINGS
+      - BOWL
+      - VEGETABLE
+      - MERIENDA
+      - BEVERAGE
+      - OTHERS
+      type: string
+      description: |-
+        * `BURGER` - Burgers
+        * `SILOG` - Silog Meals
+        * `SIZZLING` - Sizzling
+        * `WINGS` - Chicken Wings
+        * `BOWL` - Rice Bowls
+        * `VEGETABLE` - Vegetable
+        * `MERIENDA` - Merienda
+        * `BEVERAGE` - Beverages
+        * `OTHERS` - Others
+    PangananMenuRequest:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/PangananMenuCategoryEnum'
+        menu:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+      required:
+      - menu
+      - price
+    PatchedAttendanceRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+        branch:
+          type: integer
+        date:
+          type: string
+          format: date
+        time_in:
+          type: string
+          format: date-time
+          nullable: true
+        time_out:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/AttendanceStatusEnum'
+        notes:
+          type: string
+          nullable: true
+    PatchedAutoSpaServiceRequest:
+      type: object
+      properties:
+        service:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+    PatchedBBProductRequest:
+      type: object
+      properties:
+        product_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        category:
+          type: string
+          nullable: true
+          maxLength: 100
+        is_active:
+          type: boolean
+    PatchedBranchInventoryRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        product:
+          type: integer
+        stock_qty:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+    PatchedBranchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        branch_type:
+          allOf:
+          - $ref: '#/components/schemas/BranchTypeEnum'
+          description: |-
+            Determines which catalog this branch offers in POS
+
+            * `VSS` - VSS Services Branch
+            * `VREAL` - VReal Products Branch
+            * `BB` - BB Products Branch
+            * `MIXED` - Mixed (VSS + VReal + BB)
+        address:
+          type: string
+          nullable: true
+        contact_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        email:
+          nullable: true
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        is_active:
+          type: boolean
+    PatchedClientProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        age:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        address:
+          type: string
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        email:
+          nullable: true
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+    PatchedCustomerFeedbackRequest:
+      type: object
+      properties:
+        customer:
+          type: integer
+          nullable: true
+        transaction:
+          type: integer
+          nullable: true
+        branch:
+          type: integer
+        staff:
+          type: integer
+          nullable: true
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/RatingEnum'
+          minimum: -9223372036854775808
+          maximum: 9223372036854775807
+        comment:
+          type: string
+          nullable: true
+    PatchedCustomerRewardRequest:
+      type: object
+      properties:
+        customer:
+          type: integer
+        reward_type:
+          $ref: '#/components/schemas/RewardTypeEnum'
+        status:
+          $ref: '#/components/schemas/CustomerRewardStatusEnum'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          description: Discount amount or points value
+        discount_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Discount percentage (if applicable)
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        transaction:
+          type: integer
+          nullable: true
+          description: Transaction where this reward was earned
+        claimed_in_transaction:
+          type: integer
+          nullable: true
+          description: Transaction where this reward was claimed
+    PatchedExpenseRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        category:
+          $ref: '#/components/schemas/ExpenseCategoryEnum'
+        description:
+          type: string
+          minLength: 1
+          maxLength: 255
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        expense_date:
+          type: string
+          format: date
+        receipt:
+          type: string
+          format: binary
+          nullable: true
+    PatchedKBItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+    PatchedPangananMenuRequest:
+      type: object
+      properties:
+        category:
+          $ref: '#/components/schemas/PangananMenuCategoryEnum'
+        menu:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+    PatchedProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        category:
+          $ref: '#/components/schemas/ProductCategoryEnum'
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        min_stock:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        is_active:
+          type: boolean
+    PatchedRoomTableRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        room_type:
+          $ref: '#/components/schemas/RoomTypeEnum'
+        is_occupied:
+          type: boolean
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        assigned_staff:
+          type: integer
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+          maxLength: 255
+        service_type:
+          type: string
+          nullable: true
+          maxLength: 255
+    PatchedTransactionRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        customer:
+          type: integer
+          nullable: true
+        staff:
+          type: integer
+          nullable: true
+        transaction_type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        amount_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        change:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        status:
+          $ref: '#/components/schemas/TransactionStatusEnum'
+        notes:
+          type: string
+          nullable: true
+        customer_tier_at_purchase:
+          type: string
+          nullable: true
+          maxLength: 20
+        tier_discount_applied:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        rewards_applied:
+          type: array
+          items:
+            type: integer
+          description: Rewards claimed in this transaction
+    PatchedUserProfileRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        branch:
+          type: integer
+          nullable: true
+        services:
+          type: array
+          items:
+            type: integer
+    PatchedVRealProductRequest:
+      type: object
+      properties:
+        category:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VRealProductCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        product:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        size:
+          type: string
+          nullable: true
+          maxLength: 50
+        is_active:
+          type: boolean
+    PatchedVSSServiceRequest:
+      type: object
+      properties:
+        category:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VSSServiceCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        description:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        category:
+          $ref: '#/components/schemas/ProductCategoryEnum'
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        min_stock:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        stock_quantity:
+          type: integer
+          readOnly: true
+        is_low_stock:
+          type: boolean
+          readOnly: true
+      required:
+      - category
+      - created_at
+      - id
+      - is_low_stock
+      - name
+      - stock_quantity
+      - updated_at
+    ProductCategoryEnum:
+      enum:
+      - DAY_CREAM
+      - NIGHT_CREAM
+      - NUTRIFIRM
+      - TONER
+      - SOAP
+      - SUNBLOCK
+      - MOISTURIZER
+      - SERUM
+      - LOTION
+      - SET
+      - OTHERS
+      type: string
+      description: |-
+        * `DAY_CREAM` - Realnew Day Cream
+        * `NIGHT_CREAM` - Night Cream
+        * `NUTRIFIRM` - Nutrifirm Gel
+        * `TONER` - Realnew Toner
+        * `SOAP` - Soap
+        * `SUNBLOCK` - Sunblock/Sunscreen
+        * `MOISTURIZER` - Moisturizer/Cream
+        * `SERUM` - Serum
+        * `LOTION` - Body Lotion
+        * `SET` - Product Set
+        * `OTHERS` - Other Cosmetics
+    ProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        category:
+          $ref: '#/components/schemas/ProductCategoryEnum'
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        min_stock:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        is_active:
+          type: boolean
+      required:
+      - category
+      - name
+    RatingEnum:
+      enum:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      type: integer
+      description: |-
+        * `1` - 1
+        * `2` - 2
+        * `3` - 3
+        * `4` - 4
+        * `5` - 5
+    RewardClaim:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        reward:
+          type: integer
+        transaction:
+          type: integer
+          nullable: true
+        claimed_by:
+          type: integer
+          nullable: true
+        amount_applied:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        claimed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        notes:
+          type: string
+          nullable: true
+        reward_title:
+          type: string
+          readOnly: true
+        customer_name:
+          type: string
+          readOnly: true
+        claimed_by_name:
+          type: string
+          readOnly: true
+      required:
+      - claimed_at
+      - claimed_by_name
+      - customer_name
+      - id
+      - reward
+      - reward_title
+    RewardTypeEnum:
+      enum:
+      - DISCOUNT
+      - FREE_ITEM
+      - POINTS
+      - TIER_UPGRADE
+      type: string
+      description: |-
+        * `DISCOUNT` - Discount
+        * `FREE_ITEM` - Free Item
+        * `POINTS` - Points
+        * `TIER_UPGRADE` - Tier Upgrade
+    RoleEnum:
+      enum:
+      - SUPERADMIN
+      - OWNER
+      - BRANCH_ADMIN
+      - CASHIER
+      - STAFF
+      type: string
+      description: |-
+        * `SUPERADMIN` - Superadmin
+        * `OWNER` - Owner
+        * `BRANCH_ADMIN` - Branch Admin
+        * `CASHIER` - Cashier
+        * `STAFF` - Staff
+    RoomTable:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch:
+          type: integer
+        name:
+          type: string
+          maxLength: 100
+        room_type:
+          $ref: '#/components/schemas/RoomTypeEnum'
+        is_occupied:
+          type: boolean
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        assigned_staff:
+          type: integer
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+          maxLength: 255
+        service_type:
+          type: string
+          nullable: true
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        time_remaining:
+          type: integer
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+        assigned_staff_name:
+          type: string
+          readOnly: true
+      required:
+      - assigned_staff_name
+      - branch
+      - branch_name
+      - created_at
+      - id
+      - name
+      - time_remaining
+      - updated_at
+    RoomTableRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        room_type:
+          $ref: '#/components/schemas/RoomTypeEnum'
+        is_occupied:
+          type: boolean
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration_minutes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        assigned_staff:
+          type: integer
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+          maxLength: 255
+        service_type:
+          type: string
+          nullable: true
+          maxLength: 255
+      required:
+      - branch
+      - name
+    RoomTypeEnum:
+      enum:
+      - PEDICURE
+      - FOOT_SPA
+      - MASSAGE
+      - VIP
+      type: string
+      description: |-
+        * `PEDICURE` - Pedicure & Manicure
+        * `FOOT_SPA` - Foot Spa
+        * `MASSAGE` - Massage Room
+        * `VIP` - VIP Room
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        transaction_number:
+          type: string
+          readOnly: true
+        branch:
+          type: integer
+        customer:
+          type: integer
+          nullable: true
+        staff:
+          type: integer
+          nullable: true
+        transaction_type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        amount_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        change:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        status:
+          $ref: '#/components/schemas/TransactionStatusEnum'
+        notes:
+          type: string
+          nullable: true
+        customer_tier_at_purchase:
+          type: string
+          nullable: true
+          maxLength: 20
+        tier_discount_applied:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        points_earned:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        rewards_applied:
+          type: array
+          items:
+            type: integer
+          description: Rewards claimed in this transaction
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionItem'
+          readOnly: true
+        customer_name:
+          type: string
+          readOnly: true
+        staff_name:
+          type: string
+          readOnly: true
+        branch_name:
+          type: string
+          readOnly: true
+        rewards_applied_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerReward'
+          readOnly: true
+      required:
+      - branch
+      - branch_name
+      - created_at
+      - customer_name
+      - id
+      - items
+      - points_earned
+      - rewards_applied_details
+      - staff_name
+      - transaction_number
+      - updated_at
+    TransactionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        transaction:
+          type: integer
+        item_type:
+          $ref: '#/components/schemas/ItemTypeEnum'
+        catalog_source:
+          allOf:
+          - $ref: '#/components/schemas/CatalogSourceEnum'
+          description: |-
+            Which catalog the item came from (VSS/VREAL/BB)
+
+            * `VSS` - VSS Service
+            * `VREAL` - VReal Product
+            * `BB` - BB Product
+            * `GENERIC` - Generic Product
+        product:
+          type: integer
+          nullable: true
+        service:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        product_name:
+          type: string
+          readOnly: true
+        service_name:
+          type: string
+          readOnly: true
+      required:
+      - description
+      - id
+      - item_type
+      - price
+      - product_name
+      - service_name
+      - total
+      - transaction
+    TransactionItemRequest:
+      type: object
+      properties:
+        transaction:
+          type: integer
+        item_type:
+          $ref: '#/components/schemas/ItemTypeEnum'
+        catalog_source:
+          allOf:
+          - $ref: '#/components/schemas/CatalogSourceEnum'
+          description: |-
+            Which catalog the item came from (VSS/VREAL/BB)
+
+            * `VSS` - VSS Service
+            * `VREAL` - VReal Product
+            * `BB` - BB Product
+            * `GENERIC` - Generic Product
+        product:
+          type: integer
+          nullable: true
+        service:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - description
+      - item_type
+      - price
+      - total
+      - transaction
+    TransactionRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        customer:
+          type: integer
+          nullable: true
+        staff:
+          type: integer
+          nullable: true
+        transaction_type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        amount_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        change:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        status:
+          $ref: '#/components/schemas/TransactionStatusEnum'
+        notes:
+          type: string
+          nullable: true
+        customer_tier_at_purchase:
+          type: string
+          nullable: true
+          maxLength: 20
+        tier_discount_applied:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        rewards_applied:
+          type: array
+          items:
+            type: integer
+          description: Rewards claimed in this transaction
+      required:
+      - branch
+    TransactionStatusEnum:
+      enum:
+      - PENDING
+      - PAID
+      - VOIDED
+      - HELD
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `PAID` - Paid
+        * `VOIDED` - Voided
+        * `HELD` - Held
+    TransactionTypeEnum:
+      enum:
+      - SALE
+      - VOID
+      - RETURN
+      - HOLD
+      type: string
+      description: |-
+        * `SALE` - Sale
+        * `VOID` - Void
+        * `RETURN` - Return
+        * `HOLD` - Hold
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        role_display:
+          type: string
+          readOnly: true
+        branch:
+          type: integer
+          nullable: true
+        branch_name:
+          type: string
+          readOnly: true
+        services:
+          type: array
+          items:
+            type: integer
+        service_names:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - branch_name
+      - created_at
+      - id
+      - role_display
+      - service_names
+      - updated_at
+      - user
+      - username
+    UserProfileRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        branch:
+          type: integer
+          nullable: true
+        services:
+          type: array
+          items:
+            type: integer
+    VRealProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VRealProductCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        product:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        size:
+          type: string
+          nullable: true
+          maxLength: 50
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        category_display:
+          type: string
+          readOnly: true
+      required:
+      - category_display
+      - created_at
+      - id
+      - price
+      - product
+      - updated_at
+    VRealProductCategoryEnum:
+      enum:
+      - SOAP
+      - FS_WASH
+      - TONER
+      - NIGHT_CREAM
+      - MOISTURIZER
+      - SUNBLOCK
+      - SERUM
+      - SET
+      - GLUTA
+      - HAIR_CARE
+      - LOTION
+      - OTHERS
+      - SALON_PRODUCTS
+      type: string
+      description: |-
+        * `SOAP` - Soap
+        * `FS_WASH` - F/S Wash
+        * `TONER` - Toner
+        * `NIGHT_CREAM` - Night Cream
+        * `MOISTURIZER` - Moisturizer
+        * `SUNBLOCK` - Sunblock
+        * `SERUM` - Serum
+        * `SET` - Set
+        * `GLUTA` - Glutathione
+        * `HAIR_CARE` - Hair Care
+        * `LOTION` - Lotion
+        * `OTHERS` - Others
+        * `SALON_PRODUCTS` - Salon Products
+    VRealProductRequest:
+      type: object
+      properties:
+        category:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VRealProductCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        product:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        size:
+          type: string
+          nullable: true
+          maxLength: 50
+        is_active:
+          type: boolean
+      required:
+      - price
+      - product
+    VSSService:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VSSServiceCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        description:
+          type: string
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        category_display:
+          type: string
+          readOnly: true
+      required:
+      - category_display
+      - created_at
+      - description
+      - id
+      - price
+      - updated_at
+    VSSServiceCategoryEnum:
+      enum:
+      - RADIO_FREQUENCY
+      - SALON_SERVICES
+      - HAND_FOOT_TREATMENT
+      - FACIAL_TREATMENT
+      - LASER_TREATMENT
+      - BLEACHING_WHITENING
+      - HIFU_ULTERA
+      - PICO_WAY
+      - EYELASH_EXTENSIONS
+      - GLYCOLIC_PEELING
+      - SKIN_GROWTH_REMOVAL
+      - WAXING
+      - MASSAGE
+      - MICRODERMABRASION
+      - BODY_SCRUB
+      - AESTHETIC_TATTOO
+      - PROMO_PRICE
+      - PERMANENT_HAIR_REMOVAL
+      - OTHER_SERVICES
+      type: string
+      description: |-
+        * `RADIO_FREQUENCY` - Radio Frequency
+        * `SALON_SERVICES` - Salon Services
+        * `HAND_FOOT_TREATMENT` - Hand and Foot Treatment
+        * `FACIAL_TREATMENT` - Facial Treatment
+        * `LASER_TREATMENT` - Laser Treatment
+        * `BLEACHING_WHITENING` - Instant Bleaching and Skin Whitening
+        * `HIFU_ULTERA` - HIFU - Ultera
+        * `PICO_WAY` - Pico Way
+        * `EYELASH_EXTENSIONS` - Eyelash Extensions
+        * `GLYCOLIC_PEELING` - Glycolic Peeling
+        * `SKIN_GROWTH_REMOVAL` - Skin Growth Removal
+        * `WAXING` - Waxing
+        * `MASSAGE` - Massage
+        * `MICRODERMABRASION` - Microdermabrasion
+        * `BODY_SCRUB` - Body Scrub
+        * `AESTHETIC_TATTOO` - Aesthetic Tattoo/Semi Permanent Tattoo
+        * `PROMO_PRICE` - Promo Price
+        * `PERMANENT_HAIR_REMOVAL` - Permanent Hair Removal
+        * `OTHER_SERVICES` - Other Services
+    VSSServiceRequest:
+      type: object
+      properties:
+        category:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/VSSServiceCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        description:
+          type: string
+          minLength: 1
+          maxLength: 255
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_active:
+          type: boolean
+      required:
+      - description
+      - price
+  securitySchemes:
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"

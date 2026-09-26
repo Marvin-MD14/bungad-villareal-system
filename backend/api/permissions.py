@@ -3,144 +3,214 @@
 from rest_framework.permissions import BasePermission
 
 
+# ============================================================
+# ROLE POLICY
+# ------------------------------------------------------------
+# Every entry is "<Resource>:<action>" where Resource is the viewset
+# class name without the "ViewSet" suffix and <action> is the DRF
+# action name (list/retrieve/create/update/partial_update/destroy or a
+# custom @action name). The matrix below is the single source of truth
+# for authorization - viewsets must not re-check roles themselves.
+#
+# SUPERADMIN  - everything.
+# OWNER       - organization-wide, READ-ONLY + analytics. Owner accounts
+#               cannot mutate operational data (tests enforce this).
+# BRANCH_ADMIN- everything *within their branch scope*, except the
+#               organization-level actions listed in BRANCH_ADMIN_DENIED.
+# CASHIER     - front-of-house operations: catalogs, clients, rooms,
+#               checkout/void, rewards claiming, own attendance.
+# STAFF       - customer/room/attendance focused read + room assignments.
+#               Staff do not see transactions, expenses or inventory values.
+# ============================================================
+
 ROLE_ACTIONS = {
     'SUPERADMIN': {'*'},
     'OWNER': {
-        # VSS Services
+        # --- VSS Services (read) ---
         'VSSService:list', 'VSSService:retrieve', 'VSSService:categories', 'VSSService:stats',
-        # VReal Products
+        # --- VReal Products (read) ---
         'VRealProduct:list', 'VRealProduct:retrieve', 'VRealProduct:categories', 'VRealProduct:stats',
-        # BB Products
+        # --- BB Products (read) ---
         'BBProduct:list', 'BBProduct:retrieve',
-        # Panganan Menu
+        # --- Panganan Menu (read) ---
         'PangananMenu:list', 'PangananMenu:retrieve', 'PangananMenu:categories',
-        # KB Items
+        # --- KB Items / Auto Spa (read) ---
         'KBItem:list', 'KBItem:retrieve',
-        # Auto Spa
         'AutoSpaService:list', 'AutoSpaService:retrieve',
-        # Branch
+        # --- Branch ---
         'Branch:list', 'Branch:retrieve', 'Branch:staffing', 'Branch:stats',
-        # Product
+        # --- Product / inventory (read only) ---
         'Product:list', 'Product:retrieve', 'Product:low_stock', 'Product:by_category',
-        # Branch Inventory
         'BranchInventory:list', 'BranchInventory:retrieve', 'BranchInventory:by_branch',
-        # Client
+        # --- Client (read only, org-wide) ---
         'ClientProfile:list', 'ClientProfile:retrieve', 'ClientProfile:search',
-        'ClientProfile:transactions', 'ClientProfile:feedback', 'ClientProfile:rewards',
-        # Room
+        'ClientProfile:find_by_phone', 'ClientProfile:transactions',
+        'ClientProfile:feedback', 'ClientProfile:rewards', 'ClientProfile:tier_info',
+        # --- Room (read only: Owner is not a front-desk role) ---
         'RoomTable:list', 'RoomTable:retrieve', 'RoomTable:available', 'RoomTable:occupied',
-        # Transaction
+        # --- Transaction (read only) ---
         'Transaction:list', 'Transaction:retrieve', 'Transaction:today', 'Transaction:stats',
-        # Dashboard
+        # --- Daily Sales (read only) ---
+        'DailySales:list', 'DailySales:retrieve',
+        # --- Dashboard ---
         'DashboardStats:summary', 'DashboardStats:branch_comparison',
-        # User Profile
-        'UserProfile:list', 'UserProfile:retrieve',
-        # Attendance
+        # --- User Profile ---
+        'UserProfile:list', 'UserProfile:retrieve', 'UserProfile:me',
+        # --- Attendance ---
         'Attendance:list', 'Attendance:retrieve', 'Attendance:today', 'Attendance:my_records',
-        # Customer Feedback
+        # --- Customer Feedback ---
         'CustomerFeedback:list', 'CustomerFeedback:retrieve', 'CustomerFeedback:stats',
-        # Expense
+        # --- Expense ---
         'Expense:list', 'Expense:retrieve', 'Expense:summary',
-        # Audit Log
+        # --- Audit Log ---
         'AuditLog:list', 'AuditLog:retrieve', 'AuditLog:recent',
-        # Branch Catalog
+        # --- Branch Catalog ---
         'BranchCatalog:by_branch',
-        # Customer Rewards
+        # --- Customer Rewards ---
         'CustomerReward:list', 'CustomerReward:retrieve', 'CustomerReward:by_customer',
         'CustomerTier:by_customer',
-        # Reward Claims
+        # --- Reward Claims / notifications / detection ---
         'RewardClaim:list', 'RewardClaim:retrieve',
+        'Notification:customer_alerts',
+        'CustomerDetection:detect',
     },
     'BRANCH_ADMIN': {'*'},
     'CASHIER': {
-        # VSS Services
+        # --- Catalogs (read + pricing preview) ---
         'VSSService:list', 'VSSService:retrieve', 'VSSService:preview',
         'VSSService:categories', 'VSSService:stats',
-        # VReal Products
         'VRealProduct:list', 'VRealProduct:retrieve', 'VRealProduct:preview',
         'VRealProduct:categories', 'VRealProduct:stats',
-        # BB Products
         'BBProduct:list', 'BBProduct:retrieve',
-        # Panganan Menu
         'PangananMenu:list', 'PangananMenu:retrieve', 'PangananMenu:categories',
-        # KB Items
         'KBItem:list', 'KBItem:retrieve',
-        # Auto Spa
         'AutoSpaService:list', 'AutoSpaService:retrieve',
-        # Product
+        # --- Product / inventory (read + receiving) ---
         'Product:list', 'Product:retrieve', 'Product:low_stock', 'Product:by_category',
-        # Branch Inventory
         'BranchInventory:list', 'BranchInventory:retrieve', 'BranchInventory:by_branch',
-        # Branch
+        'BranchInventory:restock',
+        # --- Branch (read) ---
         'Branch:list', 'Branch:retrieve',
-        # Client
+        # --- Client ---
         'ClientProfile:list', 'ClientProfile:retrieve', 'ClientProfile:create',
-        'ClientProfile:search', 'ClientProfile:transactions', 'ClientProfile:feedback',
-        'ClientProfile:rewards',
-        # Room
+        'ClientProfile:search', 'ClientProfile:find_by_phone', 'ClientProfile:tier_info',
+        'ClientProfile:transactions', 'ClientProfile:feedback', 'ClientProfile:rewards',
+        # --- Room ---
         'RoomTable:list', 'RoomTable:retrieve', 'RoomTable:available',
         'RoomTable:occupied', 'RoomTable:check_in', 'RoomTable:check_out',
-        # Transaction
-        'Transaction:list', 'Transaction:retrieve', 'Transaction:create',
-        'Transaction:today', 'Transaction:stats', 'Transaction:checkout',
-        # Dashboard
+        # --- Transaction (checkout/void only: raw create/update/destroy are blocked) ---
+        'Transaction:list', 'Transaction:retrieve',
+        'Transaction:today', 'Transaction:stats', 'Transaction:checkout', 'Transaction:void',
+        # --- Daily Sales (read) ---
+        'DailySales:list', 'DailySales:retrieve',
+        # --- Dashboard ---
         'DashboardStats:summary',
-        # Attendance
+        # --- User Profile (own profile + branch directory) ---
+        'UserProfile:list', 'UserProfile:retrieve', 'UserProfile:me',
+        # --- Attendance (self service) ---
+        'Attendance:list', 'Attendance:retrieve',
         'Attendance:today', 'Attendance:my_records', 'Attendance:check_in', 'Attendance:check_out',
-        # Customer Feedback
+        # --- Customer Feedback ---
         'CustomerFeedback:list', 'CustomerFeedback:retrieve', 'CustomerFeedback:create',
-        # Expense (view only)
+        # --- Expense (view only) ---
         'Expense:list', 'Expense:retrieve',
-        # Branch Catalog (para sa POS)
+        # --- Branch Catalog (para sa POS) ---
         'BranchCatalog:by_branch',
-        # Customer Rewards
+        # --- Customer Rewards ---
         'CustomerReward:list', 'CustomerReward:retrieve', 'CustomerReward:claim',
         'CustomerReward:by_customer', 'CustomerTier:by_customer',
+        'RewardClaim:list', 'RewardClaim:retrieve',
+        # --- Cashier notifications + customer auto-detection ---
+        'Notification:customer_alerts',
+        'CustomerDetection:detect',
     },
     'STAFF': {
-        # VSS Services
+        # --- Catalogs (read) ---
         'VSSService:list', 'VSSService:retrieve', 'VSSService:preview',
         'VSSService:categories', 'VSSService:stats',
-        # VReal Products
         'VRealProduct:list', 'VRealProduct:retrieve', 'VRealProduct:preview',
         'VRealProduct:categories', 'VRealProduct:stats',
-        # BB Products
         'BBProduct:list', 'BBProduct:retrieve',
-        # Panganan Menu
         'PangananMenu:list', 'PangananMenu:retrieve', 'PangananMenu:categories',
-        # Client
+        'KBItem:list', 'KBItem:retrieve',
+        'AutoSpaService:list', 'AutoSpaService:retrieve',
+        # --- Client (read + lookup) ---
         'ClientProfile:list', 'ClientProfile:retrieve', 'ClientProfile:search',
-        # Room
+        'ClientProfile:find_by_phone', 'ClientProfile:tier_info', 'ClientProfile:rewards',
+        # --- Room ---
         'RoomTable:list', 'RoomTable:retrieve', 'RoomTable:available',
         'RoomTable:occupied', 'RoomTable:check_in', 'RoomTable:check_out',
-        # Dashboard
+        # --- Dashboard ---
         'DashboardStats:summary',
-        # Attendance
+        # --- User Profile (own profile + branch directory) ---
+        'UserProfile:list', 'UserProfile:retrieve', 'UserProfile:me',
+        # --- Attendance (self service) ---
+        'Attendance:list', 'Attendance:retrieve',
         'Attendance:today', 'Attendance:my_records', 'Attendance:check_in', 'Attendance:check_out',
-        # Branch Catalog (para sa POS view)
+        # --- Customer Feedback ---
+        'CustomerFeedback:list', 'CustomerFeedback:retrieve', 'CustomerFeedback:create',
+        # --- Branch Catalog (para sa POS view) ---
         'BranchCatalog:by_branch',
-        # Customer Rewards (view only)
+        # --- Customer Rewards (view only) ---
         'CustomerReward:list', 'CustomerReward:retrieve', 'CustomerReward:by_customer',
         'CustomerTier:by_customer',
     },
 }
 
+# Actions a wildcard role (currently BRANCH_ADMIN) must NOT perform:
+# branch-level admins are scoped to their own branch and cannot change the
+# organization structure or compare branches against each other.
+BRANCH_ADMIN_DENIED_ACTIONS = {
+    'Branch:create', 'Branch:update', 'Branch:partial_update', 'Branch:destroy',
+    'UserProfile:create', 'UserProfile:update', 'UserProfile:partial_update',
+    'UserProfile:destroy',
+    'DashboardStats:branch_comparison',
+}
+
+
+# Group names that may exist from earlier data sets or fixtures. Both the
+# role codes used by UserProfile.ROLE_CHOICES and the display names used by
+# the frontend / legacy groups resolve to the same canonical code.
+ROLE_ALIASES = {
+    'SUPERADMIN': 'SUPERADMIN',
+    'Superadmin': 'SUPERADMIN',
+    'OWNER': 'OWNER',
+    'Owner': 'OWNER',
+    'BRANCH_ADMIN': 'BRANCH_ADMIN',
+    'Branch Admin': 'BRANCH_ADMIN',
+    'Admin': 'BRANCH_ADMIN',
+    'CASHIER': 'CASHIER',
+    'Cashier': 'CASHIER',
+    'STAFF': 'STAFF',
+    'Staff': 'STAFF',
+    'Therapist': 'STAFF',
+    'Spa Therapist': 'STAFF',
+    'Massage Therapist': 'STAFF',
+}
+
+METHOD_ACTIONS = {
+    'GET': 'list',
+    'POST': 'create',
+    'PUT': 'update',
+    'PATCH': 'partial_update',
+    'DELETE': 'destroy',
+}
+
 
 def get_user_role(user):
-    """Return the role code of a user."""
-    if hasattr(user, 'profile'):
-        return user.profile.role
+    """Return the canonical role code of a user.
 
-    role = user.groups.values_list('name', flat=True).first()
-    legacy_roles = {
-        'Superadmin': 'SUPERADMIN',
-        'Owner': 'OWNER',
-        'Admin': 'BRANCH_ADMIN',
-        'Cashier': 'CASHIER',
-        'Therapist': 'STAFF',
-    }
-    if role in legacy_roles:
-        return legacy_roles[role]
+    The UserProfile is authoritative; group membership is only a fallback for
+    accounts created before profiles existed (and for unit-test users).
+    """
+    profile = getattr(user, 'profile', None)
+    if profile is not None:
+        return profile.role
+
+    group_name = user.groups.values_list('name', flat=True).first()
+    if group_name in ROLE_ALIASES:
+        return ROLE_ALIASES[group_name]
+
     if user.is_superuser:
         return 'SUPERADMIN'
     if user.is_staff:
@@ -157,33 +227,25 @@ class RoleBasedPermission(BasePermission):
 
         role = get_user_role(request.user)
         allowed_actions = ROLE_ACTIONS.get(role, set())
+        resource = view.__class__.__name__.replace('ViewSet', '')
+        action = getattr(view, 'action', None) or METHOD_ACTIONS.get(request.method)
+
+        if not action:
+            return False
+
+        action_key = f'{resource}:{action}'
 
         if '*' in allowed_actions:
-            # Branch Admin restrictions: cannot create/delete branches
-            if role == 'BRANCH_ADMIN' and view.__class__.__name__ == 'BranchViewSet':
-                return getattr(view, 'action', None) in {'list', 'retrieve', 'staffing', 'stats'}
-            # Branch Admin cannot create/delete UserProfiles (only view)
-            if role == 'BRANCH_ADMIN' and view.__class__.__name__ == 'UserProfileViewSet':
-                return getattr(view, 'action', None) in {'list', 'retrieve', 'me'}
-            # Branch Admin can manage everything else in scope
+            denied = BRANCH_ADMIN_DENIED_ACTIONS if role == 'BRANCH_ADMIN' else frozenset()
+            return action_key not in denied
+
+        if action_key in allowed_actions:
             return True
 
-        resource = view.__class__.__name__.replace('ViewSet', '')
-        action = getattr(view, 'action', None)
-
-        # Handle custom actions (e.g., list, retrieve, today, stats)
-        if action:
-            return f'{resource}:{action}' in allowed_actions
-
-        # Handle default method-based permissions
-        if request.method == 'GET':
+        # Read fallback for detail routes that do not expose a router action
+        # (e.g. plain APIViews): GET is allowed when either list or retrieve is.
+        if action in ('list', 'retrieve') and request.method == 'GET':
             return f'{resource}:list' in allowed_actions or f'{resource}:retrieve' in allowed_actions
-        elif request.method == 'POST':
-            return f'{resource}:create' in allowed_actions
-        elif request.method in ('PUT', 'PATCH'):
-            return f'{resource}:update' in allowed_actions
-        elif request.method == 'DELETE':
-            return f'{resource}:destroy' in allowed_actions
 
         return False
 

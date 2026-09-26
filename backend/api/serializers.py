@@ -97,7 +97,10 @@ class BranchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Branch
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'branch_type', 'address', 'contact_number', 'email',
+            'is_active', 'created_at', 'updated_at', 'total_staff', 'total_rooms',
+        ]
 
     def get_total_staff(self, obj):
         return obj.user_profiles.filter(user__is_active=True).count()
@@ -116,7 +119,11 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'category', 'barcode', 'purchase_price', 'selling_price',
+            'min_stock', 'is_active', 'created_at', 'updated_at',
+            'stock_quantity', 'is_low_stock',
+        ]
 
 
 # ============================================================
@@ -130,7 +137,10 @@ class BranchInventorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BranchInventory
-        fields = '__all__'
+        fields = [
+            'id', 'branch', 'product', 'stock_qty', 'last_updated',
+            'branch_name', 'product_name', 'is_low_stock',
+        ]
 
     def get_is_low_stock(self, obj):
         return obj.stock_qty <= obj.product.min_stock
@@ -150,7 +160,19 @@ class ClientProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientProfile
-        fields = '__all__'
+        fields = [
+            'id', 'first_name', 'last_name', 'age', 'gender', 'address',
+            'phone_number', 'email', 'birth_date',
+            'loyalty_points', 'total_spent', 'loyalty_tier', 'free_items_available',
+            'created_at', 'updated_at',
+            'full_name', 'tier_display', 'discount_rate', 'next_tier_info',
+            'total_transactions', 'available_rewards_count',
+        ]
+        # Loyalty values are owned by checkout: never writable through the API.
+        read_only_fields = [
+            'loyalty_points', 'total_spent', 'loyalty_tier', 'free_items_available',
+            'created_at', 'updated_at',
+        ]
 
     def get_total_transactions(self, obj):
         return obj.transaction_set.count() if hasattr(obj, 'transaction_set') else 0
@@ -176,7 +198,12 @@ class CustomerRewardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerReward
-        fields = '__all__'
+        fields = [
+            'id', 'customer', 'reward_type', 'status', 'title', 'description',
+            'value', 'discount_percent', 'earned_at', 'claimed_at', 'expires_at',
+            'transaction', 'claimed_in_transaction',
+            'reward_type_display', 'status_display', 'customer_name',
+        ]
 
 
 # ============================================================
@@ -190,7 +217,11 @@ class RewardClaimSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RewardClaim
-        fields = '__all__'
+        fields = [
+            'id', 'reward', 'transaction', 'claimed_by', 'amount_applied',
+            'claimed_at', 'notes',
+            'reward_title', 'customer_name', 'claimed_by_name',
+        ]
 
 
 # ============================================================
@@ -204,7 +235,12 @@ class RoomTableSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RoomTable
-        fields = '__all__'
+        fields = [
+            'id', 'branch', 'name', 'room_type', 'is_occupied', 'start_time',
+            'duration_minutes', 'assigned_staff', 'customer_name', 'service_type',
+            'created_at', 'updated_at',
+            'time_remaining', 'branch_name', 'assigned_staff_name',
+        ]
 
 
 # ============================================================
@@ -216,7 +252,10 @@ class VSSServiceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VSSService
-        fields = '__all__'
+        fields = [
+            'id', 'category', 'description', 'price', 'is_active',
+            'created_at', 'updated_at', 'category_display',
+        ]
 
 
 # ============================================================
@@ -228,7 +267,11 @@ class VRealProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VRealProduct
-        fields = '__all__'
+        fields = [
+            'id', 'category', 'product', 'price', 'size',
+            'is_active', 'created_at', 'updated_at',
+            'category_display',
+        ]
 
 
 # ============================================================
@@ -238,7 +281,10 @@ class VRealProductSerializer(serializers.ModelSerializer):
 class BBProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = BBProduct
-        fields = '__all__'
+        fields = [
+            'id', 'product_name', 'price', 'category',
+            'is_active', 'created_at', 'updated_at',
+        ]
 
 
 # ============================================================
@@ -250,7 +296,10 @@ class PangananMenuSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PangananMenu
-        fields = '__all__'
+        fields = [
+            'id', 'category', 'menu', 'price', 'is_active',
+            'created_at', 'updated_at', 'category_display',
+        ]
 
 
 # ============================================================
@@ -260,7 +309,10 @@ class PangananMenuSerializer(serializers.ModelSerializer):
 class KBItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = KBItem
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'price', 'is_active',
+            'created_at', 'updated_at',
+        ]
 
 
 # ============================================================
@@ -270,7 +322,10 @@ class KBItemSerializer(serializers.ModelSerializer):
 class AutoSpaServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = AutoSpaService
-        fields = '__all__'
+        fields = [
+            'id', 'service', 'price', 'is_active',
+            'created_at', 'updated_at',
+        ]
 
 
 # ============================================================
@@ -283,7 +338,12 @@ class TransactionItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TransactionItem
-        fields = '__all__'
+        fields = [
+            'id', 'transaction', 'item_type', 'catalog_source',
+            'product', 'service', 'description', 'price',
+            'quantity', 'discount', 'total',
+            'product_name', 'service_name',
+        ]
 
 
 # ============================================================
@@ -299,7 +359,19 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
-        fields = '__all__'
+        fields = [
+            'id', 'transaction_number', 'branch', 'customer', 'staff',
+            'transaction_type', 'subtotal', 'discount', 'total',
+            'amount_paid', 'change', 'status', 'notes',
+            'customer_tier_at_purchase', 'tier_discount_applied',
+            'points_earned', 'rewards_applied', 'created_at', 'updated_at',
+            'items', 'customer_name', 'staff_name', 'branch_name',
+            'rewards_applied_details',
+        ]
+        read_only_fields = [
+            'transaction_number', 'created_at', 'updated_at',
+            'points_earned',
+        ]
 
 
 # ============================================================
@@ -311,7 +383,11 @@ class DailySalesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DailySales
-        fields = '__all__'
+        fields = [
+            'id', 'branch', 'date', 'total_sales', 'total_expenses',
+            'total_void', 'transaction_count', 'created_at', 'updated_at',
+            'branch_name',
+        ]
 
 
 # ============================================================
@@ -326,7 +402,11 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Attendance
-        fields = '__all__'
+        fields = [
+            'id', 'user', 'branch', 'date', 'time_in', 'time_out',
+            'status', 'notes', 'created_at',
+            'user_name', 'full_name', 'branch_name', 'hours_worked',
+        ]
 
     def get_full_name(self, obj):
         full = f"{obj.user.first_name} {obj.user.last_name}".strip()
@@ -344,7 +424,11 @@ class CustomerFeedbackSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerFeedback
-        fields = '__all__'
+        fields = [
+            'id', 'customer', 'transaction', 'branch', 'staff',
+            'rating', 'comment', 'created_at',
+            'customer_name', 'staff_name', 'branch_name',
+        ]
 
 
 # ============================================================
@@ -358,7 +442,11 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Expense
-        fields = '__all__'
+        fields = [
+            'id', 'branch', 'category', 'description', 'amount',
+            'expense_date', 'receipt', 'recorded_by', 'created_at',
+            'branch_name', 'recorded_by_name', 'category_display',
+        ]
         read_only_fields = ['recorded_by']
 
 
@@ -372,4 +460,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AuditLog
-        fields = '__all__'
+        fields = [
+            'id', 'user', 'branch', 'action', 'model_name', 'object_id',
+            'description', 'ip_address', 'created_at',
+            'user_name', 'branch_name',
+        ]

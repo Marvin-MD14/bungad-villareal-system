@@ -58,8 +58,8 @@ class Command(BaseCommand):
             if is_category:
                 continue
             
-            # Try to parse as product and price
-            parts = re.split(r'\t+', line)
+            # Parse product and price (TAB separated)
+            parts = line.split('\t')
             if len(parts) >= 2:
                 product_name = parts[0].strip()
                 price_str = parts[1].strip()
@@ -72,7 +72,7 @@ class Command(BaseCommand):
                 except ValueError:
                     continue
                 
-                if not product_name or product_name.isupper():
+                if not product_name:
                     continue
                 
                 if product_name in category_map:

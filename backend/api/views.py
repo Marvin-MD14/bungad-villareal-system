@@ -1,36 +1,90 @@
 # backend/api/views.py
 
-from django.shortcuts import render
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.authtoken.models import Token
+import logging
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction as db_transaction
-from django.db.models import Sum, Count, Q, Avg
+from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
-from .models import *
-from .serializers import *
+
+from rest_framework import serializers as drf_serializers
+from rest_framework import status, viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
+
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+
+from .models import (
+    Attendance, AuditLog, AutoSpaService, BBProduct, Branch, BranchInventory,
+    ClientProfile, CustomerFeedback, CustomerReward, DailySales, Expense, KBItem,
+    PangananMenu, Product, RewardClaim, RoomTable, Transaction, TransactionItem,
+    UserProfile, VRealProduct, VSSService,
+)
 from .permissions import RoleBasedPermission
+from .serializers import (
+    AttendanceSerializer, AuditLogSerializer, AutoSpaServiceSerializer,
+    BBProductSerializer, BranchInventorySerializer,
+    BranchSerializer, ClientProfileSerializer, CustomerFeedbackSerializer,
+    CustomerRewardSerializer, DailySalesSerializer, ExpenseSerializer,
+    KBItemSerializer, PangananMenuSerializer, ProductSerializer,
+    RewardClaimSerializer, RoomTableSerializer, TransactionSerializer,
+    UserProfileSerializer, VRealProductSerializer, VSSServiceSerializer,
+)
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 
-def branch_scoped_queryset(queryset, request):
-    """Filter queryset based on the requesting user's branch scope."""
+def branch_scoped_queryset(queryset, request, branch_lookup='branch_id'):
+    """Filter a queryset to the requesting user's branch scope.
+
+    ``branch_lookup`` is the ORM lookup that maps a row to a branch. Models
+    without a direct ``branch`` field (for example ``Product``, which is
+    stocked per branch through ``BranchInventory``) pass an explicit lookup
+    such as ``branch_inventories__branch_id``.
+    """
     profile = getattr(request.user, 'profile', None)
     if profile and profile.role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'}:
         if not profile.branch_id:
             return queryset.none()
-        return queryset.filter(branch_id=profile.branch_id)
+        scoped = queryset.filter(**{branch_lookup: profile.branch_id})
+        if '__' in branch_lookup:
+            scoped = scoped.distinct()
+        return scoped
     return queryset
+
+
+def build_tier_payload(customer):
+    """Single source of truth for the customer loyalty payload.
+
+    Used by /clients/{id}/tier_info/, /customer-tier/by-customer/{id}/,
+    /customer-detection/detect/ and /notifications/customer_alerts/ so all
+    four endpoints always agree on shape and permissions.
+    """
+    return {
+        'customer_id': customer.id,
+        'customer_name': customer.full_name,
+        'loyalty_tier': customer.loyalty_tier,
+        'tier_display': customer.get_loyalty_tier_display(),
+        'discount_rate': customer.get_discount_rate(),
+        'total_spent': customer.total_spent,
+        'loyalty_points': customer.loyalty_points,
+        'free_items_available': customer.free_items_available,
+        'next_tier_info': customer.get_next_tier_info(),
+        'available_rewards': CustomerRewardSerializer(
+            customer.rewards.filter(status='AVAILABLE'), many=True
+        ).data,
+    }
 
 
 def get_user_branch(user):
@@ -65,8 +119,8 @@ class AuditLogMixin:
                 description=description or f"{action} on {self.__class__.__name__}",
                 ip_address=get_client_ip(self.request),
             )
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - auditing must never break the request
+            logger.exception('Failed to write audit log for %s on %s', action, instance)
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -87,8 +141,63 @@ class AuditLogMixin:
 # AUTHENTICATION
 # ============================================================
 
+class LoginThrottle(AnonRateThrottle):
+    rate = '10/minute'
+
+
+# ============================================================
+# OPENAPI SCHEMA HELPERS FOR AUTH ENDPOINTS
+# ============================================================
+
+class LoginRequestSerializer(drf_serializers.Serializer):
+    username = drf_serializers.CharField(help_text='Login username.')
+    password = drf_serializers.CharField(write_only=True, help_text='Login password.')
+
+
+class AuthUserSerializer(drf_serializers.Serializer):
+    id = drf_serializers.IntegerField()
+    username = drf_serializers.CharField()
+    role = drf_serializers.CharField()
+    role_code = drf_serializers.CharField()
+    branch = drf_serializers.DictField(allow_null=True)
+    services = drf_serializers.ListField(child=drf_serializers.CharField())
+    is_staff = drf_serializers.BooleanField()
+    is_superuser = drf_serializers.BooleanField()
+
+
+class LoginResponseSerializer(drf_serializers.Serializer):
+    token = drf_serializers.CharField()
+    user = AuthUserSerializer()
+
+
+class LogoutResponseSerializer(drf_serializers.Serializer):
+    detail = drf_serializers.CharField()
+
+
+_ERROR_RESPONSES = {
+    400: OpenApiResponse(description='Missing username or password.'),
+    401: OpenApiResponse(description='Invalid credentials.'),
+    429: OpenApiResponse(description='Too many login attempts. Try again later.'),
+}
+
+
+@extend_schema(
+    request=LoginRequestSerializer,
+    responses={
+        200: LoginResponseSerializer,
+        **_ERROR_RESPONSES,
+    },
+    auth=[{'TokenAuth': []}],
+    summary='Authenticate and obtain an API token',
+    description=(
+        'Verifies username/password and returns a DRF token plus profile data. '
+        'Rate limited to 10 requests per minute.'
+    ),
+    tags=['Auth'],
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([LoginThrottle])
 def login_view(request):
     username = request.data.get('username', '').strip()
     password = request.data.get('password', '')
@@ -118,8 +227,8 @@ def login_view(request):
             description=f"User {user.username} logged in",
             ip_address=get_client_ip(request),
         )
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - auditing must never break login
+        logger.exception('Failed to write LOGIN audit log for %s', user.username)
 
     if hasattr(user, 'profile'):
         profile = user.profile
@@ -148,6 +257,14 @@ def login_view(request):
     })
 
 
+@extend_schema(
+    request=None,
+    responses={200: LogoutResponseSerializer},
+    auth=[{'TokenAuth': []}],
+    summary='Revoke the current API token',
+    description='Deletes the caller\'s token and writes a LOGOUT audit entry.',
+    tags=['Auth'],
+)
 @api_view(['POST'])
 def logout_view(request):
     """Logout the current user and log the action."""
@@ -162,8 +279,8 @@ def logout_view(request):
             ip_address=get_client_ip(request),
         )
         request.user.auth_token.delete()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 - auditing must never break logout
+        logger.exception('Failed to complete logout for %s', request.user)
     return Response({'detail': 'Logged out successfully.'})
 
 
@@ -362,10 +479,17 @@ class ProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [RoleBasedPermission]
 
+    def get_queryset(self):
+        """Products are stocked per branch, so branch roles see what they stock."""
+        return branch_scoped_queryset(
+            super().get_queryset(),
+            self.request,
+            branch_lookup='branch_inventories__branch_id',
+        )
+
     @action(detail=False, methods=['get'])
     def low_stock(self, request):
-        products = Product.objects.filter(is_active=True)
-        low_stock = [p for p in products if p.is_low_stock]
+        low_stock = [p for p in self.get_queryset() if p.is_low_stock]
         serializer = self.get_serializer(low_stock, many=True)
         return Response(serializer.data)
 
@@ -373,7 +497,7 @@ class ProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
     def by_category(self, request):
         category = request.query_params.get('category')
         if category:
-            products = Product.objects.filter(category=category, is_active=True)
+            products = self.get_queryset().filter(category=category)
             serializer = self.get_serializer(products, many=True)
             return Response(serializer.data)
         return Response([])
@@ -395,7 +519,9 @@ class BranchInventoryViewSet(AuditLogMixin, viewsets.ModelViewSet):
     def by_branch(self, request):
         branch_id = request.query_params.get('branch_id')
         if branch_id:
-            inventory = BranchInventory.objects.filter(branch_id=branch_id)
+            # Scoped through self.get_queryset() so a branch user cannot read
+            # another branch's inventory by changing the query string.
+            inventory = self.get_queryset().filter(branch_id=branch_id)
             serializer = self.get_serializer(inventory, many=True)
             return Response(serializer.data)
         return Response([])
@@ -404,11 +530,19 @@ class BranchInventoryViewSet(AuditLogMixin, viewsets.ModelViewSet):
     def restock(self, request, pk=None):
         """Add stock to a branch inventory item."""
         inventory = self.get_object()
-        quantity = int(request.data.get('quantity', 0))
+        try:
+            quantity = int(request.data.get('quantity', 0))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Quantity must be a whole number.'}, status=status.HTTP_400_BAD_REQUEST)
         if quantity <= 0:
             return Response({'detail': 'Quantity must be positive.'}, status=status.HTTP_400_BAD_REQUEST)
         inventory.stock_qty += quantity
-        inventory.save()
+        inventory.save(update_fields=['stock_qty', 'last_updated'])
+        self._log_action(
+            'RESTOCK',
+            inventory,
+            f"Restocked {inventory.product.name} at {inventory.branch.name} by {quantity}",
+        )
         return Response(self.get_serializer(inventory).data)
 
 
@@ -422,7 +556,14 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
     permission_classes = [RoleBasedPermission]
 
     def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
+        """Clients are organization-wide.
+
+        ClientProfile has no branch ownership - a customer can transact at any
+        branch - so the branch scope for customer data lives on Transaction,
+        CustomerFeedback and CustomerReward. ``search``/``find_by_phone`` use
+        this same queryset so lookup endpoints cannot disagree with the list.
+        """
+        return super().get_queryset()
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -432,7 +573,7 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def search(self, request):
         query = request.query_params.get('q', '')
-        clients = ClientProfile.objects.filter(
+        clients = self.get_queryset().filter(
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query) |
             Q(phone_number__icontains=query) |
@@ -447,28 +588,30 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
         phone = request.query_params.get('phone', '').strip()
         if not phone:
             return Response({'detail': 'Phone number is required.'}, status=400)
-        try:
-            customer = ClientProfile.objects.get(phone_number=phone)
-            serializer = self.get_serializer(customer)
-            return Response(serializer.data)
-        except ClientProfile.DoesNotExist:
+        customers = self.get_queryset().filter(phone_number=phone)
+        if not customers.exists():
             return Response({'detail': 'Customer not found.'}, status=404)
-        except ClientProfile.MultipleObjectsReturned:
-            customers = ClientProfile.objects.filter(phone_number=phone)
-            serializer = self.get_serializer(customers, many=True)
+        if customers.count() == 1:
+            serializer = self.get_serializer(customers.first())
             return Response(serializer.data)
+        serializer = self.get_serializer(customers, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def transactions(self, request, pk=None):
         client = self.get_object()
-        transactions = Transaction.objects.filter(customer=client)
+        transactions = branch_scoped_queryset(
+            Transaction.objects.filter(customer=client), request
+        )
         serializer = TransactionSerializer(transactions, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def feedback(self, request, pk=None):
         client = self.get_object()
-        feedback = CustomerFeedback.objects.filter(customer=client)
+        feedback = branch_scoped_queryset(
+            CustomerFeedback.objects.filter(customer=client), request
+        )
         serializer = CustomerFeedbackSerializer(feedback, many=True)
         return Response(serializer.data)
 
@@ -482,22 +625,12 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def tier_info(self, request, pk=None):
-        """Return full tier info for a customer."""
-        customer = self.get_object()
-        return Response({
-            'customer_id': customer.id,
-            'customer_name': customer.full_name,
-            'loyalty_tier': customer.loyalty_tier,
-            'tier_display': customer.get_loyalty_tier_display(),
-            'discount_rate': customer.get_discount_rate(),
-            'total_spent': customer.total_spent,
-            'loyalty_points': customer.loyalty_points,
-            'free_items_available': customer.free_items_available,
-            'next_tier_info': customer.get_next_tier_info(),
-            'available_rewards': CustomerRewardSerializer(
-                customer.rewards.filter(status='AVAILABLE'), many=True
-            ).data,
-        })
+        """Return full tier info for a customer.
+
+        Shares ``build_tier_payload`` with /customer-tier/by-customer/<id>/ so
+        the two routes can never drift apart again.
+        """
+        return Response(build_tier_payload(self.get_object()))
 
 
 # ============================================================
@@ -528,7 +661,7 @@ class RoomTableViewSet(AuditLogMixin, viewsets.ModelViewSet):
     def check_in(self, request, pk=None):
         room = self.get_object()
         if room.is_occupied:
-            return Response({'error': 'Room is already occupied'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Room is already occupied.'}, status=status.HTTP_400_BAD_REQUEST)
 
         room.is_occupied = True
         room.start_time = timezone.now()
@@ -567,6 +700,17 @@ class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         return branch_scoped_queryset(super().get_queryset(), self.request)
+
+    def create(self, request, *args, **kwargs):
+        """Block raw transaction creation: sales must go through checkout.
+
+        POST /transactions/ would bypass stock validation, tier discounts and
+        loyalty accrual, so only /transactions/checkout/ may create a sale.
+        """
+        return Response(
+            {'detail': 'Use /transactions/checkout/ to record a sale.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     @action(detail=False, methods=['post'])
     def checkout(self, request):
@@ -810,6 +954,12 @@ class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
         except Exception as error:
             return Response({'detail': str(error)}, status=400)
 
+        self._log_action(
+            'VOID',
+            transaction,
+            f"Voided {transaction.transaction_number}"
+            + (f" - {reason}" if reason else ''),
+        )
         return Response(self.get_serializer(transaction).data)
 
     @action(detail=False, methods=['get'])
@@ -848,7 +998,7 @@ class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # CUSTOMER REWARD VIEWSET
 # ============================================================
 
-class CustomerRewardViewSet(viewsets.ModelViewSet):
+class CustomerRewardViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = CustomerReward.objects.all()
     serializer_class = CustomerRewardSerializer
     permission_classes = [RoleBasedPermission]
@@ -923,6 +1073,14 @@ class RewardClaimViewSet(viewsets.ReadOnlyModelViewSet):
 class CustomerTierViewSet(viewsets.ViewSet):
     permission_classes = [RoleBasedPermission]
 
+    @extend_schema(
+        responses={200: drf_serializers.DictField()},
+        parameters=[
+            OpenApiParameter(name='customer_id', type=int, location='path', required=True),
+        ],
+        summary='Loyalty tier for a customer',
+        tags=['Customer Detection'],
+    )
     @action(detail=False, methods=['get'], url_path='by-customer/(?P<customer_id>[^/.]+)')
     def by_customer(self, request, customer_id=None):
         try:
@@ -930,27 +1088,14 @@ class CustomerTierViewSet(viewsets.ViewSet):
         except ClientProfile.DoesNotExist:
             return Response({'detail': 'Customer not found.'}, status=404)
 
-        return Response({
-            'customer_id': customer.id,
-            'customer_name': customer.full_name,
-            'loyalty_tier': customer.loyalty_tier,
-            'tier_display': customer.get_loyalty_tier_display(),
-            'discount_rate': customer.get_discount_rate(),
-            'total_spent': customer.total_spent,
-            'loyalty_points': customer.loyalty_points,
-            'free_items_available': customer.free_items_available,
-            'next_tier_info': customer.get_next_tier_info(),
-            'available_rewards': CustomerRewardSerializer(
-                customer.rewards.filter(status='AVAILABLE'), many=True
-            ).data,
-        })
+        return Response(build_tier_payload(customer))
 
 
 # ============================================================
 # ATTENDANCE VIEWSET
 # ============================================================
 
-class AttendanceViewSet(viewsets.ModelViewSet):
+class AttendanceViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Attendance.objects.all()
     serializer_class = AttendanceSerializer
     permission_classes = [RoleBasedPermission]
@@ -1041,6 +1186,10 @@ class ExpenseViewSet(AuditLogMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         return branch_scoped_queryset(super().get_queryset(), self.request)
 
+    def perform_create(self, serializer):
+        instance = serializer.save(recorded_by=self.request.user)
+        self._log_action('CREATE', instance, f"Recorded expense: {instance.description} ({instance.amount})")
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         qs = self.get_queryset()
@@ -1052,6 +1201,21 @@ class ExpenseViewSet(AuditLogMixin, viewsets.ModelViewSet):
             'monthly': qs.filter(expense_date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0,
             'by_category': list(qs.values('category').annotate(total=Sum('amount'))),
         })
+
+
+# ============================================================
+# DAILY SALES VIEWSET (read-only report of the DailySales ledger)
+# ============================================================
+
+class DailySalesViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only view of the per-branch daily ledger updated on checkout/void."""
+
+    queryset = DailySales.objects.select_related('branch').all()
+    serializer_class = DailySalesSerializer
+    permission_classes = [RoleBasedPermission]
+
+    def get_queryset(self):
+        return branch_scoped_queryset(super().get_queryset(), self.request)
 
 
 # ============================================================
@@ -1080,13 +1244,21 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 class DashboardStatsViewSet(viewsets.ViewSet):
     permission_classes = [RoleBasedPermission]
 
+    @extend_schema(
+        responses={200: drf_serializers.DictField()},
+        summary='Dashboard KPI summary',
+        description='Rooms, stock, sales, expenses, ratings and top staff for the caller\'s scope.',
+        tags=['Dashboard'],
+    )
     @action(detail=False, methods=['get'])
     def summary(self, request):
         today = timezone.localdate()
         month_ago = today - timedelta(days=30)
 
         rooms = branch_scoped_queryset(RoomTable.objects.all(), request)
-        products = branch_scoped_queryset(Product.objects.all(), request)
+        products = branch_scoped_queryset(
+            Product.objects.all(), request, branch_lookup='branch_inventories__branch_id'
+        )
         transactions = branch_scoped_queryset(Transaction.objects.all(), request)
         expenses = branch_scoped_queryset(Expense.objects.all(), request)
         feedbacks = branch_scoped_queryset(CustomerFeedback.objects.all(), request)
@@ -1135,13 +1307,19 @@ class DashboardStatsViewSet(viewsets.ViewSet):
             'top_staff': top_staff,
         })
 
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Per-branch sales comparison',
+        description='Organization-wide sales stats grouped by active branch.',
+        tags=['Dashboard'],
+    )
     @action(detail=False, methods=['get'])
     def branch_comparison(self, request):
-        """Return sales stats per branch (Superadmin only)."""
-        profile = getattr(request.user, 'profile', None)
-        if profile and profile.role not in {'SUPERADMIN', 'OWNER'}:
-            return Response({'detail': 'Access denied.'}, status=403)
+        """Return sales stats per branch.
 
+        Organization-wide only: the role check lives in permissions.py
+        (DashboardStats:branch_comparison is denied for BRANCH_ADMIN).
+        """
         today = timezone.localdate()
         month_ago = today - timedelta(days=30)
 
@@ -1171,6 +1349,15 @@ class DashboardStatsViewSet(viewsets.ViewSet):
 class BranchCatalogViewSet(viewsets.ViewSet):
     permission_classes = [RoleBasedPermission]
 
+    @extend_schema(
+        responses={200: drf_serializers.DictField()},
+        parameters=[
+            OpenApiParameter(name='branch_id', type=int, location='path', required=True),
+        ],
+        summary='POS catalog for a branch',
+        description='Returns the VSS/VReal/BB catalog applicable to the given branch type.',
+        tags=['Branch Catalog'],
+    )
     @action(detail=False, methods=['get'], url_path='by-branch/(?P<branch_id>[^/.]+)')
     def by_branch(self, request, branch_id=None):
         try:
@@ -1217,6 +1404,13 @@ class BranchCatalogViewSet(viewsets.ViewSet):
 class CustomerDetectionViewSet(viewsets.ViewSet):
     permission_classes = [RoleBasedPermission]
 
+    @extend_schema(
+        request=drf_serializers.DictField(),
+        responses={200: drf_serializers.DictField()},
+        summary='Auto-detect returning customer',
+        description='Search by phone or name; returns matching customers with tier info and rewards.',
+        tags=['Customer Detection'],
+    )
     @action(detail=False, methods=['post'])
     def detect(self, request):
         """
@@ -1244,16 +1438,7 @@ class CustomerDetectionViewSet(viewsets.ViewSet):
         for customer in customers:
             results.append({
                 'customer': ClientProfileSerializer(customer).data,
-                'tier_info': {
-                    'loyalty_tier': customer.loyalty_tier,
-                    'discount_rate': customer.get_discount_rate(),
-                    'total_spent': customer.total_spent,
-                    'loyalty_points': customer.loyalty_points,
-                    'free_items_available': customer.free_items_available,
-                },
-                'available_rewards': CustomerRewardSerializer(
-                    customer.rewards.filter(status='AVAILABLE'), many=True
-                ).data,
+                'tier_info': build_tier_payload(customer),
             })
 
         return Response({
@@ -1270,6 +1455,12 @@ class CustomerDetectionViewSet(viewsets.ViewSet):
 class NotificationViewSet(viewsets.ViewSet):
     permission_classes = [RoleBasedPermission]
 
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Customer reward alerts for cashiers',
+        description='Lists customers with available rewards so cashiers can announce them.',
+        tags=['Notifications'],
+    )
     @action(detail=False, methods=['get'])
     def customer_alerts(self, request):
         """
@@ -1287,14 +1478,8 @@ class NotificationViewSet(viewsets.ViewSet):
         alerts = []
         for customer in customers_with_rewards:
             rewards = customer.rewards.filter(status='AVAILABLE')
-            alerts.append({
-                'customer_id': customer.id,
-                'customer_name': customer.full_name,
-                'loyalty_tier': customer.loyalty_tier,
-                'discount_rate': customer.get_discount_rate(),
-                'reward_count': rewards.count(),
-                'rewards': CustomerRewardSerializer(rewards, many=True).data,
-                'total_spent': customer.total_spent,
-            })
+            alert = build_tier_payload(customer)
+            alert['reward_count'] = rewards.count()
+            alerts.append(alert)
 
         return Response(alerts)

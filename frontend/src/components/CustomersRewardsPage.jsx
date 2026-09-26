@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  Users, Gift, TrendingUp, Loader2, Search, Crown,
+  Gift, Loader2, Search, Crown,
   Award, Star, Shield, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import CustomerTierBadge from './CustomerTierBadge';
@@ -62,7 +62,7 @@ export default function CustomersRewardsPage({ isDarkMode }) {
     try {
       const res = await api.get(`/customer-rewards/?customer_id=${customer.id}`);
       setCustomerRewards(records(res));
-    } catch (e) {
+    } catch {
       setCustomerRewards([]);
     }
   };

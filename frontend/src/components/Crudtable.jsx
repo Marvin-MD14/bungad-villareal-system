@@ -94,15 +94,15 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
         setFormData({});
         fetchData();
       } else {
-        const error = await res.json();
+        const errorData = await res.json();
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: error.message || 'Something went wrong',
+          text: errorData.message || 'Something went wrong',
           confirmButtonColor: '#0ea5e9',
         });
       }
-    } catch (error) {
+    } catch {
       Swal.fire({
         icon: 'error',
         title: 'Network Error',
@@ -140,7 +140,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
           showConfirmButton: false,
         });
         fetchData();
-      } catch (error) {
+      } catch {
         Swal.fire({
           icon: 'error',
           title: 'Error',

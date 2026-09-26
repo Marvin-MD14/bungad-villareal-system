@@ -200,3 +200,64 @@ class RolePermissionTests(TestCase):
 		response = self.client.get('/api/products/')
 
 		self.assertEqual(response.status_code, 401)
+
+	def test_client_profile_is_org_wide_accessible_to_cashier(self):
+		user = self.create_role_user('lookup-cashier', 'CASHIER')
+		from .models import ClientProfile
+		client = ClientProfile.objects.create(first_name='Maria', last_name='Santos')
+		self.client.force_authenticate(user=user)
+
+		response = self.client.get('/api/clients/')
+		self.assertEqual(response.status_code, 200)
+		results = response.data.get('results', response.data)
+		ids = [c['id'] for c in results]
+		self.assertIn(client.id, ids)
+
+	def test_transaction_direct_post_disallowed(self):
+		superadmin = self.create_role_user('direct-admin', 'SUPERADMIN')
+		UserProfile.objects.create(user=superadmin, role='SUPERADMIN')
+		self.client.force_authenticate(user=superadmin)
+
+		response = self.client.post('/api/transactions/', {}, format='json')
+		self.assertEqual(response.status_code, 405)
+
+	def test_void_restores_inventory_and_logs(self):
+		user = self.create_role_user('void-admin', 'SUPERADMIN')
+		UserProfile.objects.create(user=user, role='SUPERADMIN')
+		branch = Branch.objects.create(name='Void Branch')
+		product = Product.objects.create(
+			name='Void Product', category='SOAP',
+			purchase_price='50.00', selling_price='100.00'
+		)
+		inv = BranchInventory.objects.create(branch=branch, product=product, stock_qty=5)
+		self.client.force_authenticate(user=user)
+
+		checkout_res = self.client.post('/api/transactions/checkout/', {
+			'branch': branch.id,
+			'amount_paid': '100.00',
+			'items': [{'item_type': 'PRODUCT', 'product': product.id, 'quantity': 1}],
+		}, format='json')
+		self.assertEqual(checkout_res.status_code, 201)
+		inv.refresh_from_db()
+		self.assertEqual(inv.stock_qty, 4)
+
+		tx_id = checkout_res.data['id']
+		void_res = self.client.post(
+			f'/api/transactions/{tx_id}/void/',
+			{'reason': 'Customer returned item'},
+			format='json',
+		)
+		self.assertEqual(void_res.status_code, 200)
+		self.assertEqual(void_res.data['status'], 'VOIDED')
+		inv.refresh_from_db()
+		self.assertEqual(inv.stock_qty, 5)
+
+	def test_branch_admin_cannot_access_branch_comparison(self):
+		branch = Branch.objects.create(name='Comparison Branch')
+		user = self.create_role_user('comp-admin', 'BRANCH_ADMIN')
+		UserProfile.objects.create(user=user, role='BRANCH_ADMIN', branch=branch)
+		self.client.force_authenticate(user=user)
+
+		response = self.client.get('/api/dashboard/branch_comparison/')
+		self.assertEqual(response.status_code, 403)
+

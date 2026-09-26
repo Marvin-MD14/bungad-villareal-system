@@ -2,6 +2,11 @@
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 from .views import (
     # Auth
     login_view, logout_view,
@@ -25,6 +30,7 @@ from .views import (
     ExpenseViewSet,
     AuditLogViewSet,
     BranchCatalogViewSet,
+    DailySalesViewSet,
     # Loyalty & Rewards
     CustomerRewardViewSet,
     RewardClaimViewSet,
@@ -67,6 +73,11 @@ router.register(r'rooms', RoomTableViewSet)
 # TRANSACTION MANAGEMENT
 # ============================================================
 router.register(r'transactions', TransactionViewSet)
+
+# ============================================================
+# SALES REPORTING (per-branch daily ledger, read-only)
+# ============================================================
+router.register(r'daily-sales', DailySalesViewSet)
 
 # ============================================================
 # ATTENDANCE MANAGEMENT
@@ -115,6 +126,11 @@ router.register(r'dashboard', DashboardStatsViewSet, basename='dashboard')
 # URL PATTERNS
 # ============================================================
 urlpatterns = [
+    # OpenAPI Schema & Interactive Documentation
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
     # Authentication
     path('auth/login/', login_view, name='auth-login'),
     path('auth/logout/', logout_view, name='auth-logout'),

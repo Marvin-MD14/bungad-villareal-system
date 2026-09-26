@@ -35,6 +35,7 @@ class Branch(models.Model):
         return f"{self.name} ({self.get_branch_type_display()})"
 
     class Meta:
+        ordering = ['name']
         verbose_name = "Branch"
         verbose_name_plural = "Branches"
 
@@ -73,6 +74,11 @@ class UserProfile(models.Model):
         branch_name = self.branch.name if self.branch else 'All branches'
         return f"{self.user.username} - {self.get_role_display()} ({branch_name})"
 
+    class Meta:
+        ordering = ['user__username']
+        verbose_name = "User Profile"
+        verbose_name_plural = "User Profiles"
+
 
 # ============================================================
 # PRODUCT (Generic - for inventory tracking)
@@ -108,13 +114,18 @@ class Product(models.Model):
 
     @property
     def stock_quantity(self):
-        return self.branchinventory_set.aggregate(
+        return self.branch_inventories.aggregate(
             total=models.Sum('stock_qty')
         )['total'] or 0
 
     @property
     def is_low_stock(self):
         return self.stock_quantity <= self.min_stock
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Product"
+        verbose_name_plural = "Products"
 
 
 # ============================================================
@@ -129,6 +140,7 @@ class BranchInventory(models.Model):
 
     class Meta:
         unique_together = ('branch', 'product')
+        ordering = ['branch__name', 'product__name']
         verbose_name = "Branch Inventory"
         verbose_name_plural = "Branch Inventories"
 
@@ -190,6 +202,11 @@ class ClientProfile(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        ordering = ['last_name', 'first_name']
+        verbose_name = "Client Profile"
+        verbose_name_plural = "Client Profiles"
 
     @property
     def full_name(self):
@@ -274,6 +291,11 @@ class RoomTable(models.Model):
     service_type = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['branch__name', 'name']
+        verbose_name = "Room Table"
+        verbose_name_plural = "Room Tables"
 
     def __str__(self):
         return f"{self.branch.name} - {self.name}"
@@ -438,6 +460,7 @@ class KBItem(TimestampMixin):
         return self.name
 
     class Meta:
+        ordering = ['name']
         verbose_name = "KB Item"
         verbose_name_plural = "KB Items"
 
@@ -455,6 +478,7 @@ class AutoSpaService(TimestampMixin):
         return self.service
 
     class Meta:
+        ordering = ['service']
         verbose_name = "Auto Spa Service"
         verbose_name_plural = "Auto Spa Services"
 
@@ -471,6 +495,13 @@ class Transaction(models.Model):
         ('HOLD', 'Hold'),
     ]
 
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PAID', 'Paid'),
+        ('VOIDED', 'Voided'),
+        ('HELD', 'Held'),
+    ]
+
     transaction_number = models.CharField(max_length=50, unique=True)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default='SALE')
@@ -481,7 +512,7 @@ class Transaction(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     change = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    status = models.CharField(max_length=20, default='PENDING')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     notes = models.TextField(blank=True, null=True)
 
     # Loyalty & Rewards fields
@@ -537,6 +568,11 @@ class TransactionItem(models.Model):
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     total = models.DecimalField(max_digits=10, decimal_places=2)
 
+    class Meta:
+        ordering = ['transaction_id', 'id']
+        verbose_name = "Transaction Item"
+        verbose_name_plural = "Transaction Items"
+
     def __str__(self):
         return f"{self.transaction.transaction_number} - {self.description}"
 
@@ -558,6 +594,8 @@ class DailySales(models.Model):
     class Meta:
         unique_together = ('branch', 'date')
         ordering = ['-date']
+        verbose_name = "Daily Sales"
+        verbose_name_plural = "Daily Sales"
 
 
 # ============================================================

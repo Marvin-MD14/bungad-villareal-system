@@ -10,15 +10,30 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load local .env (copy of .env.example) if present. Existing process
+# environment variables always take precedence over the file.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / '.env', override=False)
+except ImportError:  # pragma: no cover - python-dotenv is optional in dev
+    pass
+
 
 # Quick-start development settings - unsuitable for production
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-b=9t37c_4uu4%1#6$tr5n12s4wl4(w2!86-8s0xxys7_r@(3n('
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-b=9t37c_4uu4%1#6$tr5n12s4wl4(w2!86-8s0xxys7_r@(3n('
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*']
+_allowed_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS')
+if _allowed_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['*'] if DEBUG else ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -32,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'drf_spectacular',
     'api',
 ]
 
@@ -128,7 +144,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ============ CORS CONFIGURATION ============
 # Para makapag-communicate ang React frontend sa Django backend
 
-CORS_ALLOW_ALL_ORIGINS = True
+_cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS')
+if _cors_origins:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -170,8 +191,29 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/minute',
+        'user': '1000/minute',
+        'login': '10/minute',
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# ============ SPECTACULAR (OPENAPI / SWAGGER) CONFIGURATION ============
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Bungad & Villareal Management System API',
+    'DESCRIPTION': 'Comprehensive REST API documentation for POS, Multi-Branch Inventory, Loyalty & Rewards, and Staff Management.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/',
 }
 
 
@@ -214,18 +256,22 @@ LOGGING = {
 }
 
 
-# ============ SECURITY SETTINGS (Development) ============
+# ============ SECURITY SETTINGS ============
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
-# CSRF Settings
-CSRF_COOKIE_SECURE = False
+# SSL / HTTPS and Cookie security (automatically enforced when not in DEBUG)
+SECURE_SSL_REDIRECT = not DEBUG and os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1', 'yes')
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# Session Settings
-SESSION_COOKIE_SECURE = False
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
+if not DEBUG:
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 31536000))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
