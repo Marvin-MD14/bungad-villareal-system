@@ -4,6 +4,11 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+from .company.models import Company
+from .business.models import BusinessType, Business
+from .access.models import UserAccess
+from .catalog.models import Category, Item, BusinessItem, InventoryLevel, StockMovement
+
 
 # ============================================================
 # BRANCH
@@ -17,7 +22,11 @@ class Branch(models.Model):
         ('MIXED', 'Mixed (VSS + VReal + BB)'),
     ]
 
-    name = models.CharField(max_length=100, unique=True)
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='branches'
+    )
+    code = models.CharField(max_length=20, blank=True)
+    name = models.CharField(max_length=100)
     branch_type = models.CharField(
         max_length=20,
         choices=BRANCH_TYPE_CHOICES,
@@ -62,10 +71,13 @@ class UserProfile(models.Model):
         blank=True,
         related_name='user_profiles',
     )
-    services = models.ManyToManyField(
-        'VSSService',
+    # NOTE: staff "services" now live on the unified catalog. The API keeps
+    # accepting/returning a `services` payload key, mapped onto `skills`.
+    skills = models.ManyToManyField(
+        'api.Item',
         blank=True,
-        related_name='staff_profiles',
+        related_name='skilled_staff',
+        help_text='Services this staff member can perform (unified catalog Items)',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -78,74 +90,6 @@ class UserProfile(models.Model):
         ordering = ['user__username']
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
-
-
-# ============================================================
-# PRODUCT (Generic - for inventory tracking)
-# ============================================================
-
-class Product(models.Model):
-    CATEGORY_CHOICES = [
-        ('DAY_CREAM', 'Realnew Day Cream'),
-        ('NIGHT_CREAM', 'Night Cream'),
-        ('NUTRIFIRM', 'Nutrifirm Gel'),
-        ('TONER', 'Realnew Toner'),
-        ('SOAP', 'Soap'),
-        ('SUNBLOCK', 'Sunblock/Sunscreen'),
-        ('MOISTURIZER', 'Moisturizer/Cream'),
-        ('SERUM', 'Serum'),
-        ('LOTION', 'Body Lotion'),
-        ('SET', 'Product Set'),
-        ('OTHERS', 'Other Cosmetics'),
-    ]
-
-    name = models.CharField(max_length=255, unique=True)
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
-    barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
-    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    min_stock = models.IntegerField(default=5)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def stock_quantity(self):
-        return self.branch_inventories.aggregate(
-            total=models.Sum('stock_qty')
-        )['total'] or 0
-
-    @property
-    def is_low_stock(self):
-        return self.stock_quantity <= self.min_stock
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = "Product"
-        verbose_name_plural = "Products"
-
-
-# ============================================================
-# BRANCH INVENTORY
-# ============================================================
-
-class BranchInventory(models.Model):
-    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='inventory_items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='branch_inventories')
-    stock_qty = models.IntegerField(default=0)
-    last_updated = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('branch', 'product')
-        ordering = ['branch__name', 'product__name']
-        verbose_name = "Branch Inventory"
-        verbose_name_plural = "Branch Inventories"
-
-    def __str__(self):
-        return f"{self.branch.name} - {self.product.name} ({self.stock_qty})"
 
 
 # ============================================================
@@ -205,6 +149,7 @@ class ClientProfile(models.Model):
 
     class Meta:
         ordering = ['last_name', 'first_name']
+        indexes = [models.Index(fields=['phone_number'])]
         verbose_name = "Client Profile"
         verbose_name_plural = "Client Profiles"
 
@@ -280,6 +225,9 @@ class RoomTable(models.Model):
         ('VIP', 'VIP Room'),
     ]
 
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='rooms'
+    )
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='rooms')
     name = models.CharField(max_length=100)
     room_type = models.CharField(max_length=50, choices=ROOM_TYPES, default='PEDICURE')
@@ -321,166 +269,14 @@ class TimestampMixin(models.Model):
 
 
 # ============================================================
-# VSS SERVICES
+# LEGACY PER-CATALOG TABLES REMOVED (Phase 5)
+# ------------------------------------------------------------
+# Product, BranchInventory, VSSService, VRealProduct, BBProduct,
+# PangananMenu, KBItem and AutoSpaService were collapsed into the
+# unified catalog (api/catalog/models.py: Category, Item,
+# BusinessItem, InventoryLevel, StockMovement) by migration 0009/0010.
+# The old URLs live on as read-only shims over Item.
 # ============================================================
-
-class VSSService(TimestampMixin):
-    CATEGORY_CHOICES = [
-        ('RADIO_FREQUENCY', 'Radio Frequency'),
-        ('SALON_SERVICES', 'Salon Services'),
-        ('HAND_FOOT_TREATMENT', 'Hand and Foot Treatment'),
-        ('FACIAL_TREATMENT', 'Facial Treatment'),
-        ('LASER_TREATMENT', 'Laser Treatment'),
-        ('BLEACHING_WHITENING', 'Instant Bleaching and Skin Whitening'),
-        ('HIFU_ULTERA', 'HIFU - Ultera'),
-        ('PICO_WAY', 'Pico Way'),
-        ('EYELASH_EXTENSIONS', 'Eyelash Extensions'),
-        ('GLYCOLIC_PEELING', 'Glycolic Peeling'),
-        ('SKIN_GROWTH_REMOVAL', 'Skin Growth Removal'),
-        ('WAXING', 'Waxing'),
-        ('MASSAGE', 'Massage'),
-        ('MICRODERMABRASION', 'Microdermabrasion'),
-        ('BODY_SCRUB', 'Body Scrub'),
-        ('AESTHETIC_TATTOO', 'Aesthetic Tattoo/Semi Permanent Tattoo'),
-        ('PROMO_PRICE', 'Promo Price'),
-        ('PERMANENT_HAIR_REMOVAL', 'Permanent Hair Removal'),
-        ('OTHER_SERVICES', 'Other Services'),
-    ]
-
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, blank=True, null=True)
-    description = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.description
-
-    class Meta:
-        verbose_name = "VSS Service"
-        verbose_name_plural = "VSS Services"
-        ordering = ['category', 'description']
-
-
-# ============================================================
-# VREAL PRODUCTS
-# ============================================================
-
-class VRealProduct(TimestampMixin):
-    CATEGORY_CHOICES = [
-        ('SOAP', 'Soap'),
-        ('FS_WASH', 'F/S Wash'),
-        ('TONER', 'Toner'),
-        ('NIGHT_CREAM', 'Night Cream'),
-        ('MOISTURIZER', 'Moisturizer'),
-        ('SUNBLOCK', 'Sunblock'),
-        ('SERUM', 'Serum'),
-        ('SET', 'Set'),
-        ('GLUTA', 'Glutathione'),
-        ('HAIR_CARE', 'Hair Care'),
-        ('LOTION', 'Lotion'),
-        ('OTHERS', 'Others'),
-        ('SALON_PRODUCTS', 'Salon Products'),
-    ]
-
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, blank=True, null=True)
-    product = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    size = models.CharField(max_length=50, blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.product
-
-    class Meta:
-        verbose_name = "VReal Product"
-        verbose_name_plural = "VReal Products"
-        ordering = ['category', 'product']
-
-
-# ============================================================
-# BB PRODUCTS
-# ============================================================
-
-class BBProduct(TimestampMixin):
-    product_name = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    category = models.CharField(max_length=100, blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.product_name
-
-    class Meta:
-        verbose_name = "BB Product"
-        verbose_name_plural = "BB Products"
-        ordering = ['product_name']
-
-
-# ============================================================
-# PANGANAN MENU
-# ============================================================
-
-class PangananMenu(TimestampMixin):
-    CATEGORY_CHOICES = [
-        ('BURGER', 'Burgers'),
-        ('SILOG', 'Silog Meals'),
-        ('SIZZLING', 'Sizzling'),
-        ('WINGS', 'Chicken Wings'),
-        ('BOWL', 'Rice Bowls'),
-        ('VEGETABLE', 'Vegetable'),
-        ('MERIENDA', 'Merienda'),
-        ('BEVERAGE', 'Beverages'),
-        ('OTHERS', 'Others'),
-    ]
-
-    menu = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='OTHERS')
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.menu
-
-    class Meta:
-        verbose_name = "Panganan Menu"
-        verbose_name_plural = "Panganan Menus"
-        ordering = ['category', 'menu']
-
-
-# ============================================================
-# KB ITEM
-# ============================================================
-
-class KBItem(TimestampMixin):
-    name = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = "KB Item"
-        verbose_name_plural = "KB Items"
-
-
-# ============================================================
-# AUTO SPA SERVICE
-# ============================================================
-
-class AutoSpaService(TimestampMixin):
-    service = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.service
-
-    class Meta:
-        ordering = ['service']
-        verbose_name = "Auto Spa Service"
-        verbose_name_plural = "Auto Spa Services"
 
 
 # ============================================================
@@ -502,6 +298,10 @@ class Transaction(models.Model):
         ('HELD', 'Held'),
     ]
 
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='transactions'
+    )
+    idempotency_key = models.CharField(max_length=128, unique=True, null=True, blank=True)
     transaction_number = models.CharField(max_length=50, unique=True)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default='SALE')
@@ -553,8 +353,7 @@ class TransactionItem(models.Model):
     ]
 
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
-    service = models.ForeignKey(VSSService, on_delete=models.SET_NULL, null=True, blank=True)
+    item = models.ForeignKey('api.Item', on_delete=models.PROTECT, null=True, blank=True, related_name='transaction_items')
     catalog_source = models.CharField(
         max_length=20,
         choices=CATALOG_SOURCE_CHOICES,
@@ -582,6 +381,9 @@ class TransactionItem(models.Model):
 # ============================================================
 
 class DailySales(models.Model):
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='daily_sales'
+    )
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
     date = models.DateField()
     total_sales = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
@@ -610,6 +412,9 @@ class Attendance(models.Model):
         ('HALF_DAY', 'Half Day'),
     ]
 
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='attendance_records'
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='attendance_records')
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='attendance_records')
     date = models.DateField()
@@ -620,7 +425,7 @@ class Attendance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'date')
+        unique_together = ('user', 'branch', 'date')
         ordering = ['-date']
         verbose_name = "Attendance"
         verbose_name_plural = "Attendance Records"
@@ -656,6 +461,9 @@ class CustomerFeedback(models.Model):
         related_name='feedbacks_received'
     )
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='feedbacks')
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='feedbacks'
+    )
     rating = models.IntegerField(choices=RATING_CHOICES, default=5)
     comment = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -683,6 +491,9 @@ class Expense(models.Model):
         ('OTHERS', 'Others'),
     ]
 
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='expenses'
+    )
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='expenses')
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     description = models.CharField(max_length=255)
@@ -723,6 +534,10 @@ class AuditLog(models.Model):
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='audit_logs'
     )
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='audit_logs'
+    )
     branch = models.ForeignKey(
         Branch, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='audit_logs'
@@ -732,6 +547,8 @@ class AuditLog(models.Model):
     object_id = models.CharField(max_length=50, blank=True, null=True)
     description = models.TextField()
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+    request_id = models.CharField(max_length=64, blank=True, null=True)
+    user_agent = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

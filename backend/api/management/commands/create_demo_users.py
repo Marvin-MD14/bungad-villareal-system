@@ -1,6 +1,6 @@
 from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
-from api.models import Branch, UserProfile
+from api.models import Branch, UserProfile, UserAccess, Business
 
 
 DEMO_USERS = [
@@ -8,6 +8,7 @@ DEMO_USERS = [
         'username': 'demo_superadmin',
         'password': 'DemoSuperadmin!2026',
         'role': 'SUPERADMIN',
+        'access_role': 'OWNER',
         'is_staff': True,
         'is_superuser': True,
     },
@@ -15,6 +16,7 @@ DEMO_USERS = [
         'username': 'demo_owner',
         'password': 'DemoOwner!2026',
         'role': 'OWNER',
+        'access_role': 'OWNER',
         'is_staff': True,
         'is_superuser': False,
     },
@@ -22,6 +24,7 @@ DEMO_USERS = [
         'username': 'demo_branch_admin',
         'password': 'DemoBranchAdmin!2026',
         'role': 'BRANCH_ADMIN',
+        'access_role': 'BUSINESS_MANAGER',
         'is_staff': True,
         'is_superuser': False,
     },
@@ -29,6 +32,7 @@ DEMO_USERS = [
         'username': 'demo_cashier',
         'password': 'DemoCashier!2026',
         'role': 'CASHIER',
+        'access_role': 'CASHIER',
         'is_staff': False,
         'is_superuser': False,
     },
@@ -36,6 +40,7 @@ DEMO_USERS = [
         'username': 'demo_staff',
         'password': 'DemoStaff!2026',
         'role': 'STAFF',
+        'access_role': 'STAFF',
         'is_staff': False,
         'is_superuser': False,
     },
@@ -43,12 +48,21 @@ DEMO_USERS = [
 
 
 class Command(BaseCommand):
-    help = 'Create or update local demo accounts for each application role.'
+    help = 'Create or update local demo accounts for each application role with UserAccess grants.'
 
     def handle(self, *args, **options):
-        branch, _ = Branch.objects.get_or_create(name='Demo Branch')
+        primary_biz = Business.objects.filter(slug='vss').first()
+        branch, _ = Branch.objects.get_or_create(
+            name='Demo Branch',
+            defaults={'business': primary_biz}
+        )
+        if branch.business is None and primary_biz:
+            branch.business = primary_biz
+            branch.save()
+
         for demo_user in DEMO_USERS:
             role = demo_user['role']
+            access_role = demo_user['access_role']
             group, _ = Group.objects.get_or_create(name=role)
             user, created = User.objects.get_or_create(
                 username=demo_user['username'],
@@ -70,9 +84,21 @@ class Command(BaseCommand):
             profile.branch = branch if role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'} else None
             profile.save()
 
+            # Ensure UserAccess grant
+            is_company = access_role in UserAccess.COMPANY_ROLES
+            target_biz = None if is_company else (branch.business or primary_biz)
+            user_access, _ = UserAccess.objects.get_or_create(
+                user=user,
+                role=access_role,
+                business=target_biz,
+                defaults={'is_primary': True, 'is_active': True}
+            )
+            if not is_company and branch:
+                user_access.branches.add(branch)
+
             action = 'Created' if created else 'Updated'
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"{action} {role}: {demo_user['username']} / {demo_user['password']}"
+                    f"{action} {role} ({access_role}): {demo_user['username']} / {demo_user['password']}"
                 )
             )

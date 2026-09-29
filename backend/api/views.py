@@ -16,17 +16,23 @@ from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 from .models import (
-    Attendance, AuditLog, AutoSpaService, BBProduct, Branch, BranchInventory,
-    ClientProfile, CustomerFeedback, CustomerReward, DailySales, Expense, KBItem,
-    PangananMenu, Product, RewardClaim, RoomTable, Transaction, TransactionItem,
-    UserProfile, VRealProduct, VSSService,
+    Attendance, AuditLog, Branch,
+    ClientProfile, CustomerFeedback, CustomerReward, DailySales, Expense,
+    RewardClaim, RoomTable, Transaction,
+    UserProfile,
 )
+from .catalog.models import BusinessItem, Category, InventoryLevel, Item
+from .business.models import Business
+from .sales.services import checkout as sales_checkout, receive_stock, void_sale
+from .access.models import UserAccess
+from .access.scoping import ScopedQuerysetMixin, auto_scope
 from .permissions import RoleBasedPermission
 from .serializers import (
     AttendanceSerializer, AuditLogSerializer, AutoSpaServiceSerializer,
@@ -44,25 +50,9 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
-
-def branch_scoped_queryset(queryset, request, branch_lookup='branch_id'):
-    """Filter a queryset to the requesting user's branch scope.
-
-    ``branch_lookup`` is the ORM lookup that maps a row to a branch. Models
-    without a direct ``branch`` field (for example ``Product``, which is
-    stocked per branch through ``BranchInventory``) pass an explicit lookup
-    such as ``branch_inventories__branch_id``.
-    """
-    profile = getattr(request.user, 'profile', None)
-    if profile and profile.role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'}:
-        if not profile.branch_id:
-            return queryset.none()
-        scoped = queryset.filter(**{branch_lookup: profile.branch_id})
-        if '__' in branch_lookup:
-            scoped = scoped.distinct()
-        return scoped
-    return queryset
-
+# NOTE: manual branch_scoped_queryset() is gone — scoping is now automatic
+# via api.access.scoping.ScopedQuerysetMixin / auto_scope(), driven by the
+# UserAccess grant resolved once per request by BusinessMiddleware.
 
 def build_tier_payload(customer):
     """Single source of truth for the customer loyalty payload.
@@ -113,6 +103,7 @@ class AuditLogMixin:
             AuditLog.objects.create(
                 user=self.request.user if self.request.user.is_authenticated else None,
                 branch=get_user_branch(self.request.user),
+                business=getattr(self.request, 'business', None),
                 action=action,
                 model_name=self.__class__.__name__.replace('ViewSet', ''),
                 object_id=str(getattr(instance, 'id', '')),
@@ -165,9 +156,19 @@ class AuthUserSerializer(drf_serializers.Serializer):
     is_superuser = drf_serializers.BooleanField()
 
 
+class BusinessChoiceSerializer(drf_serializers.Serializer):
+    id = drf_serializers.IntegerField()
+    name = drf_serializers.CharField()
+    slug = drf_serializers.CharField()
+    type = drf_serializers.CharField(allow_null=True)
+    type_name = drf_serializers.CharField(allow_null=True)
+
+
 class LoginResponseSerializer(drf_serializers.Serializer):
     token = drf_serializers.CharField()
     user = AuthUserSerializer()
+    businesses = BusinessChoiceSerializer(many=True)
+    primary_business = drf_serializers.DictField(allow_null=True)
 
 
 class LogoutResponseSerializer(drf_serializers.Serializer):
@@ -234,13 +235,37 @@ def login_view(request):
         profile = user.profile
         role = profile.get_role_display()
         branch = profile.branch
-        services = list(profile.services.values_list('description', flat=True))
+        services = list(profile.skills.values_list('name', flat=True))
     else:
         role = user.groups.values_list('name', flat=True).first()
         if not role:
             role = 'Superadmin' if user.is_superuser else 'Owner' if user.is_staff else 'Staff'
         branch = None
         services = []
+
+    # Businesses this account may open (business switcher in the UI).
+    grants = UserAccess.objects.filter(user=user, is_active=True).select_related('business')
+    company_grant = grants.filter(business__isnull=True).first()
+    if user.is_superuser or company_grant is not None:
+        businesses_qs = Business.objects.filter(is_active=True)
+        primary_grant = grants.filter(is_primary=True).select_related('business').first()
+        primary_business = primary_grant.business if primary_grant and primary_grant.business else businesses_qs.first()
+    else:
+        granted_ids = [g.business_id for g in grants if g.business_id]
+        businesses_qs = Business.objects.filter(id__in=granted_ids, is_active=True)
+        primary_grant = grants.filter(is_primary=True, business__isnull=False).first()
+        primary_business = primary_grant.business if primary_grant else businesses_qs.first()
+
+    businesses = [
+        {
+            'id': b.id,
+            'name': b.name,
+            'slug': b.slug,
+            'type': b.business_type.code if b.business_type_id else None,
+            'type_name': b.business_type.name if b.business_type_id else None,
+        }
+        for b in businesses_qs.select_related('business_type')
+    ]
 
     return Response({
         'token': token.key,
@@ -254,6 +279,15 @@ def login_view(request):
             'is_staff': user.is_staff,
             'is_superuser': user.is_superuser,
         },
+        'businesses': businesses,
+        'primary_business': (
+            {
+                'id': primary_business.id,
+                'name': primary_business.name,
+                'slug': primary_business.slug,
+            }
+            if primary_business else None
+        ),
     })
 
 
@@ -285,11 +319,31 @@ def logout_view(request):
 
 
 # ============================================================
+# LEGACY CATALOG VIEWSHIMS (read-only, backed by the unified catalog)
+# ------------------------------------------------------------
+# These keep the old class names, URLs, actions and payload shapes so
+# ROLE_ACTIONS and the current frontend keep working unchanged, while
+# every row is now served from ``Item`` / ``BusinessItem``.
+# ============================================================
+
+def business_catalog_queryset(slug, item_type=None):
+    """Active items a business sells, via its ``BusinessItem`` link."""
+    qs = Item.objects.select_related('category').filter(
+        business_entries__business__slug=slug,
+        business_entries__is_available=True,
+        is_active=True,
+    )
+    if item_type:
+        qs = qs.filter(item_type=item_type)
+    return qs
+
+
+# ============================================================
 # VSS SERVICES VIEWSET
 # ============================================================
 
-class VSSServiceViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = VSSService.objects.filter(is_active=True).order_by('category', 'description')
+class VSSServiceViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = business_catalog_queryset('vss', 'SERVICE').order_by('category__name', 'name')
     serializer_class = VSSServiceSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -301,14 +355,15 @@ class VSSServiceViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def categories(self, request):
-        categories = VSSService.objects.filter(is_active=True).values_list('category', flat=True).distinct()
+        categories = self.get_queryset().values_list('category__name', flat=True).distinct()
         return Response([c for c in categories if c])
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        total = VSSService.objects.filter(is_active=True).count()
-        categories = VSSService.objects.filter(is_active=True).values('category').distinct().count()
-        total_price = VSSService.objects.filter(is_active=True).aggregate(total=Sum('price'))['total'] or 0
+        qs = self.get_queryset()
+        total = qs.count()
+        categories = qs.values('category_id').distinct().count()
+        total_price = qs.aggregate(total=Sum('selling_price'))['total'] or 0
         return Response({
             'total_services': total,
             'total_categories': categories,
@@ -320,8 +375,8 @@ class VSSServiceViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # VREAL PRODUCTS VIEWSET
 # ============================================================
 
-class VRealProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = VRealProduct.objects.filter(is_active=True).order_by('category', 'product')
+class VRealProductViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = business_catalog_queryset('vreal', 'PRODUCT').order_by('category__name', 'name')
     serializer_class = VRealProductSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -333,14 +388,15 @@ class VRealProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def categories(self, request):
-        categories = VRealProduct.objects.filter(is_active=True).values_list('category', flat=True).distinct()
+        categories = self.get_queryset().values_list('category__name', flat=True).distinct()
         return Response([c for c in categories if c])
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        total = VRealProduct.objects.filter(is_active=True).count()
-        categories = VRealProduct.objects.filter(is_active=True).values('category').distinct().count()
-        total_price = VRealProduct.objects.filter(is_active=True).aggregate(total=Sum('price'))['total'] or 0
+        qs = self.get_queryset()
+        total = qs.count()
+        categories = qs.values('category_id').distinct().count()
+        total_price = qs.aggregate(total=Sum('selling_price'))['total'] or 0
         return Response({
             'total_products': total,
             'total_categories': categories,
@@ -352,8 +408,8 @@ class VRealProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # BB PRODUCTS VIEWSET
 # ============================================================
 
-class BBProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = BBProduct.objects.filter(is_active=True).order_by('-updated_at')
+class BBProductViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = business_catalog_queryset('bb', 'PRODUCT').order_by('-updated_at')
     serializer_class = BBProductSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -362,14 +418,14 @@ class BBProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # PANGANAN MENU VIEWSET
 # ============================================================
 
-class PangananMenuViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = PangananMenu.objects.filter(is_active=True).order_by('-updated_at')
+class PangananMenuViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = business_catalog_queryset('panganan', 'PRODUCT').order_by('-updated_at')
     serializer_class = PangananMenuSerializer
     permission_classes = [RoleBasedPermission]
 
     @action(detail=False, methods=['get'])
     def categories(self, request):
-        categories = PangananMenu.objects.values_list('category', flat=True).distinct()
+        categories = self.get_queryset().values_list('category__name', flat=True).distinct()
         return Response([c for c in categories if c])
 
 
@@ -377,8 +433,8 @@ class PangananMenuViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # KB ITEM VIEWSET
 # ============================================================
 
-class KBItemViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = KBItem.objects.filter(is_active=True)
+class KBItemViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = business_catalog_queryset('kb', 'PRODUCT').order_by('name')
     serializer_class = KBItemSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -387,8 +443,8 @@ class KBItemViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # AUTO SPA SERVICE VIEWSET
 # ============================================================
 
-class AutoSpaServiceViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = AutoSpaService.objects.filter(is_active=True)
+class AutoSpaServiceViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = business_catalog_queryset('autospa', 'SERVICE').order_by('name')
     serializer_class = AutoSpaServiceSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -397,13 +453,10 @@ class AutoSpaServiceViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # USER PROFILE VIEWSET
 # ============================================================
 
-class UserProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = UserProfile.objects.select_related('user', 'branch').prefetch_related('services').all()
+class UserProfileViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
+    queryset = UserProfile.objects.select_related('user', 'branch').prefetch_related('skills').all()
     serializer_class = UserProfileSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -418,16 +471,11 @@ class UserProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # BRANCH VIEWSET
 # ============================================================
 
-class BranchViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class BranchViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = Branch.objects.filter(is_active=True)
     serializer_class = BranchSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        profile = getattr(self.request.user, 'profile', None)
-        if profile and profile.role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'}:
-            return super().get_queryset().filter(pk=profile.branch_id)
-        return super().get_queryset()
+    branch_lookup = 'pk'  # a Branch row *is* the branch
 
     @action(detail=True, methods=['get'])
     def staffing(self, request, pk=None):
@@ -474,46 +522,46 @@ class BranchViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # PRODUCT VIEWSET
 # ============================================================
 
-class ProductViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Product.objects.filter(is_active=True)
+class ProductViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
+    """Read-only /products/ shim over ``Item(item_type='PRODUCT')``."""
+
+    queryset = Item.objects.select_related('category').filter(item_type='PRODUCT', is_active=True)
     serializer_class = ProductSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        """Products are stocked per branch, so branch roles see what they stock."""
-        return branch_scoped_queryset(
-            super().get_queryset(),
-            self.request,
-            branch_lookup='branch_inventories__branch_id',
-        )
+    branch_lookup = 'inventory_levels__branch_id'  # products are stocked per branch
 
     @action(detail=False, methods=['get'])
     def low_stock(self, request):
-        low_stock = [p for p in self.get_queryset() if p.is_low_stock]
-        serializer = self.get_serializer(low_stock, many=True)
+        serializer = self.get_serializer(self.get_low_stock_items(), many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def by_category(self, request):
         category = request.query_params.get('category')
         if category:
-            products = self.get_queryset().filter(category=category)
+            products = self.get_queryset().filter(
+                Q(category_id=category) | Q(category__name__iexact=category)
+            )
             serializer = self.get_serializer(products, many=True)
             return Response(serializer.data)
         return Response([])
 
+    def get_low_stock_items(self):
+        """Products whose stock (across the caller's scope) is at/below min_stock."""
+        stock_by_item = {}
+        for level in auto_scope(InventoryLevel.objects.all(), self.request):
+            stock_by_item[level.item_id] = stock_by_item.get(level.item_id, 0) + level.stock_qty
+        return [p for p in self.get_queryset() if stock_by_item.get(p.id, 0) <= p.min_stock]
+
 
 # ============================================================
-# BRANCH INVENTORY VIEWSET
+# BRANCH INVENTORY VIEWSET (read-only shim over InventoryLevel)
 # ============================================================
 
-class BranchInventoryViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = BranchInventory.objects.all()
+class BranchInventoryViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ReadOnlyModelViewSet):
+    queryset = InventoryLevel.objects.select_related('branch', 'item').all()
     serializer_class = BranchInventorySerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     @action(detail=False, methods=['get'])
     def by_branch(self, request):
@@ -528,7 +576,7 @@ class BranchInventoryViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restock(self, request, pk=None):
-        """Add stock to a branch inventory item."""
+        """Add stock to a branch inventory item (ledgered ``StockMovement``)."""
         inventory = self.get_object()
         try:
             quantity = int(request.data.get('quantity', 0))
@@ -536,12 +584,18 @@ class BranchInventoryViewSet(AuditLogMixin, viewsets.ModelViewSet):
             return Response({'detail': 'Quantity must be a whole number.'}, status=status.HTTP_400_BAD_REQUEST)
         if quantity <= 0:
             return Response({'detail': 'Quantity must be positive.'}, status=status.HTTP_400_BAD_REQUEST)
-        inventory.stock_qty += quantity
-        inventory.save(update_fields=['stock_qty', 'last_updated'])
+        receive_stock(
+            branch=inventory.branch,
+            item=inventory.item,
+            quantity=quantity,
+            reference=str(request.data.get('reference', '')),
+            user=request.user,
+        )
+        inventory.refresh_from_db()
         self._log_action(
             'RESTOCK',
             inventory,
-            f"Restocked {inventory.product.name} at {inventory.branch.name} by {quantity}",
+            f"Restocked {inventory.item.name} at {inventory.branch.name} by {quantity}",
         )
         return Response(self.get_serializer(inventory).data)
 
@@ -600,7 +654,7 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def transactions(self, request, pk=None):
         client = self.get_object()
-        transactions = branch_scoped_queryset(
+        transactions = auto_scope(
             Transaction.objects.filter(customer=client), request
         )
         serializer = TransactionSerializer(transactions, many=True)
@@ -609,7 +663,7 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def feedback(self, request, pk=None):
         client = self.get_object()
-        feedback = branch_scoped_queryset(
+        feedback = auto_scope(
             CustomerFeedback.objects.filter(customer=client), request
         )
         serializer = CustomerFeedbackSerializer(feedback, many=True)
@@ -637,13 +691,10 @@ class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # ROOM TABLE VIEWSET
 # ============================================================
 
-class RoomTableViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class RoomTableViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = RoomTable.objects.all()
     serializer_class = RoomTableSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     @action(detail=False, methods=['get'])
     def available(self, request):
@@ -693,13 +744,10 @@ class RoomTableViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # TRANSACTION VIEWSET (with Loyalty & Rewards)
 # ============================================================
 
-class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     def create(self, request, *args, **kwargs):
         """Block raw transaction creation: sales must go through checkout.
@@ -714,6 +762,7 @@ class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def checkout(self, request):
+        """Record a sale through the unified sales service (atomic + idempotent)."""
         branch_id = request.data.get('branch')
         items = request.data.get('items', [])
         customer_id = request.data.get('customer')
@@ -747,169 +796,47 @@ class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
         if profile and profile.role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'} and profile.branch_id != branch.id:
             return Response({'detail': 'You can only transact for your assigned branch.'}, status=403)
 
-        try:
-            with db_transaction.atomic():
-                prepared_items = []
-                subtotal = Decimal('0')
-
-                for submitted_item in items:
-                    item_type = submitted_item.get('item_type', '').upper()
-                    quantity = int(submitted_item.get('quantity', 0))
-                    if quantity < 1 or item_type not in {'PRODUCT', 'SERVICE'}:
-                        raise ValueError('Each item needs a valid type and quantity.')
-
-                    if item_type == 'PRODUCT':
-                        product = Product.objects.get(pk=submitted_item.get('product'), is_active=True)
-                        inventory = BranchInventory.objects.select_for_update().get(branch=branch, product=product)
-                        if inventory.stock_qty < quantity:
-                            raise ValueError(f'Insufficient stock for {product.name}.')
-                        description = product.name
-                        price = product.selling_price
-                    else:
-                        service = VSSService.objects.get(pk=submitted_item.get('service'), is_active=True)
-                        inventory = None
-                        description = service.description
-                        price = service.price
-
-                    line_total = price * quantity
-                    subtotal += line_total
-                    prepared_items.append({
-                        'item_type': item_type,
-                        'product': product if item_type == 'PRODUCT' else None,
-                        'service': service if item_type == 'SERVICE' else None,
-                        'description': description,
-                        'price': price,
-                        'quantity': quantity,
-                        'total': line_total,
-                        'inventory': inventory,
-                    })
-
-                # Tier discount
-                tier_discount_amount = Decimal('0')
-                tier_at_purchase = None
-                if customer and apply_tier_discount:
-                    tier_at_purchase = customer.loyalty_tier
-                    discount_rate = Decimal(str(customer.get_discount_rate())) / Decimal('100')
-                    tier_discount_amount = (subtotal * discount_rate).quantize(Decimal('0.01'))
-
-                # Reward discounts
-                reward_discount = Decimal('0')
-                claimed_rewards = []
-                if reward_ids and customer:
-                    for rid in reward_ids:
-                        try:
-                            r = CustomerReward.objects.select_for_update().get(pk=rid, customer=customer, status='AVAILABLE')
-                            if r.reward_type == 'DISCOUNT':
-                                if r.discount_percent > 0:
-                                    reward_discount += (subtotal * (r.discount_percent / Decimal('100'))).quantize(Decimal('0.01'))
-                                else:
-                                    reward_discount += r.value
-                            r.status = 'CLAIMED'
-                            r.claimed_at = timezone.now()
-                            r.save()
-                            claimed_rewards.append(r)
-                        except CustomerReward.DoesNotExist:
-                            pass
-
-                total_discount = discount + tier_discount_amount + reward_discount
-                total = max(Decimal('0'), subtotal - total_discount)
-                if amount_paid < total:
-                    raise ValueError('Payment is less than the transaction total.')
-
-                # Points earned (1 per ₱100)
-                points_earned = (total / Decimal('100')).quantize(Decimal('0.01')) if customer else Decimal('0')
-
-                transaction_record = Transaction.objects.create(
-                    transaction_number=f"TXN-{timezone.now():%Y%m%d}-{uuid4().hex[:8].upper()}",
-                    branch=branch,
-                    transaction_type='SALE',
-                    customer=customer,
-                    staff=request.user,
-                    subtotal=subtotal,
-                    discount=total_discount,
-                    total=total,
-                    amount_paid=amount_paid,
-                    change=amount_paid - total,
-                    status='PAID',
-                    notes=request.data.get('notes', ''),
-                    customer_tier_at_purchase=tier_at_purchase,
-                    tier_discount_applied=tier_discount_amount,
-                    points_earned=points_earned,
+        # Normalise line items: legacy keys `product` / `service` and the new
+        # `item` key all carry a unified catalog Item id.
+        prepared_items = []
+        for submitted_item in items:
+            item_type = str(submitted_item.get('item_type', '')).upper()
+            quantity = int(submitted_item.get('quantity', 0) or 0)
+            item_id = (
+                submitted_item.get('item')
+                or submitted_item.get('item_id')
+                or submitted_item.get('product')
+                or submitted_item.get('service')
+            )
+            if quantity < 1 or item_type not in {'PRODUCT', 'SERVICE'} or not item_id:
+                return Response(
+                    {'detail': 'Each item needs a valid type, id and quantity.'},
+                    status=400,
                 )
+            prepared_items.append({'item': item_id, 'quantity': quantity})
 
-                # Link claimed rewards
-                for r in claimed_rewards:
-                    r.claimed_in_transaction = transaction_record
-                    r.save()
-                    transaction_record.rewards_applied.add(r)
-                    RewardClaim.objects.create(
-                        reward=r,
-                        transaction=transaction_record,
-                        claimed_by=request.user,
-                        amount_applied=r.value,
-                    )
-
-                for item in prepared_items:
-                    TransactionItem.objects.create(
-                        transaction=transaction_record,
-                        product=item['product'],
-                        service=item['service'],
-                        item_type=item['item_type'],
-                        description=item['description'],
-                        price=item['price'],
-                        quantity=item['quantity'],
-                        total=item['total'],
-                    )
-                    if item['inventory']:
-                        item['inventory'].stock_qty -= item['quantity']
-                        item['inventory'].save(update_fields=['stock_qty', 'last_updated'])
-
-                # Update DailySales
-                daily_sales, _ = DailySales.objects.get_or_create(branch=branch, date=timezone.localdate())
-                daily_sales.total_sales = Decimal(str(daily_sales.total_sales or 0)) + total
-                daily_sales.transaction_count += 1
-                daily_sales.save(update_fields=['total_sales', 'transaction_count', 'updated_at'])
-
-                # Update customer loyalty
-                if customer:
-                    old_tier = customer.loyalty_tier
-                    customer.total_spent = Decimal(str(customer.total_spent or 0)) + total
-                    customer.loyalty_points = Decimal(str(customer.loyalty_points or 0)) + points_earned
-
-                    # Free item every ₱5,000
-                    free_items_earned = int(total // Decimal('5000'))
-                    if free_items_earned > 0:
-                        customer.free_items_available += free_items_earned
-
-                    # Tier recalculation
-                    customer.recalculate_tier()
-                    customer.save()
-
-                    # Tier upgrade reward
-                    if old_tier != customer.loyalty_tier:
-                        CustomerReward.objects.create(
-                            customer=customer,
-                            reward_type='TIER_UPGRADE',
-                            title=f"🎉 Welcome to {customer.get_loyalty_tier_display()}!",
-                            description=f"You've been upgraded to {customer.get_loyalty_tier_display()}. Enjoy {customer.get_discount_rate()}% discount on all future purchases!",
-                            value=Decimal('0'),
-                            discount_percent=Decimal(str(customer.get_discount_rate())),
-                            transaction=transaction_record,
-                        )
-
-                    # Free item reward
-                    if free_items_earned > 0:
-                        CustomerReward.objects.create(
-                            customer=customer,
-                            reward_type='FREE_ITEM',
-                            title=f"🎁 Free Item Unlocked!",
-                            description=f"You earned {free_items_earned} free item(s) with your ₱{total} purchase. Ask the cashier to claim.",
-                            value=Decimal('200'),
-                            transaction=transaction_record,
-                        )
-
-        except (Product.DoesNotExist, VSSService.DoesNotExist, BranchInventory.DoesNotExist) as error:
-            return Response({'detail': str(error)}, status=400)
+        try:
+            transaction_record = sales_checkout(
+                branch=branch,
+                cashier=request.user,
+                items=prepared_items,
+                customer=customer,
+                amount_paid=amount_paid,
+                discount=discount,
+                reward_ids=reward_ids,
+                apply_tier_discount=apply_tier_discount,
+                idempotency_key=(
+                    request.headers.get('Idempotency-Key')
+                    or request.data.get('idempotency_key')
+                    or None
+                ),
+                notes=str(request.data.get('notes', '')),
+            )
+        except DRFValidationError as error:
+            detail = error.detail
+            if isinstance(detail, list) and detail:
+                detail = detail[0]
+            return Response({'detail': str(detail)}, status=400)
         except (TypeError, ValueError) as error:
             return Response({'detail': str(error)}, status=400)
 
@@ -917,41 +844,18 @@ class TransactionViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def void(self, request, pk=None):
-        """Void a transaction and restore stock."""
+        """Void a transaction and restore stock (delegates to the sales service)."""
         transaction = self.get_object()
-        if transaction.transaction_type == 'VOID':
-            return Response({'detail': 'Transaction is already voided.'}, status=400)
-
         reason = request.data.get('reason', '')
 
         try:
-            with db_transaction.atomic():
-                for item in transaction.items.all():
-                    if item.product:
-                        try:
-                            inventory = BranchInventory.objects.select_for_update().get(
-                                branch=transaction.branch,
-                                product=item.product,
-                            )
-                            inventory.stock_qty += item.quantity
-                            inventory.save(update_fields=['stock_qty', 'last_updated'])
-                        except BranchInventory.DoesNotExist:
-                            pass
-
-                transaction.transaction_type = 'VOID'
-                transaction.status = 'VOIDED'
-                transaction.notes = f"{transaction.notes or ''}\n[VOIDED] {reason}".strip()
-                transaction.save()
-
-                try:
-                    daily = DailySales.objects.get(branch=transaction.branch, date=transaction.created_at.date())
-                    daily.total_void = Decimal(str(daily.total_void or 0)) + transaction.total
-                    daily.total_sales = Decimal(str(daily.total_sales or 0)) - transaction.total
-                    daily.save(update_fields=['total_void', 'total_sales', 'updated_at'])
-                except DailySales.DoesNotExist:
-                    pass
-
-        except Exception as error:
+            void_sale(transaction=transaction, staff=request.user, reason=reason)
+        except DRFValidationError as error:
+            detail = error.detail
+            if isinstance(detail, list) and detail:
+                detail = detail[0]
+            return Response({'detail': str(detail)}, status=400)
+        except Exception as error:  # noqa: BLE001 - surface ledger errors to the till
             return Response({'detail': str(error)}, status=400)
 
         self._log_action(
@@ -1095,13 +999,10 @@ class CustomerTierViewSet(viewsets.ViewSet):
 # ATTENDANCE VIEWSET
 # ============================================================
 
-class AttendanceViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class AttendanceViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = Attendance.objects.all()
     serializer_class = AttendanceSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     @action(detail=False, methods=['get'])
     def today(self, request):
@@ -1153,13 +1054,10 @@ class AttendanceViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # CUSTOMER FEEDBACK VIEWSET
 # ============================================================
 
-class CustomerFeedbackViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class CustomerFeedbackViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = CustomerFeedback.objects.all()
     serializer_class = CustomerFeedbackSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -1178,13 +1076,10 @@ class CustomerFeedbackViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # EXPENSE VIEWSET
 # ============================================================
 
-class ExpenseViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class ExpenseViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     def perform_create(self, serializer):
         instance = serializer.save(recorded_by=self.request.user)
@@ -1207,28 +1102,22 @@ class ExpenseViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # DAILY SALES VIEWSET (read-only report of the DailySales ledger)
 # ============================================================
 
-class DailySalesViewSet(viewsets.ReadOnlyModelViewSet):
+class DailySalesViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """Read-only view of the per-branch daily ledger updated on checkout/void."""
 
     queryset = DailySales.objects.select_related('branch').all()
     serializer_class = DailySalesSerializer
     permission_classes = [RoleBasedPermission]
 
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
-
 
 # ============================================================
 # AUDIT LOG VIEWSET
 # ============================================================
 
-class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+class AuditLogViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
     permission_classes = [RoleBasedPermission]
-
-    def get_queryset(self):
-        return branch_scoped_queryset(super().get_queryset(), self.request)
 
     @action(detail=False, methods=['get'])
     def recent(self, request):
@@ -1255,17 +1144,26 @@ class DashboardStatsViewSet(viewsets.ViewSet):
         today = timezone.localdate()
         month_ago = today - timedelta(days=30)
 
-        rooms = branch_scoped_queryset(RoomTable.objects.all(), request)
-        products = branch_scoped_queryset(
-            Product.objects.all(), request, branch_lookup='branch_inventories__branch_id'
+        rooms = auto_scope(RoomTable.objects.all(), request)
+        products = auto_scope(
+            Item.objects.filter(item_type='PRODUCT', is_active=True),
+            request,
+            branch_lookup='inventory_levels__branch_id',
         )
-        transactions = branch_scoped_queryset(Transaction.objects.all(), request)
-        expenses = branch_scoped_queryset(Expense.objects.all(), request)
-        feedbacks = branch_scoped_queryset(CustomerFeedback.objects.all(), request)
+        transactions = auto_scope(Transaction.objects.all(), request)
+        expenses = auto_scope(Expense.objects.all(), request)
+        feedbacks = auto_scope(CustomerFeedback.objects.all(), request)
+
+        # Stock totals per item within the caller's branch scope
+        stock_by_item = {}
+        for level in auto_scope(InventoryLevel.objects.all(), request):
+            stock_by_item[level.item_id] = stock_by_item.get(level.item_id, 0) + level.stock_qty
 
         active_rooms = rooms.filter(is_occupied=True).count()
         total_rooms = rooms.count()
-        low_stock_count = sum(1 for p in products.filter(is_active=True) if p.is_low_stock)
+        low_stock_count = sum(
+            1 for p in products if stock_by_item.get(p.id, 0) <= p.min_stock
+        )
 
         today_sales = transactions.filter(
             created_at__date=today, transaction_type='SALE'
@@ -1302,8 +1200,8 @@ class DashboardStatsViewSet(viewsets.ViewSet):
             'month_expenses': month_expenses,
             'net_profit': float(month_sales) - float(month_expenses),
             'average_rating': round(avg_rating, 2),
-            'total_products': products.filter(is_active=True).count(),
-            'total_services': VSSService.objects.filter(is_active=True).count(),
+            'total_products': products.count(),
+            'total_services': Item.objects.filter(item_type='SERVICE', is_active=True).count(),
             'top_staff': top_staff,
         })
 
@@ -1347,6 +1245,12 @@ class DashboardStatsViewSet(viewsets.ViewSet):
 # ============================================================
 
 class BranchCatalogViewSet(viewsets.ViewSet):
+    """POS catalog for a branch — nested arrays, served from the unified catalog.
+
+    The three legacy slots (vss_services / vreal_products / bb_products) are
+    filled from the branch's ``Business`` (falling back to ``branch_type`` for
+    branches created before the SaaS migration).
+    """
     permission_classes = [RoleBasedPermission]
 
     @extend_schema(
@@ -1355,7 +1259,7 @@ class BranchCatalogViewSet(viewsets.ViewSet):
             OpenApiParameter(name='branch_id', type=int, location='path', required=True),
         ],
         summary='POS catalog for a branch',
-        description='Returns the VSS/VReal/BB catalog applicable to the given branch type.',
+        description='Returns the VSS/VReal/BB catalog applicable to the given branch.',
         tags=['Branch Catalog'],
     )
     @action(detail=False, methods=['get'], url_path='by-branch/(?P<branch_id>[^/.]+)')
@@ -1366,31 +1270,54 @@ class BranchCatalogViewSet(viewsets.ViewSet):
             return Response({'detail': 'Branch not found.'}, status=404)
 
         branch_type = branch.branch_type
+        slug = branch.business.slug if branch.business_id else None
+
+        if slug == 'vss':
+            wants = (True, False, False)
+        elif slug == 'vreal':
+            wants = (False, True, False)
+        elif slug == 'bb':
+            wants = (False, False, True)
+        elif slug in {'panganan', 'kb', 'autospa'}:
+            # These businesses have no legacy POS tab; their items are sold
+            # through the unified catalog / Sales page.
+            wants = (False, False, False)
+        else:
+            wants = {
+                'VSS': (True, False, False),
+                'VREAL': (False, True, False),
+                'BB': (False, False, True),
+                'MIXED': (True, True, True),
+            }.get(branch_type, (True, False, False))
+
         catalog = {
             'branch_id': branch.id,
             'branch_name': branch.name,
             'branch_type': branch_type,
             'branch_type_display': branch.get_branch_type_display(),
+            'business': slug,
             'vss_services': [],
             'vreal_products': [],
             'bb_products': [],
         }
 
-        if branch_type in ('VSS', 'MIXED'):
+        if wants[0]:
             catalog['vss_services'] = VSSServiceSerializer(
-                VSSService.objects.filter(is_active=True).order_by('category', 'description'),
+                business_catalog_queryset('vss', 'SERVICE')
+                .order_by('category__name', 'name'),
                 many=True
             ).data
 
-        if branch_type in ('VREAL', 'MIXED'):
+        if wants[1]:
             catalog['vreal_products'] = VRealProductSerializer(
-                VRealProduct.objects.filter(is_active=True).order_by('category', 'product'),
+                business_catalog_queryset('vreal', 'PRODUCT')
+                .order_by('category__name', 'name'),
                 many=True
             ).data
 
-        if branch_type in ('BB', 'MIXED'):
+        if wants[2]:
             catalog['bb_products'] = BBProductSerializer(
-                BBProduct.objects.filter(is_active=True).order_by('product_name'),
+                business_catalog_queryset('bb', 'PRODUCT').order_by('name'),
                 many=True
             ).data
 

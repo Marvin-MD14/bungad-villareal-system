@@ -58,6 +58,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'api.access.middleware.BusinessMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -170,6 +171,7 @@ CORS_ALLOW_HEADERS = [
     'dnt',
     'origin',
     'user-agent',
+    'x-business',
     'x-csrftoken',
     'x-requested-with',
 ]
@@ -179,7 +181,8 @@ CORS_ALLOW_HEADERS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'api.access.authentication.BusinessTokenAuthentication',
+        'api.access.authentication.BusinessSessionAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',

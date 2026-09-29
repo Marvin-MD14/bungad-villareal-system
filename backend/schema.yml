@@ -8,7 +8,12 @@ paths:
   /api/attendance/:
     get:
       operationId: attendance_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -29,7 +34,12 @@ paths:
           description: ''
     post:
       operationId: attendance_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - attendance
       requestBody:
@@ -50,7 +60,12 @@ paths:
   /api/attendance/{id}/:
     get:
       operationId: attendance_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -71,7 +86,12 @@ paths:
           description: ''
     put:
       operationId: attendance_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -98,7 +118,12 @@ paths:
           description: ''
     patch:
       operationId: attendance_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -124,7 +149,12 @@ paths:
           description: ''
     delete:
       operationId: attendance_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -142,7 +172,12 @@ paths:
   /api/attendance/check_in/:
     post:
       operationId: attendance_check_in_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - attendance
       requestBody:
@@ -163,7 +198,12 @@ paths:
   /api/attendance/check_out/:
     post:
       operationId: attendance_check_out_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - attendance
       requestBody:
@@ -184,7 +224,12 @@ paths:
   /api/attendance/my_records/:
     get:
       operationId: attendance_my_records_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - attendance
       security:
@@ -199,7 +244,12 @@ paths:
   /api/attendance/today/:
     get:
       operationId: attendance_today_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - attendance
       security:
@@ -214,6 +264,12 @@ paths:
   /api/audit-logs/:
     get:
       operationId: audit_logs_list
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -235,6 +291,12 @@ paths:
   /api/audit-logs/{id}/:
     get:
       operationId: audit_logs_retrieve
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -256,6 +318,12 @@ paths:
   /api/audit-logs/recent/:
     get:
       operationId: audit_logs_recent_retrieve
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - audit-logs
       security:
@@ -315,7 +383,6 @@ paths:
   /api/auto-spa/:
     get:
       operationId: auto_spa_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - name: page
         required: false
@@ -334,36 +401,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedAutoSpaServiceList'
           description: ''
-    post:
-      operationId: auto_spa_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - auto-spa
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AutoSpaServiceRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutoSpaService'
-          description: ''
   /api/auto-spa/{id}/:
     get:
       operationId: auto_spa_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this Auto Spa Service.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - auto-spa
@@ -376,80 +422,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/AutoSpaService'
           description: ''
-    put:
-      operationId: auto_spa_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Auto Spa Service.
-        required: true
-      tags:
-      - auto-spa
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AutoSpaServiceRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutoSpaService'
-          description: ''
-    patch:
-      operationId: auto_spa_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Auto Spa Service.
-        required: true
-      tags:
-      - auto-spa
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedAutoSpaServiceRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutoSpaService'
-          description: ''
-    delete:
-      operationId: auto_spa_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Auto Spa Service.
-        required: true
-      tags:
-      - auto-spa
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/bb-products/:
     get:
       operationId: bb_products_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - name: page
         required: false
@@ -468,36 +443,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBBProductList'
           description: ''
-    post:
-      operationId: bb_products_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - bb-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BBProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BBProduct'
-          description: ''
   /api/bb-products/{id}/:
     get:
       operationId: bb_products_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this BB Product.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - bb-products
@@ -510,81 +464,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/BBProduct'
           description: ''
-    put:
-      operationId: bb_products_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this BB Product.
-        required: true
-      tags:
-      - bb-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BBProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BBProduct'
-          description: ''
-    patch:
-      operationId: bb_products_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this BB Product.
-        required: true
-      tags:
-      - bb-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedBBProductRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BBProduct'
-          description: ''
-    delete:
-      operationId: bb_products_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this BB Product.
-        required: true
-      tags:
-      - bb-products
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/branch-catalog/by-branch/{branch_id}/:
     get:
       operationId: branch_catalog_by_branch_retrieve
-      description: Returns the VSS/VReal/BB catalog applicable to the given branch
-        type.
+      description: Returns the VSS/VReal/BB catalog applicable to the given branch.
       summary: POS catalog for a branch
       parameters:
       - in: path
@@ -608,7 +491,12 @@ paths:
   /api/branch-inventory/:
     get:
       operationId: branch_inventory_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -627,36 +515,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBranchInventoryList'
           description: ''
-    post:
-      operationId: branch_inventory_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - branch-inventory
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BranchInventoryRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BranchInventory'
-          description: ''
   /api/branch-inventory/{id}/:
     get:
       operationId: branch_inventory_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this Branch Inventory.
+        description: A unique integer value identifying this inventory level.
         required: true
       tags:
       - branch-inventory
@@ -669,86 +542,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/BranchInventory'
           description: ''
-    put:
-      operationId: branch_inventory_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Branch Inventory.
-        required: true
-      tags:
-      - branch-inventory
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BranchInventoryRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BranchInventory'
-          description: ''
-    patch:
-      operationId: branch_inventory_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Branch Inventory.
-        required: true
-      tags:
-      - branch-inventory
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedBranchInventoryRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BranchInventory'
-          description: ''
-    delete:
-      operationId: branch_inventory_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Branch Inventory.
-        required: true
-      tags:
-      - branch-inventory
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/branch-inventory/{id}/restock/:
     post:
       operationId: branch_inventory_restock_create
-      description: Add stock to a branch inventory item.
+      description: Add stock to a branch inventory item (ledgered ``StockMovement``).
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this Branch Inventory.
+        description: A unique integer value identifying this inventory level.
         required: true
       tags:
       - branch-inventory
@@ -770,7 +573,12 @@ paths:
   /api/branch-inventory/by_branch/:
     get:
       operationId: branch_inventory_by_branch_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - branch-inventory
       security:
@@ -785,7 +593,12 @@ paths:
   /api/branches/:
     get:
       operationId: branches_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -806,7 +619,12 @@ paths:
           description: ''
     post:
       operationId: branches_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - branches
       requestBody:
@@ -827,7 +645,12 @@ paths:
   /api/branches/{id}/:
     get:
       operationId: branches_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -848,7 +671,12 @@ paths:
           description: ''
     put:
       operationId: branches_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -875,7 +703,12 @@ paths:
           description: ''
     patch:
       operationId: branches_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -901,7 +734,12 @@ paths:
           description: ''
     delete:
       operationId: branches_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -919,7 +757,12 @@ paths:
   /api/branches/{id}/staffing/:
     get:
       operationId: branches_staffing_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -959,6 +802,814 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Branch'
+          description: ''
+  /api/business-types/:
+    get:
+      operationId: business_types_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - business-types
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBusinessTypeList'
+          description: ''
+    post:
+      operationId: business_types_create
+      tags:
+      - business-types
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessTypeRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessType'
+          description: ''
+  /api/business-types/{id}/:
+    get:
+      operationId: business_types_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business type.
+        required: true
+      tags:
+      - business-types
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessType'
+          description: ''
+    put:
+      operationId: business_types_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business type.
+        required: true
+      tags:
+      - business-types
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessTypeRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessType'
+          description: ''
+    patch:
+      operationId: business_types_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business type.
+        required: true
+      tags:
+      - business-types
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBusinessTypeRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessType'
+          description: ''
+    delete:
+      operationId: business_types_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business type.
+        required: true
+      tags:
+      - business-types
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/businesses/:
+    get:
+      operationId: businesses_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - businesses
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBusinessList'
+          description: ''
+    post:
+      operationId: businesses_create
+      tags:
+      - businesses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Business'
+          description: ''
+  /api/businesses/{id}/:
+    get:
+      operationId: businesses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business.
+        required: true
+      tags:
+      - businesses
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Business'
+          description: ''
+    put:
+      operationId: businesses_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business.
+        required: true
+      tags:
+      - businesses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Business'
+          description: ''
+    patch:
+      operationId: businesses_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business.
+        required: true
+      tags:
+      - businesses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBusinessRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Business'
+          description: ''
+    delete:
+      operationId: businesses_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business.
+        required: true
+      tags:
+      - businesses
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/catalog/business-items/:
+    get:
+      operationId: catalog_business_items_list
+      description: Which items the active business sells (per-business price overrides).
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBusinessItemList'
+          description: ''
+    post:
+      operationId: catalog_business_items_create
+      description: Which items the active business sells (per-business price overrides).
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessItemRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessItem'
+          description: ''
+  /api/catalog/business-items/{id}/:
+    get:
+      operationId: catalog_business_items_retrieve
+      description: Which items the active business sells (per-business price overrides).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business item.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessItem'
+          description: ''
+    put:
+      operationId: catalog_business_items_update
+      description: Which items the active business sells (per-business price overrides).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business item.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessItemRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessItem'
+          description: ''
+    patch:
+      operationId: catalog_business_items_partial_update
+      description: Which items the active business sells (per-business price overrides).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business item.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBusinessItemRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessItem'
+          description: ''
+    delete:
+      operationId: catalog_business_items_destroy
+      description: Which items the active business sells (per-business price overrides).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this business item.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/catalog/categories/:
+    get:
+      operationId: catalog_categories_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCategoryList'
+          description: ''
+    post:
+      operationId: catalog_categories_create
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+  /api/catalog/categories/{id}/:
+    get:
+      operationId: catalog_categories_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    put:
+      operationId: catalog_categories_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    patch:
+      operationId: catalog_categories_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    delete:
+      operationId: catalog_categories_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/catalog/inventory/:
+    get:
+      operationId: catalog_inventory_list
+      description: Stock per branch. Writes go through the ledgered ``restock`` action.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInventoryLevelList'
+          description: ''
+  /api/catalog/inventory/{id}/:
+    get:
+      operationId: catalog_inventory_retrieve
+      description: Stock per branch. Writes go through the ledgered ``restock`` action.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventory level.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLevel'
+          description: ''
+  /api/catalog/inventory/{id}/restock/:
+    post:
+      operationId: catalog_inventory_restock_create
+      description: Receive stock — atomic, writes an opening ``StockMovement``.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventory level.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryLevelRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLevel'
+          description: ''
+  /api/catalog/items/:
+    get:
+      operationId: catalog_items_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedItemList'
+          description: ''
+    post:
+      operationId: catalog_items_create
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+          description: ''
+  /api/catalog/items/{id}/:
+    get:
+      operationId: catalog_items_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this item.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+          description: ''
+    put:
+      operationId: catalog_items_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this item.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+          description: ''
+    patch:
+      operationId: catalog_items_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this item.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedItemRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+          description: ''
+    delete:
+      operationId: catalog_items_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this item.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/catalog/stock-movements/:
+    get:
+      operationId: catalog_stock_movements_list
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStockMovementList'
+          description: ''
+  /api/catalog/stock-movements/{id}/:
+    get:
+      operationId: catalog_stock_movements_retrieve
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this stock movement.
+        required: true
+      tags:
+      - catalog
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovement'
           description: ''
   /api/clients/:
     get:
@@ -1526,7 +2177,12 @@ paths:
   /api/expenses/:
     get:
       operationId: expenses_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -1547,7 +2203,12 @@ paths:
           description: ''
     post:
       operationId: expenses_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - expenses
       requestBody:
@@ -1568,7 +2229,12 @@ paths:
   /api/expenses/{id}/:
     get:
       operationId: expenses_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1589,7 +2255,12 @@ paths:
           description: ''
     put:
       operationId: expenses_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1616,7 +2287,12 @@ paths:
           description: ''
     patch:
       operationId: expenses_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1642,7 +2318,12 @@ paths:
           description: ''
     delete:
       operationId: expenses_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1660,7 +2341,12 @@ paths:
   /api/expenses/summary/:
     get:
       operationId: expenses_summary_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - expenses
       security:
@@ -1675,7 +2361,12 @@ paths:
   /api/feedback/:
     get:
       operationId: feedback_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -1696,7 +2387,12 @@ paths:
           description: ''
     post:
       operationId: feedback_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - feedback
       requestBody:
@@ -1717,7 +2413,12 @@ paths:
   /api/feedback/{id}/:
     get:
       operationId: feedback_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1738,7 +2439,12 @@ paths:
           description: ''
     put:
       operationId: feedback_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1765,7 +2471,12 @@ paths:
           description: ''
     patch:
       operationId: feedback_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1791,7 +2502,12 @@ paths:
           description: ''
     delete:
       operationId: feedback_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1809,7 +2525,12 @@ paths:
   /api/feedback/stats/:
     get:
       operationId: feedback_stats_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - feedback
       security:
@@ -1824,7 +2545,6 @@ paths:
   /api/kb-items/:
     get:
       operationId: kb_items_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - name: page
         required: false
@@ -1843,36 +2563,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedKBItemList'
           description: ''
-    post:
-      operationId: kb_items_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - kb-items
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KBItemRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KBItem'
-          description: ''
   /api/kb-items/{id}/:
     get:
       operationId: kb_items_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this KB Item.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - kb-items
@@ -1885,76 +2584,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/KBItem'
           description: ''
-    put:
-      operationId: kb_items_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this KB Item.
-        required: true
-      tags:
-      - kb-items
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KBItemRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KBItem'
-          description: ''
-    patch:
-      operationId: kb_items_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this KB Item.
-        required: true
-      tags:
-      - kb-items
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedKBItemRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KBItem'
-          description: ''
-    delete:
-      operationId: kb_items_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this KB Item.
-        required: true
-      tags:
-      - kb-items
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/notifications/customer_alerts/:
     get:
       operationId: notifications_customer_alerts_retrieve
@@ -1977,7 +2606,6 @@ paths:
   /api/panganan-menus/:
     get:
       operationId: panganan_menus_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - name: page
         required: false
@@ -1996,36 +2624,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPangananMenuList'
           description: ''
-    post:
-      operationId: panganan_menus_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - panganan-menus
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PangananMenuRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PangananMenu'
-          description: ''
   /api/panganan-menus/{id}/:
     get:
       operationId: panganan_menus_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this Panganan Menu.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - panganan-menus
@@ -2038,80 +2645,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/PangananMenu'
           description: ''
-    put:
-      operationId: panganan_menus_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Panganan Menu.
-        required: true
-      tags:
-      - panganan-menus
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PangananMenuRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PangananMenu'
-          description: ''
-    patch:
-      operationId: panganan_menus_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Panganan Menu.
-        required: true
-      tags:
-      - panganan-menus
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedPangananMenuRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PangananMenu'
-          description: ''
-    delete:
-      operationId: panganan_menus_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Panganan Menu.
-        required: true
-      tags:
-      - panganan-menus
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/panganan-menus/categories/:
     get:
       operationId: panganan_menus_categories_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - panganan-menus
       security:
@@ -2126,7 +2662,7 @@ paths:
   /api/products/:
     get:
       operationId: products_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
       parameters:
       - name: page
         required: false
@@ -2145,36 +2681,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedProductList'
           description: ''
-    post:
-      operationId: products_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Product'
-          description: ''
   /api/products/{id}/:
     get:
       operationId: products_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this Product.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - products
@@ -2187,80 +2703,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Product'
           description: ''
-    put:
-      operationId: products_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Product.
-        required: true
-      tags:
-      - products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Product'
-          description: ''
-    patch:
-      operationId: products_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Product.
-        required: true
-      tags:
-      - products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedProductRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Product'
-          description: ''
-    delete:
-      operationId: products_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this Product.
-        required: true
-      tags:
-      - products
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/products/by_category/:
     get:
       operationId: products_by_category_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
       tags:
       - products
       security:
@@ -2275,7 +2721,7 @@ paths:
   /api/products/low_stock/:
     get:
       operationId: products_low_stock_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
       tags:
       - products
       security:
@@ -2332,7 +2778,12 @@ paths:
   /api/rooms/:
     get:
       operationId: rooms_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -2353,7 +2804,12 @@ paths:
           description: ''
     post:
       operationId: rooms_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - rooms
       requestBody:
@@ -2374,7 +2830,12 @@ paths:
   /api/rooms/{id}/:
     get:
       operationId: rooms_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2395,7 +2856,12 @@ paths:
           description: ''
     put:
       operationId: rooms_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2422,7 +2888,12 @@ paths:
           description: ''
     patch:
       operationId: rooms_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2448,7 +2919,12 @@ paths:
           description: ''
     delete:
       operationId: rooms_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2466,7 +2942,12 @@ paths:
   /api/rooms/{id}/check_in/:
     post:
       operationId: rooms_check_in_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2494,7 +2975,12 @@ paths:
   /api/rooms/{id}/check_out/:
     post:
       operationId: rooms_check_out_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2522,7 +3008,12 @@ paths:
   /api/rooms/available/:
     get:
       operationId: rooms_available_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - rooms
       security:
@@ -2537,7 +3028,12 @@ paths:
   /api/rooms/occupied/:
     get:
       operationId: rooms_occupied_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - rooms
       security:
@@ -2552,7 +3048,12 @@ paths:
   /api/transactions/:
     get:
       operationId: transactions_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -2598,7 +3099,12 @@ paths:
   /api/transactions/{id}/:
     get:
       operationId: transactions_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2619,7 +3125,12 @@ paths:
           description: ''
     put:
       operationId: transactions_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2646,7 +3157,12 @@ paths:
           description: ''
     patch:
       operationId: transactions_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2672,7 +3188,12 @@ paths:
           description: ''
     delete:
       operationId: transactions_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2690,7 +3211,7 @@ paths:
   /api/transactions/{id}/void/:
     post:
       operationId: transactions_void_create
-      description: Void a transaction and restore stock.
+      description: Void a transaction and restore stock (delegates to the sales service).
       parameters:
       - in: path
         name: id
@@ -2718,7 +3239,7 @@ paths:
   /api/transactions/checkout/:
     post:
       operationId: transactions_checkout_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: Record a sale through the unified sales service (atomic + idempotent).
       tags:
       - transactions
       requestBody:
@@ -2739,7 +3260,12 @@ paths:
   /api/transactions/stats/:
     get:
       operationId: transactions_stats_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - transactions
       security:
@@ -2754,7 +3280,12 @@ paths:
   /api/transactions/today/:
     get:
       operationId: transactions_today_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - transactions
       security:
@@ -2766,10 +3297,143 @@ paths:
               schema:
                 $ref: '#/components/schemas/Transaction'
           description: ''
+  /api/user-access/:
+    get:
+      operationId: user_access_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - user-access
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserAccessList'
+          description: ''
+    post:
+      operationId: user_access_create
+      tags:
+      - user-access
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserAccessRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccess'
+          description: ''
+  /api/user-access/{id}/:
+    get:
+      operationId: user_access_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user access.
+        required: true
+      tags:
+      - user-access
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccess'
+          description: ''
+    put:
+      operationId: user_access_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user access.
+        required: true
+      tags:
+      - user-access
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserAccessRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccess'
+          description: ''
+    patch:
+      operationId: user_access_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user access.
+        required: true
+      tags:
+      - user-access
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserAccessRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAccess'
+          description: ''
+    delete:
+      operationId: user_access_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user access.
+        required: true
+      tags:
+      - user-access
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/user-profiles/:
     get:
       operationId: user_profiles_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: page
         required: false
@@ -2790,7 +3454,12 @@ paths:
           description: ''
     post:
       operationId: user_profiles_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - user-profiles
       requestBody:
@@ -2810,7 +3479,12 @@ paths:
   /api/user-profiles/{id}/:
     get:
       operationId: user_profiles_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2831,7 +3505,12 @@ paths:
           description: ''
     put:
       operationId: user_profiles_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2857,7 +3536,12 @@ paths:
           description: ''
     patch:
       operationId: user_profiles_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2883,7 +3567,12 @@ paths:
           description: ''
     delete:
       operationId: user_profiles_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -2916,7 +3605,6 @@ paths:
   /api/vreal-products/:
     get:
       operationId: vreal_products_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - name: page
         required: false
@@ -2935,36 +3623,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedVRealProductList'
           description: ''
-    post:
-      operationId: vreal_products_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - vreal-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VRealProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
   /api/vreal-products/{id}/:
     get:
       operationId: vreal_products_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this VReal Product.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - vreal-products
@@ -2977,80 +3644,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/VRealProduct'
           description: ''
-    put:
-      operationId: vreal_products_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this VReal Product.
-        required: true
-      tags:
-      - vreal-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VRealProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
-    patch:
-      operationId: vreal_products_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this VReal Product.
-        required: true
-      tags:
-      - vreal-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedVRealProductRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
-    delete:
-      operationId: vreal_products_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this VReal Product.
-        required: true
-      tags:
-      - vreal-products
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/vreal-products/categories/:
     get:
       operationId: vreal_products_categories_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - vreal-products
       security:
@@ -3065,7 +3661,6 @@ paths:
   /api/vreal-products/preview/:
     post:
       operationId: vreal_products_preview_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - vreal-products
       requestBody:
@@ -3086,7 +3681,6 @@ paths:
   /api/vreal-products/stats/:
     get:
       operationId: vreal_products_stats_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - vreal-products
       security:
@@ -3101,7 +3695,6 @@ paths:
   /api/vss-services/:
     get:
       operationId: vss_services_list
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - name: page
         required: false
@@ -3120,36 +3713,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedVSSServiceList'
           description: ''
-    post:
-      operationId: vss_services_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      tags:
-      - vss-services
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VSSServiceRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
-          description: ''
   /api/vss-services/{id}/:
     get:
       operationId: vss_services_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this VSS Service.
+        description: A unique integer value identifying this item.
         required: true
       tags:
       - vss-services
@@ -3162,80 +3734,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/VSSService'
           description: ''
-    put:
-      operationId: vss_services_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this VSS Service.
-        required: true
-      tags:
-      - vss-services
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VSSServiceRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
-          description: ''
-    patch:
-      operationId: vss_services_partial_update
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this VSS Service.
-        required: true
-      tags:
-      - vss-services
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedVSSServiceRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
-          description: ''
-    delete:
-      operationId: vss_services_destroy
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this VSS Service.
-        required: true
-      tags:
-      - vss-services
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/vss-services/categories/:
     get:
       operationId: vss_services_categories_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - vss-services
       security:
@@ -3250,7 +3751,6 @@ paths:
   /api/vss-services/preview/:
     post:
       operationId: vss_services_preview_create
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - vss-services
       requestBody:
@@ -3271,7 +3771,6 @@ paths:
   /api/vss-services/stats/:
     get:
       operationId: vss_services_stats_retrieve
-      description: Automatically log CREATE, UPDATE, DELETE actions to AuditLog model.
       tags:
       - vss-services
       security:
@@ -3479,7 +3978,6 @@ components:
           readOnly: true
         service:
           type: string
-          maxLength: 255
         price:
           type: string
           format: decimal
@@ -3500,22 +3998,6 @@ components:
       - price
       - service
       - updated_at
-    AutoSpaServiceRequest:
-      type: object
-      properties:
-        service:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-      required:
-      - price
-      - service
     BBProduct:
       type: object
       properties:
@@ -3524,15 +4006,13 @@ components:
           readOnly: true
         product_name:
           type: string
-          maxLength: 255
         price:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
         category:
           type: string
-          nullable: true
-          maxLength: 100
+          readOnly: true
         is_active:
           type: boolean
         created_at:
@@ -3544,31 +4024,12 @@ components:
           format: date-time
           readOnly: true
       required:
+      - category
       - created_at
       - id
       - price
       - product_name
       - updated_at
-    BBProductRequest:
-      type: object
-      properties:
-        product_name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        category:
-          type: string
-          nullable: true
-          maxLength: 100
-        is_active:
-          type: boolean
-      required:
-      - price
-      - product_name
     BlankEnum:
       enum:
       - ''
@@ -3639,6 +4100,7 @@ components:
           type: integer
         product:
           type: integer
+          readOnly: true
         stock_qty:
           type: integer
           maximum: 9223372036854775807
@@ -3670,8 +4132,6 @@ components:
       properties:
         branch:
           type: integer
-        product:
-          type: integer
         stock_qty:
           type: integer
           maximum: 9223372036854775807
@@ -3679,7 +4139,6 @@ components:
           format: int64
       required:
       - branch
-      - product
     BranchRequest:
       type: object
       properties:
@@ -3728,6 +4187,236 @@ components:
         * `VREAL` - VReal Products Branch
         * `BB` - BB Products Branch
         * `MIXED` - Mixed (VSS + VReal + BB)
+    Business:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        slug:
+          type: string
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        business_type:
+          type: integer
+          description: Spa / Restaurant / Auto shop ... determines default item kinds
+        business_type_detail:
+          allOf:
+          - $ref: '#/components/schemas/BusinessType'
+          readOnly: true
+        description:
+          type: string
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        receipt_header:
+          type: string
+        currency:
+          type: string
+          maxLength: 3
+        tax_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        loyalty_enabled:
+          type: boolean
+        is_active:
+          type: boolean
+        branch_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - branch_count
+      - business_type
+      - business_type_detail
+      - created_at
+      - id
+      - name
+      - slug
+      - updated_at
+    BusinessChoice:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        type:
+          type: string
+          nullable: true
+        type_name:
+          type: string
+          nullable: true
+      required:
+      - id
+      - name
+      - slug
+      - type
+      - type_name
+    BusinessItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        business:
+          type: integer
+        item:
+          allOf:
+          - $ref: '#/components/schemas/Item'
+          readOnly: true
+        price_override:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        effective_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        is_available:
+          type: boolean
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+      required:
+      - business
+      - effective_price
+      - id
+      - item
+    BusinessItemRequest:
+      type: object
+      properties:
+        business:
+          type: integer
+        item_id:
+          type: integer
+          writeOnly: true
+        price_override:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        is_available:
+          type: boolean
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+      required:
+      - business
+      - item_id
+    BusinessRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        business_type:
+          type: integer
+          description: Spa / Restaurant / Auto shop ... determines default item kinds
+        description:
+          type: string
+        logo:
+          type: string
+          format: binary
+          nullable: true
+        receipt_header:
+          type: string
+        currency:
+          type: string
+          maxLength: 3
+        tax_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        loyalty_enabled:
+          type: boolean
+        is_active:
+          type: boolean
+      required:
+      - business_type
+      - name
+      - slug
+    BusinessType:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 40
+        default_unit:
+          type: string
+          maxLength: 20
+        tracks_stock:
+          type: boolean
+        is_active:
+          type: boolean
+      required:
+      - code
+      - id
+      - name
+    BusinessTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 40
+        default_unit:
+          type: string
+          minLength: 1
+          maxLength: 20
+        tracks_stock:
+          type: boolean
+        is_active:
+          type: boolean
+      required:
+      - code
+      - name
     CatalogSourceEnum:
       enum:
       - VSS
@@ -3740,6 +4429,69 @@ components:
         * `VREAL` - VReal Product
         * `BB` - BB Product
         * `GENERIC` - Generic Product
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        parent:
+          type: integer
+          nullable: true
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_active:
+          type: boolean
+      required:
+      - id
+      - kind
+      - name
+    CategoryEnum:
+      enum:
+      - SUPPLIES
+      - UTILITIES
+      - RENT
+      - SALARY
+      - MAINTENANCE
+      - OTHERS
+      type: string
+      description: |-
+        * `SUPPLIES` - Supplies
+        * `UTILITIES` - Utilities
+        * `RENT` - Rent
+        * `SALARY` - Salary
+        * `MAINTENANCE` - Maintenance
+        * `OTHERS` - Others
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        parent:
+          type: integer
+          nullable: true
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_active:
+          type: boolean
+      required:
+      - kind
+      - name
     ClientProfile:
       type: object
       properties:
@@ -4116,6 +4868,14 @@ components:
       - date
       - id
       - updated_at
+    DurationUnitEnum:
+      enum:
+      - MIN
+      - HOUR
+      type: string
+      description: |-
+        * `MIN` - Minutes
+        * `HOUR` - Hours
     Expense:
       type: object
       properties:
@@ -4125,7 +4885,7 @@ components:
         branch:
           type: integer
         category:
-          $ref: '#/components/schemas/ExpenseCategoryEnum'
+          $ref: '#/components/schemas/CategoryEnum'
         description:
           type: string
           maxLength: 255
@@ -4169,29 +4929,13 @@ components:
       - id
       - recorded_by
       - recorded_by_name
-    ExpenseCategoryEnum:
-      enum:
-      - SUPPLIES
-      - UTILITIES
-      - RENT
-      - SALARY
-      - MAINTENANCE
-      - OTHERS
-      type: string
-      description: |-
-        * `SUPPLIES` - Supplies
-        * `UTILITIES` - Utilities
-        * `RENT` - Rent
-        * `SALARY` - Salary
-        * `MAINTENANCE` - Maintenance
-        * `OTHERS` - Others
     ExpenseRequest:
       type: object
       properties:
         branch:
           type: integer
         category:
-          $ref: '#/components/schemas/ExpenseCategoryEnum'
+          $ref: '#/components/schemas/CategoryEnum'
         description:
           type: string
           minLength: 1
@@ -4221,6 +4965,211 @@ components:
       description: |-
         * `Male` - Male
         * `Female` - Female
+    InventoryLevel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch:
+          type: integer
+        branch_name:
+          type: string
+          readOnly: true
+        item:
+          type: integer
+        item_name:
+          type: string
+          readOnly: true
+        stock_qty:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        reorder_point:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - branch
+      - branch_name
+      - id
+      - item
+      - item_name
+      - updated_at
+    InventoryLevelRequest:
+      type: object
+      properties:
+        branch:
+          type: integer
+        item:
+          type: integer
+        stock_qty:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        reorder_point:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+      required:
+      - branch
+      - item
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        item_type:
+          $ref: '#/components/schemas/ItemTypeEnum'
+        category:
+          type: integer
+        category_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        sku:
+          type: string
+          maxLength: 64
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        description:
+          type: string
+        cost_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        is_taxable:
+          type: boolean
+        tracks_stock:
+          type: boolean
+        min_stock:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        unit:
+          type: string
+          maxLength: 20
+        duration:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        duration_unit:
+          oneOf:
+          - $ref: '#/components/schemas/DurationUnitEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        requires_staff:
+          type: boolean
+        requires_room:
+          type: boolean
+        attributes: {}
+        image:
+          type: string
+          format: uri
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - category_name
+      - created_at
+      - id
+      - item_type
+      - name
+      - updated_at
+    ItemRequest:
+      type: object
+      properties:
+        item_type:
+          $ref: '#/components/schemas/ItemTypeEnum'
+        category:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sku:
+          type: string
+          maxLength: 64
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 100
+        description:
+          type: string
+        cost_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        selling_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        is_taxable:
+          type: boolean
+        tracks_stock:
+          type: boolean
+        min_stock:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 20
+        duration:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        duration_unit:
+          oneOf:
+          - $ref: '#/components/schemas/DurationUnitEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        requires_staff:
+          type: boolean
+        requires_room:
+          type: boolean
+        attributes: {}
+        image:
+          type: string
+          format: binary
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+      - category
+      - item_type
+      - name
     ItemTypeEnum:
       enum:
       - PRODUCT
@@ -4258,22 +5207,14 @@ components:
       - name
       - price
       - updated_at
-    KBItemRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-      required:
-      - name
-      - price
+    KindEnum:
+      enum:
+      - PRODUCT
+      - SERVICE
+      type: string
+      description: |-
+        * `PRODUCT` - Product
+        * `SERVICE` - Service
     LoginRequestRequest:
       type: object
       properties:
@@ -4296,7 +5237,17 @@ components:
           type: string
         user:
           $ref: '#/components/schemas/AuthUser'
+        businesses:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessChoice'
+        primary_business:
+          type: object
+          additionalProperties: {}
+          nullable: true
       required:
+      - businesses
+      - primary_business
       - token
       - user
     LogoutResponse:
@@ -4318,9 +5269,6 @@ components:
         * `SILVER` - Silver
         * `GOLD` - Gold
         * `PLATINUM` - Platinum
-    NullEnum:
-      enum:
-      - null
     PaginatedAttendanceList:
       type: object
       required:
@@ -4459,6 +5407,98 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Branch'
+    PaginatedBusinessItemList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessItem'
+    PaginatedBusinessList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Business'
+    PaginatedBusinessTypeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessType'
+    PaginatedCategoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
     PaginatedClientProfileList:
       type: object
       required:
@@ -4574,6 +5614,52 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Expense'
+    PaginatedInventoryLevelList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryLevel'
+    PaginatedItemList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
     PaginatedKBItemList:
       type: object
       required:
@@ -4689,6 +5775,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RoomTable'
+    PaginatedStockMovementList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockMovement'
     PaginatedTransactionList:
       type: object
       required:
@@ -4712,6 +5821,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Transaction'
+    PaginatedUserAccessList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAccess'
     PaginatedUserProfileList:
       type: object
       required:
@@ -4788,10 +5920,9 @@ components:
           type: integer
           readOnly: true
         category:
-          $ref: '#/components/schemas/PangananMenuCategoryEnum'
+          type: string
         menu:
           type: string
-          maxLength: 255
         price:
           type: string
           format: decimal
@@ -4816,46 +5947,6 @@ components:
       - menu
       - price
       - updated_at
-    PangananMenuCategoryEnum:
-      enum:
-      - BURGER
-      - SILOG
-      - SIZZLING
-      - WINGS
-      - BOWL
-      - VEGETABLE
-      - MERIENDA
-      - BEVERAGE
-      - OTHERS
-      type: string
-      description: |-
-        * `BURGER` - Burgers
-        * `SILOG` - Silog Meals
-        * `SIZZLING` - Sizzling
-        * `WINGS` - Chicken Wings
-        * `BOWL` - Rice Bowls
-        * `VEGETABLE` - Vegetable
-        * `MERIENDA` - Merienda
-        * `BEVERAGE` - Beverages
-        * `OTHERS` - Others
-    PangananMenuRequest:
-      type: object
-      properties:
-        category:
-          $ref: '#/components/schemas/PangananMenuCategoryEnum'
-        menu:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-      required:
-      - menu
-      - price
     PatchedAttendanceRequest:
       type: object
       properties:
@@ -4879,48 +5970,6 @@ components:
         notes:
           type: string
           nullable: true
-    PatchedAutoSpaServiceRequest:
-      type: object
-      properties:
-        service:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-    PatchedBBProductRequest:
-      type: object
-      properties:
-        product_name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        category:
-          type: string
-          nullable: true
-          maxLength: 100
-        is_active:
-          type: boolean
-    PatchedBranchInventoryRequest:
-      type: object
-      properties:
-        branch:
-          type: integer
-        product:
-          type: integer
-        stock_qty:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: -9223372036854775808
-          format: int64
     PatchedBranchRequest:
       type: object
       properties:
@@ -4953,6 +6002,103 @@ components:
             maxLength: 254
           - type: string
             maxLength: 0
+        is_active:
+          type: boolean
+    PatchedBusinessItemRequest:
+      type: object
+      properties:
+        business:
+          type: integer
+        item_id:
+          type: integer
+          writeOnly: true
+        price_override:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        is_available:
+          type: boolean
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+    PatchedBusinessRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        business_type:
+          type: integer
+          description: Spa / Restaurant / Auto shop ... determines default item kinds
+        description:
+          type: string
+        logo:
+          type: string
+          format: binary
+          nullable: true
+        receipt_header:
+          type: string
+        currency:
+          type: string
+          maxLength: 3
+        tax_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        loyalty_enabled:
+          type: boolean
+        is_active:
+          type: boolean
+    PatchedBusinessTypeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        icon:
+          type: string
+          maxLength: 40
+        default_unit:
+          type: string
+          minLength: 1
+          maxLength: 20
+        tracks_stock:
+          type: boolean
+        is_active:
+          type: boolean
+    PatchedCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        parent:
+          type: integer
+          nullable: true
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
         is_active:
           type: boolean
     PatchedClientProfileRequest:
@@ -5063,7 +6209,7 @@ components:
         branch:
           type: integer
         category:
-          $ref: '#/components/schemas/ExpenseCategoryEnum'
+          $ref: '#/components/schemas/CategoryEnum'
         description:
           type: string
           minLength: 1
@@ -5079,60 +6225,66 @@ components:
           type: string
           format: binary
           nullable: true
-    PatchedKBItemRequest:
+    PatchedItemRequest:
       type: object
       properties:
+        item_type:
+          $ref: '#/components/schemas/ItemTypeEnum'
+        category:
+          type: integer
         name:
           type: string
           minLength: 1
           maxLength: 255
-        price:
+        sku:
           type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-    PatchedPangananMenuRequest:
-      type: object
-      properties:
-        category:
-          $ref: '#/components/schemas/PangananMenuCategoryEnum'
-        menu:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-    PatchedProductRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        category:
-          $ref: '#/components/schemas/ProductCategoryEnum'
+          maxLength: 64
         barcode:
           type: string
           nullable: true
           maxLength: 100
-        purchase_price:
+        description:
+          type: string
+        cost_price:
           type: string
           format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
         selling_price:
           type: string
           format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        is_taxable:
+          type: boolean
+        tracks_stock:
+          type: boolean
         min_stock:
           type: integer
           maximum: 9223372036854775807
-          minimum: -9223372036854775808
+          minimum: 0
           format: int64
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 20
+        duration:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        duration_unit:
+          oneOf:
+          - $ref: '#/components/schemas/DurationUnitEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        requires_staff:
+          type: boolean
+        requires_room:
+          type: boolean
+        attributes: {}
+        image:
+          type: string
+          format: binary
+          nullable: true
         is_active:
           type: boolean
     PatchedRoomTableRequest:
@@ -5219,6 +6371,27 @@ components:
           items:
             type: integer
           description: Rewards claimed in this transaction
+    PatchedUserAccessRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+        role:
+          $ref: '#/components/schemas/UserAccessRoleEnum'
+        business:
+          type: integer
+          nullable: true
+          description: NULL = company-wide role
+        branches:
+          type: array
+          items:
+            type: integer
+          description: Empty = all branches of the business
+        is_primary:
+          type: boolean
+          description: Business the user lands on after login
+        is_active:
+          type: boolean
     PatchedUserProfileRequest:
       type: object
       properties:
@@ -5237,7 +6410,7 @@ components:
           format: email
           minLength: 1
         role:
-          $ref: '#/components/schemas/RoleEnum'
+          $ref: '#/components/schemas/UserProfileRoleEnum'
         branch:
           type: integer
           nullable: true
@@ -5245,50 +6418,9 @@ components:
           type: array
           items:
             type: integer
-    PatchedVRealProductRequest:
-      type: object
-      properties:
-        category:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/VRealProductCategoryEnum'
-          - $ref: '#/components/schemas/BlankEnum'
-          - $ref: '#/components/schemas/NullEnum'
-        product:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        size:
-          type: string
-          nullable: true
-          maxLength: 50
-        is_active:
-          type: boolean
-    PatchedVSSServiceRequest:
-      type: object
-      properties:
-        category:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/VSSServiceCategoryEnum'
-          - $ref: '#/components/schemas/BlankEnum'
-          - $ref: '#/components/schemas/NullEnum'
-        description:
-          type: string
-          minLength: 1
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
     Product:
       type: object
+      description: Legacy /products/ payload shape, backed by ``Item(item_type='PRODUCT')``.
       properties:
         id:
           type: integer
@@ -5297,7 +6429,8 @@ components:
           type: string
           maxLength: 255
         category:
-          $ref: '#/components/schemas/ProductCategoryEnum'
+          type: string
+          readOnly: true
         barcode:
           type: string
           nullable: true
@@ -5306,14 +6439,15 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
         selling_price:
           type: string
           format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
         min_stock:
           type: integer
           maximum: 9223372036854775807
-          minimum: -9223372036854775808
+          minimum: 0
           format: int64
         is_active:
           type: boolean
@@ -5326,10 +6460,10 @@ components:
           format: date-time
           readOnly: true
         stock_quantity:
-          type: integer
+          type: string
           readOnly: true
         is_low_stock:
-          type: boolean
+          type: string
           readOnly: true
       required:
       - category
@@ -5337,65 +6471,9 @@ components:
       - id
       - is_low_stock
       - name
+      - purchase_price
       - stock_quantity
       - updated_at
-    ProductCategoryEnum:
-      enum:
-      - DAY_CREAM
-      - NIGHT_CREAM
-      - NUTRIFIRM
-      - TONER
-      - SOAP
-      - SUNBLOCK
-      - MOISTURIZER
-      - SERUM
-      - LOTION
-      - SET
-      - OTHERS
-      type: string
-      description: |-
-        * `DAY_CREAM` - Realnew Day Cream
-        * `NIGHT_CREAM` - Night Cream
-        * `NUTRIFIRM` - Nutrifirm Gel
-        * `TONER` - Realnew Toner
-        * `SOAP` - Soap
-        * `SUNBLOCK` - Sunblock/Sunscreen
-        * `MOISTURIZER` - Moisturizer/Cream
-        * `SERUM` - Serum
-        * `LOTION` - Body Lotion
-        * `SET` - Product Set
-        * `OTHERS` - Other Cosmetics
-    ProductRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        category:
-          $ref: '#/components/schemas/ProductCategoryEnum'
-        barcode:
-          type: string
-          nullable: true
-          maxLength: 100
-        purchase_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        selling_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        min_stock:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: -9223372036854775808
-          format: int64
-        is_active:
-          type: boolean
-      required:
-      - category
-      - name
     RatingEnum:
       enum:
       - 1
@@ -5410,6 +6488,24 @@ components:
         * `3` - 3
         * `4` - 4
         * `5` - 5
+    ReasonEnum:
+      enum:
+      - SALE
+      - VOID
+      - RECEIVE
+      - ADJUST
+      - TRANSFER_OUT
+      - TRANSFER_IN
+      - WASTE
+      type: string
+      description: |-
+        * `SALE` - Sale
+        * `VOID` - Void/Return
+        * `RECEIVE` - Stock received
+        * `ADJUST` - Manual adjustment
+        * `TRANSFER_OUT` - Transfer out
+        * `TRANSFER_IN` - Transfer in
+        * `WASTE` - Damage/Waste
     RewardClaim:
       type: object
       properties:
@@ -5463,20 +6559,6 @@ components:
         * `FREE_ITEM` - Free Item
         * `POINTS` - Points
         * `TIER_UPGRADE` - Tier Upgrade
-    RoleEnum:
-      enum:
-      - SUPERADMIN
-      - OWNER
-      - BRANCH_ADMIN
-      - CASHIER
-      - STAFF
-      type: string
-      description: |-
-        * `SUPERADMIN` - Superadmin
-        * `OWNER` - Owner
-        * `BRANCH_ADMIN` - Branch Admin
-        * `CASHIER` - Cashier
-        * `STAFF` - Staff
     RoomTable:
       type: object
       properties:
@@ -5586,6 +6668,54 @@ components:
         * `FOOT_SPA` - Foot Spa
         * `MASSAGE` - Massage Room
         * `VIP` - VIP Room
+    StockMovement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        branch:
+          type: integer
+        branch_name:
+          type: string
+          readOnly: true
+        item:
+          type: integer
+        item_name:
+          type: string
+          readOnly: true
+        quantity_delta:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        reference:
+          type: string
+          maxLength: 64
+        balance_after:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        created_by:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - balance_after
+      - branch
+      - branch_name
+      - created_at
+      - id
+      - item
+      - item_name
+      - quantity_delta
+      - reason
     Transaction:
       type: object
       properties:
@@ -5707,10 +6837,7 @@ components:
             * `VREAL` - VReal Product
             * `BB` - BB Product
             * `GENERIC` - Generic Product
-        product:
-          type: integer
-          nullable: true
-        service:
+        item:
           type: integer
           nullable: true
         description:
@@ -5765,10 +6892,7 @@ components:
             * `VREAL` - VReal Product
             * `BB` - BB Product
             * `GENERIC` - Generic Product
-        product:
-          type: integer
-          nullable: true
-        service:
+        item:
           type: integer
           nullable: true
         description:
@@ -5875,6 +6999,91 @@ components:
         * `VOID` - Void
         * `RETURN` - Return
         * `HOLD` - Hold
+    UserAccess:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+        username:
+          type: string
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/UserAccessRoleEnum'
+        business:
+          type: integer
+          nullable: true
+          description: NULL = company-wide role
+        business_name:
+          type: string
+          readOnly: true
+        branches:
+          type: array
+          items:
+            type: integer
+          description: Empty = all branches of the business
+        is_primary:
+          type: boolean
+          description: Business the user lands on after login
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - business
+      - business_name
+      - created_at
+      - id
+      - role
+      - user
+      - username
+    UserAccessRequest:
+      type: object
+      properties:
+        user:
+          type: integer
+        role:
+          $ref: '#/components/schemas/UserAccessRoleEnum'
+        business:
+          type: integer
+          nullable: true
+          description: NULL = company-wide role
+        branches:
+          type: array
+          items:
+            type: integer
+          description: Empty = all branches of the business
+        is_primary:
+          type: boolean
+          description: Business the user lands on after login
+        is_active:
+          type: boolean
+      required:
+      - business
+      - role
+      - user
+    UserAccessRoleEnum:
+      enum:
+      - OWNER
+      - COMPANY_ADMIN
+      - ACCOUNTANT
+      - BUSINESS_MANAGER
+      - SUPERVISOR
+      - CASHIER
+      - STAFF
+      type: string
+      description: |-
+        * `OWNER` - Owner
+        * `COMPANY_ADMIN` - Company Admin
+        * `ACCOUNTANT` - Accountant
+        * `BUSINESS_MANAGER` - Business Manager
+        * `SUPERVISOR` - Supervisor
+        * `CASHIER` - Cashier
+        * `STAFF` - Staff
     UserProfile:
       type: object
       properties:
@@ -5895,7 +7104,7 @@ components:
           type: string
           format: email
         role:
-          $ref: '#/components/schemas/RoleEnum'
+          $ref: '#/components/schemas/UserProfileRoleEnum'
         role_display:
           type: string
           readOnly: true
@@ -5949,7 +7158,7 @@ components:
           format: email
           minLength: 1
         role:
-          $ref: '#/components/schemas/RoleEnum'
+          $ref: '#/components/schemas/UserProfileRoleEnum'
         branch:
           type: integer
           nullable: true
@@ -5957,6 +7166,20 @@ components:
           type: array
           items:
             type: integer
+    UserProfileRoleEnum:
+      enum:
+      - SUPERADMIN
+      - OWNER
+      - BRANCH_ADMIN
+      - CASHIER
+      - STAFF
+      type: string
+      description: |-
+        * `SUPERADMIN` - Superadmin
+        * `OWNER` - Owner
+        * `BRANCH_ADMIN` - Branch Admin
+        * `CASHIER` - Cashier
+        * `STAFF` - Staff
     VRealProduct:
       type: object
       properties:
@@ -5964,22 +7187,16 @@ components:
           type: integer
           readOnly: true
         category:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/VRealProductCategoryEnum'
-          - $ref: '#/components/schemas/BlankEnum'
-          - $ref: '#/components/schemas/NullEnum'
+          type: string
         product:
           type: string
-          maxLength: 255
         price:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
         size:
           type: string
-          nullable: true
-          maxLength: 50
+          readOnly: true
         is_active:
           type: boolean
         created_at:
@@ -5999,58 +7216,21 @@ components:
       - id
       - price
       - product
+      - size
       - updated_at
-    VRealProductCategoryEnum:
-      enum:
-      - SOAP
-      - FS_WASH
-      - TONER
-      - NIGHT_CREAM
-      - MOISTURIZER
-      - SUNBLOCK
-      - SERUM
-      - SET
-      - GLUTA
-      - HAIR_CARE
-      - LOTION
-      - OTHERS
-      - SALON_PRODUCTS
-      type: string
-      description: |-
-        * `SOAP` - Soap
-        * `FS_WASH` - F/S Wash
-        * `TONER` - Toner
-        * `NIGHT_CREAM` - Night Cream
-        * `MOISTURIZER` - Moisturizer
-        * `SUNBLOCK` - Sunblock
-        * `SERUM` - Serum
-        * `SET` - Set
-        * `GLUTA` - Glutathione
-        * `HAIR_CARE` - Hair Care
-        * `LOTION` - Lotion
-        * `OTHERS` - Others
-        * `SALON_PRODUCTS` - Salon Products
     VRealProductRequest:
       type: object
       properties:
         category:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/VRealProductCategoryEnum'
-          - $ref: '#/components/schemas/BlankEnum'
-          - $ref: '#/components/schemas/NullEnum'
+          type: string
+          minLength: 1
         product:
           type: string
           minLength: 1
-          maxLength: 255
         price:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        size:
-          type: string
-          nullable: true
-          maxLength: 50
         is_active:
           type: boolean
       required:
@@ -6063,14 +7243,9 @@ components:
           type: integer
           readOnly: true
         category:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/VSSServiceCategoryEnum'
-          - $ref: '#/components/schemas/BlankEnum'
-          - $ref: '#/components/schemas/NullEnum'
+          type: string
         description:
           type: string
-          maxLength: 255
         price:
           type: string
           format: decimal
@@ -6095,61 +7270,15 @@ components:
       - id
       - price
       - updated_at
-    VSSServiceCategoryEnum:
-      enum:
-      - RADIO_FREQUENCY
-      - SALON_SERVICES
-      - HAND_FOOT_TREATMENT
-      - FACIAL_TREATMENT
-      - LASER_TREATMENT
-      - BLEACHING_WHITENING
-      - HIFU_ULTERA
-      - PICO_WAY
-      - EYELASH_EXTENSIONS
-      - GLYCOLIC_PEELING
-      - SKIN_GROWTH_REMOVAL
-      - WAXING
-      - MASSAGE
-      - MICRODERMABRASION
-      - BODY_SCRUB
-      - AESTHETIC_TATTOO
-      - PROMO_PRICE
-      - PERMANENT_HAIR_REMOVAL
-      - OTHER_SERVICES
-      type: string
-      description: |-
-        * `RADIO_FREQUENCY` - Radio Frequency
-        * `SALON_SERVICES` - Salon Services
-        * `HAND_FOOT_TREATMENT` - Hand and Foot Treatment
-        * `FACIAL_TREATMENT` - Facial Treatment
-        * `LASER_TREATMENT` - Laser Treatment
-        * `BLEACHING_WHITENING` - Instant Bleaching and Skin Whitening
-        * `HIFU_ULTERA` - HIFU - Ultera
-        * `PICO_WAY` - Pico Way
-        * `EYELASH_EXTENSIONS` - Eyelash Extensions
-        * `GLYCOLIC_PEELING` - Glycolic Peeling
-        * `SKIN_GROWTH_REMOVAL` - Skin Growth Removal
-        * `WAXING` - Waxing
-        * `MASSAGE` - Massage
-        * `MICRODERMABRASION` - Microdermabrasion
-        * `BODY_SCRUB` - Body Scrub
-        * `AESTHETIC_TATTOO` - Aesthetic Tattoo/Semi Permanent Tattoo
-        * `PROMO_PRICE` - Promo Price
-        * `PERMANENT_HAIR_REMOVAL` - Permanent Hair Removal
-        * `OTHER_SERVICES` - Other Services
     VSSServiceRequest:
       type: object
       properties:
         category:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/VSSServiceCategoryEnum'
-          - $ref: '#/components/schemas/BlankEnum'
-          - $ref: '#/components/schemas/NullEnum'
+          type: string
+          minLength: 1
         description:
           type: string
           minLength: 1
-          maxLength: 255
         price:
           type: string
           format: decimal

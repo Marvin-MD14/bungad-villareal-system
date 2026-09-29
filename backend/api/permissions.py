@@ -42,6 +42,16 @@ ROLE_ACTIONS = {
         # --- Product / inventory (read only) ---
         'Product:list', 'Product:retrieve', 'Product:low_stock', 'Product:by_category',
         'BranchInventory:list', 'BranchInventory:retrieve', 'BranchInventory:by_branch',
+        # --- Unified catalog (read only) ---
+        'Item:list', 'Item:retrieve',
+        'Category:list', 'Category:retrieve',
+        'BusinessItem:list', 'BusinessItem:retrieve',
+        'InventoryLevel:list', 'InventoryLevel:retrieve',
+        'StockMovement:list', 'StockMovement:retrieve',
+        # --- Businesses & access (read only) ---
+        'Business:list', 'Business:retrieve',
+        'BusinessType:list', 'BusinessType:retrieve',
+        'UserAccess:list', 'UserAccess:retrieve',
         # --- Client (read only, org-wide) ---
         'ClientProfile:list', 'ClientProfile:retrieve', 'ClientProfile:search',
         'ClientProfile:find_by_phone', 'ClientProfile:transactions',
@@ -89,6 +99,16 @@ ROLE_ACTIONS = {
         'Product:list', 'Product:retrieve', 'Product:low_stock', 'Product:by_category',
         'BranchInventory:list', 'BranchInventory:retrieve', 'BranchInventory:by_branch',
         'BranchInventory:restock',
+        # --- Unified catalog (read + stock receiving) ---
+        'Item:list', 'Item:retrieve',
+        'Category:list', 'Category:retrieve',
+        'BusinessItem:list', 'BusinessItem:retrieve',
+        'InventoryLevel:list', 'InventoryLevel:retrieve', 'InventoryLevel:restock',
+        'StockMovement:list', 'StockMovement:retrieve',
+        # --- Businesses & access (read) ---
+        'Business:list', 'Business:retrieve',
+        'BusinessType:list', 'BusinessType:retrieve',
+        'UserAccess:list', 'UserAccess:retrieve',
         # --- Branch (read) ---
         'Branch:list', 'Branch:retrieve',
         # --- Client ---
@@ -134,6 +154,11 @@ ROLE_ACTIONS = {
         'PangananMenu:list', 'PangananMenu:retrieve', 'PangananMenu:categories',
         'KBItem:list', 'KBItem:retrieve',
         'AutoSpaService:list', 'AutoSpaService:retrieve',
+        # --- Unified catalog (read) ---
+        'Item:list', 'Item:retrieve',
+        'Category:list', 'Category:retrieve',
+        'Business:list', 'Business:retrieve',
+        'BusinessType:list', 'BusinessType:retrieve',
         # --- Client (read + lookup) ---
         'ClientProfile:list', 'ClientProfile:retrieve', 'ClientProfile:search',
         'ClientProfile:find_by_phone', 'ClientProfile:tier_info', 'ClientProfile:rewards',
@@ -165,6 +190,10 @@ BRANCH_ADMIN_DENIED_ACTIONS = {
     'UserProfile:create', 'UserProfile:update', 'UserProfile:partial_update',
     'UserProfile:destroy',
     'DashboardStats:branch_comparison',
+    # Privilege escalation guards: access grants and org structure are company-level.
+    'UserAccess:create', 'UserAccess:update', 'UserAccess:partial_update', 'UserAccess:destroy',
+    'Business:create', 'Business:update', 'Business:partial_update', 'Business:destroy',
+    'BusinessType:create', 'BusinessType:update', 'BusinessType:partial_update', 'BusinessType:destroy',
 }
 
 

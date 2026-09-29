@@ -1,7 +1,8 @@
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from rest_framework.test import APIClient
-from .models import Branch, BranchInventory, Product, UserProfile
+from ..models import Branch, UserProfile
+from ..catalog.models import BusinessItem, Category, InventoryLevel, Item
 
 
 class AuthenticationTests(TestCase):
@@ -172,22 +173,32 @@ class RolePermissionTests(TestCase):
 		self.assertEqual(branch.address, 'Updated branch description')
 		self.assertEqual(profile.role, 'STAFF')
 
+	def _make_stocked_item(self, branch, name, price, stock):
+		"""Create a unified-catalog item stocked at ``branch``."""
+		category, _ = Category.objects.get_or_create(name='Test Goods', kind='PRODUCT')
+		item = Item.objects.create(
+			item_type='PRODUCT',
+			category=category,
+			name=name,
+			cost_price='50.00',
+			selling_price=price,
+			tracks_stock=True,
+			unit='pc',
+			is_active=True,
+		)
+		inventory = InventoryLevel.objects.create(branch=branch, item=item, stock_qty=stock)
+		return item, inventory
+
 	def test_cashier_checkout_deducts_stock_and_records_sale(self):
 		user = self.create_role_user('checkout-cashier', 'Cashier')
 		branch = Branch.objects.create(name='Test Branch')
-		product = Product.objects.create(
-			name='Test Product',
-			category='SOAP',
-			purchase_price='50.00',
-			selling_price='100.00',
-		)
-		inventory = BranchInventory.objects.create(branch=branch, product=product, stock_qty=3)
+		item, inventory = self._make_stocked_item(branch, 'Test Product', '100.00', 3)
 		self.client.force_authenticate(user=user)
 
 		response = self.client.post('/api/transactions/checkout/', {
 			'branch': branch.id,
 			'amount_paid': '250.00',
-			'items': [{'item_type': 'PRODUCT', 'product': product.id, 'quantity': 2}],
+			'items': [{'item_type': 'PRODUCT', 'product': item.id, 'quantity': 2}],
 		}, format='json')
 
 		inventory.refresh_from_db()
@@ -203,7 +214,7 @@ class RolePermissionTests(TestCase):
 
 	def test_client_profile_is_org_wide_accessible_to_cashier(self):
 		user = self.create_role_user('lookup-cashier', 'CASHIER')
-		from .models import ClientProfile
+		from ..models import ClientProfile
 		client = ClientProfile.objects.create(first_name='Maria', last_name='Santos')
 		self.client.force_authenticate(user=user)
 
@@ -225,17 +236,13 @@ class RolePermissionTests(TestCase):
 		user = self.create_role_user('void-admin', 'SUPERADMIN')
 		UserProfile.objects.create(user=user, role='SUPERADMIN')
 		branch = Branch.objects.create(name='Void Branch')
-		product = Product.objects.create(
-			name='Void Product', category='SOAP',
-			purchase_price='50.00', selling_price='100.00'
-		)
-		inv = BranchInventory.objects.create(branch=branch, product=product, stock_qty=5)
+		item, inv = self._make_stocked_item(branch, 'Void Product', '100.00', 5)
 		self.client.force_authenticate(user=user)
 
 		checkout_res = self.client.post('/api/transactions/checkout/', {
 			'branch': branch.id,
 			'amount_paid': '100.00',
-			'items': [{'item_type': 'PRODUCT', 'product': product.id, 'quantity': 1}],
+			'items': [{'item_type': 'PRODUCT', 'product': item.id, 'quantity': 1}],
 		}, format='json')
 		self.assertEqual(checkout_res.status_code, 201)
 		inv.refresh_from_db()

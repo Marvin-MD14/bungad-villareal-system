@@ -3,12 +3,12 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
-    VSSService, VRealProduct, BBProduct, PangananMenu, KBItem, AutoSpaService,
-    Branch, Product, BranchInventory, ClientProfile, RoomTable,
+    Branch, ClientProfile, RoomTable,
     Transaction, TransactionItem, DailySales, UserProfile,
     Attendance, CustomerFeedback, Expense, AuditLog,
     CustomerReward, RewardClaim,
 )
+from .catalog.models import Item, Category, InventoryLevel
 
 
 # ============================================================
@@ -23,7 +23,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', required=False)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     branch_name = serializers.CharField(source='branch.name', read_only=True)
-    service_names = serializers.StringRelatedField(source='services', many=True, read_only=True)
+    # Legacy payload name kept: `services` now maps to the unified-catalog
+    # `skills` M2M (Item ids — the same ids /vss-services/ returns).
+    services = serializers.PrimaryKeyRelatedField(
+        queryset=Item.objects.all(), many=True, required=False, source='skills'
+    )
+    service_names = serializers.StringRelatedField(source='skills', many=True, read_only=True)
 
     class Meta:
         model = UserProfile
@@ -63,15 +68,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             last_name=user_data.get('last_name', self.initial_data.get('last_name', '')),
             email=user_data.get('email', self.initial_data.get('email', '')),
         )
-        services = validated_data.pop('services', [])
+        services = validated_data.pop('skills', [])
         profile = UserProfile.objects.create(user=user, **validated_data)
-        profile.services.set(services)
+        profile.skills.set(services)
         return profile
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
         password = validated_data.pop('password', None)
-        services = validated_data.pop('services', None)
+        services = validated_data.pop('skills', None)
         user = instance.user
         for field in ('first_name', 'last_name', 'email'):
             if field in user_data:
@@ -83,7 +88,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             setattr(instance, field, value)
         instance.save()
         if services is not None:
-            instance.services.set(services)
+            instance.skills.set(services)
         return instance
 
 
@@ -110,40 +115,59 @@ class BranchSerializer(serializers.ModelSerializer):
 
 
 # ============================================================
-# PRODUCT SERIALIZER
+# PRODUCT SERIALIZER (read-only shim over the unified catalog)
 # ============================================================
 
 class ProductSerializer(serializers.ModelSerializer):
-    stock_quantity = serializers.IntegerField(read_only=True)
-    is_low_stock = serializers.BooleanField(read_only=True)
+    """Legacy /products/ payload shape, backed by ``Item(item_type='PRODUCT')``."""
+
+    category = serializers.SerializerMethodField()
+    purchase_price = serializers.DecimalField(
+        source='cost_price', max_digits=10, decimal_places=2, read_only=True
+    )
+    stock_quantity = serializers.SerializerMethodField()
+    is_low_stock = serializers.SerializerMethodField()
 
     class Meta:
-        model = Product
+        model = Item
         fields = [
             'id', 'name', 'category', 'barcode', 'purchase_price', 'selling_price',
             'min_stock', 'is_active', 'created_at', 'updated_at',
             'stock_quantity', 'is_low_stock',
         ]
 
+    def get_category(self, obj):
+        return obj.category.name if obj.category_id else ''
+
+    def get_stock_quantity(self, obj):
+        # Same semantics as the old Product.stock_quantity: total across branches
+        # (the queryset itself is branch-scoped for branch roles).
+        return sum(lvl.stock_qty for lvl in obj.inventory_levels.all())
+
+    def get_is_low_stock(self, obj):
+        return self.get_stock_quantity(obj) <= obj.min_stock
+
 
 # ============================================================
-# BRANCH INVENTORY SERIALIZER
+# BRANCH INVENTORY SERIALIZER (read-only shim over InventoryLevel)
 # ============================================================
 
 class BranchInventorySerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
-    product_name = serializers.CharField(source='product.name', read_only=True)
+    product = serializers.PrimaryKeyRelatedField(source='item', read_only=True)
+    product_name = serializers.CharField(source='item.name', read_only=True)
+    last_updated = serializers.DateTimeField(source='updated_at', read_only=True)
     is_low_stock = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        model = BranchInventory
+        model = InventoryLevel
         fields = [
             'id', 'branch', 'product', 'stock_qty', 'last_updated',
             'branch_name', 'product_name', 'is_low_stock',
         ]
 
     def get_is_low_stock(self, obj):
-        return obj.stock_qty <= obj.product.min_stock
+        return obj.stock_qty <= obj.item.min_stock
 
 
 # ============================================================
@@ -244,14 +268,19 @@ class RoomTableSerializer(serializers.ModelSerializer):
 
 
 # ============================================================
-# VSS SERVICE SERIALIZER
+# LEGACY CATALOG SERIALIZERS
+# Read-only shims: same payload shape as the retired per-catalog
+# tables, backed by rows of the unified ``Item`` table.
 # ============================================================
 
 class VSSServiceSerializer(serializers.ModelSerializer):
-    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    category = serializers.CharField(source='category.name', required=False)
+    category_display = serializers.CharField(source='category.name', read_only=True)
+    description = serializers.CharField(source='name')
+    price = serializers.DecimalField(source='selling_price', max_digits=10, decimal_places=2)
 
     class Meta:
-        model = VSSService
+        model = Item
         fields = [
             'id', 'category', 'description', 'price', 'is_active',
             'created_at', 'updated_at', 'category_display',
@@ -263,15 +292,22 @@ class VSSServiceSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class VRealProductSerializer(serializers.ModelSerializer):
-    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    category = serializers.CharField(source='category.name', required=False)
+    category_display = serializers.CharField(source='category.name', read_only=True)
+    product = serializers.CharField(source='name')
+    price = serializers.DecimalField(source='selling_price', max_digits=10, decimal_places=2)
+    size = serializers.SerializerMethodField()
 
     class Meta:
-        model = VRealProduct
+        model = Item
         fields = [
             'id', 'category', 'product', 'price', 'size',
             'is_active', 'created_at', 'updated_at',
             'category_display',
         ]
+
+    def get_size(self, obj):
+        return (obj.attributes or {}).get('size', '')
 
 
 # ============================================================
@@ -279,12 +315,19 @@ class VRealProductSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class BBProductSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='name')
+    price = serializers.DecimalField(source='selling_price', max_digits=10, decimal_places=2)
+    category = serializers.SerializerMethodField()
+
     class Meta:
-        model = BBProduct
+        model = Item
         fields = [
             'id', 'product_name', 'price', 'category',
             'is_active', 'created_at', 'updated_at',
         ]
+
+    def get_category(self, obj):
+        return obj.category.name if obj.category_id else ''
 
 
 # ============================================================
@@ -292,10 +335,13 @@ class BBProductSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class PangananMenuSerializer(serializers.ModelSerializer):
-    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    category = serializers.CharField(source='category.name', required=False)
+    category_display = serializers.CharField(source='category.name', read_only=True)
+    menu = serializers.CharField(source='name')
+    price = serializers.DecimalField(source='selling_price', max_digits=10, decimal_places=2)
 
     class Meta:
-        model = PangananMenu
+        model = Item
         fields = [
             'id', 'category', 'menu', 'price', 'is_active',
             'created_at', 'updated_at', 'category_display',
@@ -307,8 +353,10 @@ class PangananMenuSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class KBItemSerializer(serializers.ModelSerializer):
+    price = serializers.DecimalField(source='selling_price', max_digits=10, decimal_places=2)
+
     class Meta:
-        model = KBItem
+        model = Item
         fields = [
             'id', 'name', 'price', 'is_active',
             'created_at', 'updated_at',
@@ -320,8 +368,11 @@ class KBItemSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class AutoSpaServiceSerializer(serializers.ModelSerializer):
+    service = serializers.CharField(source='name')
+    price = serializers.DecimalField(source='selling_price', max_digits=10, decimal_places=2)
+
     class Meta:
-        model = AutoSpaService
+        model = Item
         fields = [
             'id', 'service', 'price', 'is_active',
             'created_at', 'updated_at',
@@ -333,17 +384,24 @@ class AutoSpaServiceSerializer(serializers.ModelSerializer):
 # ============================================================
 
 class TransactionItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    service_name = serializers.CharField(source='service.description', read_only=True)
+    # Kept for receipt/UI compatibility: both report the unified item name.
+    product_name = serializers.SerializerMethodField()
+    service_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TransactionItem
         fields = [
             'id', 'transaction', 'item_type', 'catalog_source',
-            'product', 'service', 'description', 'price',
+            'item', 'description', 'price',
             'quantity', 'discount', 'total',
             'product_name', 'service_name',
         ]
+
+    def get_product_name(self, obj):
+        return obj.item.name if obj.item_id and obj.item_type == 'PRODUCT' else ''
+
+    def get_service_name(self, obj):
+        return obj.item.name if obj.item_id and obj.item_type == 'SERVICE' else ''
 
 
 # ============================================================
