@@ -5,6 +5,11 @@ import ClientsPage from './components/ClientsPage';
 import AdministrationPage from './components/AdministrationPage';
 import CashierPOS from './components/CashierPOS';
 import CustomersRewardsPage from './components/CustomersRewardsPage';
+import DocumentationPage from './components/DocumentationPage';
+import {
+  applyBusinessHeader, getActiveBusinessSlug, getGrantedBusinesses,
+  rememberBusinesses, forgetBusinessContext, setActiveBusiness,
+} from './utils/session';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -19,7 +24,7 @@ import {
   Mail, Phone, MapPin, Award, Target, ChevronLeft, ChevronRight,
   RefreshCw, Download, Loader2, Sun, Moon, Settings, HelpCircle,
   CreditCard, Gift, ShoppingBag, Scissors, Sparkles, Shield,
-  Maximize2, Minimize2, Crown
+  Maximize2, Minimize2, Crown, BookOpen, Building2
 } from 'lucide-react';
 
 // ============ API CONFIGURATION ============
@@ -37,23 +42,24 @@ const ROLE_CAPABILITIES = {
   Superadmin: [
     'dashboard', 'sales', 'clients', 'administration', 'users', 'user_manage',
     'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit',
-    'catalog', 'catalog_manage', 'client_manage', 'customer_rewards'
+    'catalog', 'catalog_manage', 'client_manage', 'customer_rewards',
+    'documentation'
   ],
   Owner: [
     'dashboard', 'sales', 'clients', 'users', 'rooms', 'inventory',
-    'audit', 'catalog', 'customer_rewards'
+    'audit', 'catalog', 'customer_rewards', 'documentation'
   ],
   'Branch Admin': [
     'dashboard', 'sales', 'clients', 'users', 'user_manage', 'rooms',
     'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog',
-    'catalog_manage', 'client_manage', 'customer_rewards'
+    'catalog_manage', 'client_manage', 'customer_rewards', 'documentation'
   ],
   Cashier: [
     'dashboard', 'sales', 'clients', 'rooms', 'room_manage',
-    'inventory', 'catalog', 'client_manage', 'customer_rewards'
+    'inventory', 'catalog', 'client_manage', 'customer_rewards', 'documentation'
   ],
   Staff: [
-    'dashboard', 'clients', 'rooms', 'room_manage', 'catalog'
+    'dashboard', 'clients', 'rooms', 'room_manage', 'catalog', 'documentation'
   ],
 };
 
@@ -68,7 +74,8 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Token ${token}`;
-  return config;
+  // Scope every call to the business the user last picked (backend resolves it per request).
+  return applyBusinessHeader(config);
 });
 
 // ============ LOADING SPINNER ============
@@ -96,6 +103,7 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
     { id: 'rooms', label: 'Room Status', icon: <DoorOpen size={16} /> },
     { id: 'inventory', label: 'Inventory', icon: <Package size={16} /> },
     { id: 'audit_controls', label: 'Audit Logs', icon: <ShieldAlert size={16} /> },
+    { id: 'documentation', label: 'Documentation', icon: <BookOpen size={16} /> },
   ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id));
 
   const productMenus = [
@@ -229,6 +237,28 @@ export default function App() {
     const savedUser = localStorage.getItem('authUser');
     return savedUser ? JSON.parse(savedUser).role : 'Superadmin';
   });
+
+  // --- ACTIVE BUSINESS (what X-Business sends) ---
+  // The login payload lists every Business this account may open; the chosen slug is kept
+  // in localStorage so all seven axios instances attach it without prop drilling.
+  const [grantedBusinesses, setGrantedBusinesses] = useState(getGrantedBusinesses);
+  const [storedBusiness, setStoredBusiness] = useState(getActiveBusinessSlug);
+
+  // Derived instead of re-synced: if a grant was revoked between sessions, the render falls
+  // back to the first remaining business so an invalid slug is never sent to the backend.
+  const activeBusiness = grantedBusinesses.length && !grantedBusinesses.some((b) => b.slug === storedBusiness)
+    ? (grantedBusinesses[0].slug || '')
+    : storedBusiness;
+
+  // Keeps localStorage aligned with the derived slug - writes only, no state update.
+  useEffect(() => {
+    setActiveBusiness(activeBusiness);
+  }, [activeBusiness]);
+
+  const chooseBusiness = (slug) => {
+    setActiveBusiness(slug);
+    setStoredBusiness(slug);
+  };
 
   useEffect(() => {
     const capability = activeTab === 'audit_controls' ? 'audit' : activeTab;
@@ -422,6 +452,11 @@ export default function App() {
       const response = await api.post('/auth/login/', loginForm);
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('authUser', JSON.stringify(response.data.user));
+      const granted = Array.isArray(response.data.businesses) ? response.data.businesses : [];
+      const primarySlug = response.data.primary_business?.slug || granted[0]?.slug || '';
+      rememberBusinesses(granted, primarySlug);
+      setGrantedBusinesses(granted);
+      setStoredBusiness(primarySlug);
       setIsLoggedIn(true);
       setCurrentUserRole(response.data.user.role);
       triggerSweetAlert('success', 'Welcome Back!', `Successfully logged in as ${response.data.user.username}.`);
@@ -435,6 +470,9 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
+    forgetBusinessContext();
+    setGrantedBusinesses([]);
+    setStoredBusiness('');
     setIsLoggedIn(false);
     setLoginForm({ username: '', password: '' });
     setLoginError('');
@@ -886,10 +924,32 @@ export default function App() {
                   {activeTab === 'rooms' && "Live Service Room Tracking"}
                   {activeTab === 'inventory' && "Product & Sales Stock Registry"}
                   {activeTab === 'audit_controls' && "Security Exception Records"}
+                  {activeTab === 'documentation' && "System Documentation & Guides"}
                 </h2>
               </div>
 
               <div className="flex items-center space-x-4">
+                {grantedBusinesses.length > 1 && (
+                  <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border px-3 py-1.5 rounded-xl text-xs`}>
+                    <Building2 size={14} className="text-cyan-600 shrink-0" />
+                    <label htmlFor="business-switch" className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Business:
+                    </label>
+                    <select
+                      id="business-switch"
+                      value={activeBusiness}
+                      onChange={(event) => chooseBusiness(event.target.value)}
+                      className={`bg-transparent font-bold cursor-pointer focus:outline-none ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}
+                    >
+                      {grantedBusinesses.map((b) => (
+                        <option key={b.slug} value={b.slug} className={`${isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'}`}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className={`text-right font-mono text-xs ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'} border px-3 py-1.5 rounded-xl`}>
                   <span className="text-slate-400 mr-1.5">{formattedDate}</span>
                   <span className="text-cyan-600 font-semibold">{formattedTime}</span>
@@ -929,11 +989,15 @@ export default function App() {
           )}
 
           {/* WORKSPACE CONTENT - Adjusted padding in full screen */}
-          <div className={`flex-1 overflow-y-auto space-y-6 ${
-            isPOSFullScreen ? 'p-2' : 'p-6'
-          } ${
-            isDarkMode ? 'bg-slate-950/50' : 'bg-slate-50/30'
-          }`}>
+          {/* Remount on business switch so every page refetches under the new scope */}
+          <div
+            key={activeBusiness || 'default'}
+            className={`flex-1 overflow-y-auto space-y-6 ${
+              isPOSFullScreen ? 'p-2' : 'p-6'
+            } ${
+              isDarkMode ? 'bg-slate-950/50' : 'bg-slate-50/30'
+            }`}
+          >
 
             {/* SALES TAB */}
             {activeTab === 'sales' && canAccess(currentUserRole, 'sales') && (
@@ -1520,6 +1584,11 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* DOCUMENTATION HANDBOOK */}
+            {canAccess(currentUserRole, 'documentation') && activeTab === 'documentation' && (
+              <DocumentationPage isDarkMode={isDarkMode} />
             )}
 
             {/* PRODUCT MANAGEMENT ROUTES */}

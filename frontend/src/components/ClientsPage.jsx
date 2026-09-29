@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Search, UserPlus } from 'lucide-react';
+import { applyBusinessHeader } from '../utils/session';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
@@ -12,7 +13,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Token ${token}`;
-  return config;
+  return applyBusinessHeader(config);
 });
 
 const records = (response) => response.data.results || response.data;

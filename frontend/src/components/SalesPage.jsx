@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { CreditCard, Plus, Receipt, Trash2 } from 'lucide-react';
+import { applyBusinessHeader, newIdempotencyKey } from '../utils/session';
 
 const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
@@ -12,7 +13,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Token ${token}`;
-  return config;
+  return applyBusinessHeader(config);
 });
 
 const records = (response) => response.data.results || response.data;
@@ -28,6 +29,8 @@ export default function SalesPage({ isDarkMode = false, readOnly = false }) {
   const [catalogId, setCatalogId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [branchId, setBranchId] = useState('');
+  // One idempotency key per unsold cart; cleared once a sale is recorded.
+  const saleKeyRef = useRef('');
   const [customerId, setCustomerId] = useState('');
   const [discount, setDiscount] = useState('0');
   const [amountPaid, setAmountPaid] = useState('0');
@@ -105,6 +108,8 @@ export default function SalesPage({ isDarkMode = false, readOnly = false }) {
     }
 
     setSubmitting(true);
+    // Reuse the key on retry so a timed-out submission replays instead of double-recording.
+    if (!saleKeyRef.current) saleKeyRef.current = newIdempotencyKey();
     try {
       await api.post('/transactions/checkout/', {
         branch: Number(branchId),
@@ -117,7 +122,10 @@ export default function SalesPage({ isDarkMode = false, readOnly = false }) {
           service: item.service,
           quantity: item.quantity,
         })),
+      }, {
+        headers: { 'Idempotency-Key': saleKeyRef.current },
       });
+      saleKeyRef.current = '';
       setCart([]);
       setDiscount('0');
       setAmountPaid('0');

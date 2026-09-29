@@ -10,12 +10,13 @@ import {
 } from 'lucide-react';
 import CustomerRewardsPanel from './CustomerRewardsPanel';
 import CustomerTierBadge from './CustomerTierBadge';
+import { applyBusinessHeader, newIdempotencyKey } from '../utils/session';
 
 const api = axios.create({ baseURL: 'http://127.0.0.1:8000/api' });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Token ${token}`;
-  return config;
+  return applyBusinessHeader(config);
 });
 
 const records = (response) => response.data.results || response.data;
@@ -323,6 +324,8 @@ export default function CashierPOS({ isDarkMode = false }) {
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [expandedCategories, setExpandedCategories] = useState({});
   const searchRef = useRef(null);
+  // One idempotency key per unsold cart; cleared once a sale is recorded.
+  const saleKeyRef = useRef('');
 
   // Customer Info Modal States
   const [showCustomerInfoModal, setShowCustomerInfoModal] = useState(false);
@@ -626,6 +629,9 @@ export default function CashierPOS({ isDarkMode = false }) {
   // ============ PROCESS SALE ============
   const processSale = async (finalCustomerId, customerName) => {
     setSubmitting(true);
+    // Reuse the key on retry: a submission that timed out may already be recorded,
+    // and the backend replays a checkout carrying a key it has already seen.
+    if (!saleKeyRef.current) saleKeyRef.current = newIdempotencyKey();
     try {
       const items = cart.map((item) => {
         if (item.item_type === 'VSS') {
@@ -645,6 +651,8 @@ export default function CashierPOS({ isDarkMode = false }) {
         apply_tier_discount: true,
         items,
         notes: `Payment: ${paymentMethod}`,
+      }, {
+        headers: { 'Idempotency-Key': saleKeyRef.current },
       });
 
       setLastReceipt({
@@ -665,6 +673,7 @@ export default function CashierPOS({ isDarkMode = false }) {
       });
 
       setShowReceipt(true);
+      saleKeyRef.current = '';
 
       setCart([]); setDiscount('0'); setAmountPaid(''); setCustomerId('');
       setWalkinName(''); setSelectedRewards([]); setTierDiscountRate(0);
