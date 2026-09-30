@@ -17,3 +17,15 @@ schema.yml.bak
 frontend/node_modules/
 frontend/dist/
 
+# Terminal redirects from debugging runs: *_err.txt / *_out.txt pairs, plus a few
+# one-off captures. Nothing in the build reads them. The catalog input lists the
+# importers take (seed_products.txt, seed_services.txt) are local-only too — they
+# were never committed, and their rows already live in the database.
+*_err.txt
+*_out.txt
+backend/mg.txt
+frontend/bld.txt
+frontend/_pv.txt
+seed_products.txt
+seed_services.txt
+

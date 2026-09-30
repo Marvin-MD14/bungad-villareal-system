@@ -2,8 +2,16 @@
 
 **Architecture:** Single company · many businesses · many branches · one catalog · centralized access control
 **Stack:** Django 5.1 + Django REST Framework 3.15 (backend) · React 19 + Vite 8 + Tailwind 4 (frontend)
-**Last updated:** 2026-09-29 · Backend test suite: **33/33 passing** · `manage.py check`: clean · OpenAPI: 0 errors
+**Last updated:** 2026-09-30 · Backend suite: **98 tests across 8 modules** · Frontend suite: **17 tests** · `manage.py check`: clean · `manage.py erd --check`: clean · CI: `.github/workflows/ci.yml` · OpenAPI: 0 errors
 
+> **Looking for the flow view?** [`ARCHITECTURE.md`](ARCHITECTURE.md) is the
+> whole-system diagram set and process walkthrough — layers, every data connection,
+> the request lifecycle, sign-in, checkout and the guard stack. This file is the
+> reference inventory (models, endpoints, env vars, runbook); that file is the map.
+> **Need to change a table's connections?** [`ERD.md`](ERD.md) lists all 55
+> relationships with their delete policies, flags the ones that disagree with their
+> neighbours, and is verified against the live schema by `manage.py erd --check`.
+>
 > This document describes the system **as built** after the multi-business SaaS refactor
 > (Phases 0–5 of [`MULTI_BUSINESS_SAAS_PLAN.md`](MULTI_BUSINESS_SAAS_PLAN.md)).
 > `MULTITENANT_SAAS_PLAN.md` is obsolete (it assumed many companies; there is only one).
@@ -71,18 +79,23 @@ bungad-villareal-system/
 │       ├── catalog/               Category · Item · BusinessItem · InventoryLevel · StockMovement
 │       ├── sales/                 services.py (checkout / void / receive / adjust)
 │       ├── management/commands/   bootstrap_company · create_demo_users · setup_demo_data ·
-│       │                          import_vss_services · import_vreal_products
-│       ├── migrations/            0001…0007 legacy · 0008–0010 SaaS refactor
-│       └── tests/                 test_api.py (17) · test_business_isolation.py (10) · test_admin.py (6)
+│       │                          import_vss_services · import_vreal_products · backup_db · erd
+│       ├── migrations/            0001…0007 legacy · 0008–0010 SaaS refactor · 0011–0017 follow-ups
+│       └── tests/                 8 modules, 90 tests (see §10)
 ├── frontend/
 │   └── src/
 │       ├── App.jsx                auth, router, axios instance, layout/shell
 │       └── components/            CashierPOS · SalesPage · ClientsPage · CustomersRewardsPage ·
 │                                  CustomerRewardsPanel · AdministrationPage · Crudtable ·
 │                                  CustomerTierBadge
-├── MULTI_BUSINESS_SAAS_PLAN.md    architecture plan (implemented)
-├── MULTITENANT_SAAS_PLAN.md       superseded — do not follow
-└── SYSTEM_DOCUMENTATION.md        this file
+├── ARCHITECTURE.md               how the system behaves: request lifecycle, checkout,
+│                                  scoping, auth — the flow view of the same codebase
+├── ERD.md                       every model connection, its delete policy, and the
+│                                  `manage.py erd --check` gate that keeps it honest
+├── .github/workflows/ci.yml      backend suite · frontend lint/test/build
+├── MULTI_BUSINESS_SAAS_PLAN.md   architecture plan (implemented)
+├── MULTITENANT_SAAS_PLAN.md      superseded — do not follow
+└── SYSTEM_DOCUMENTATION.md       this file
 ```
 
 `api/models.py` re-exports every domain model so historical imports (`from api.models import Item`)
@@ -107,14 +120,32 @@ keep working; new code should import from the domain package (`from api.catalog.
 
 ## 4. Data Model
 
+> ### Glossary — Business vs. Branch (they are NOT the same thing)
+>
+> This is the single most-confused pair in the system, so it is spelled out here:
+>
+> - A **Business** is the top operating unit — the thing the **Owner/superadmin
+>   creates** (e.g. "Spa Biz", "Retail Biz"). It is the **parent** and the
+>   **isolation boundary**; every scoped row carries its `business`.
+> - A **Branch** is one physical **outlet** *of* a business (e.g. "Main",
+>   "DSM-01"). Sales, expenses, rooms, stock and attendance hang off the branch;
+>   the branch in turn belongs to exactly one parent business.
+>
+> So: **Business = parent / tenant the superadmin creates. Branch = its outlet.**
+> The Owner can create as many businesses as the company runs, and each business
+> then owns one or more branches. A grant may cover a whole business
+> (`business=<biz>`) or be narrowed to specific outlets of it (`branches=[…]`).
+> The two names are not interchangeable — a "branch" always implies its parent
+> "business".
+
 ### 4.1 Structure & access (SaaS layer)
 
 | Model | Table owner | Key fields | Purpose |
 |-------|-------------|-----------|---------|
 | `Company` | `api_company` | `legal_name`, `display_name`, `tax_id`, `default_currency`, `timezone`, `default_tax_rate`, `loyalty_enabled` | Singleton (`get_solo()`, `pk` forced to 1, `delete()` raises). Company defaults that businesses may override |
 | `BusinessType` | `api_businesstype` | `code` (slug, unique), `name`, `icon`, `default_unit`, `tracks_stock` | Extensible kind of business — adding "Salon" is a DB row, not a code change |
-| `Business` | `api_business` | `name`, `slug` (unique), `business_type` (PROTECT), `receipt_header`, `currency`, `tax_rate`, `loyalty_enabled`, `is_active` | The isolation boundary. Blank `currency`/`tax_rate` ⇒ inherit Company |
-| `Branch` | `api_branch` | `business` FK (nullable, CASCADE), `code`, `name`, `branch_type` (legacy), `address`, `is_active` | Outlet. `business` drives scoping; `branch_type` remains only for legacy POS catalog resolution |
+| `Business` | `api_business` | `name`, `slug` (unique), `business_type` (PROTECT), `receipt_header`, `currency`, `tax_rate`, `loyalty_enabled`, `is_active` | The parent unit + isolation boundary (the business the Owner creates). Blank `currency`/`tax_rate` ⇒ inherit Company |
+| `Branch` | `api_branch` | `business` FK (CASCADE), `code`, `name`, `branch_type` (legacy/derived), `address`, `is_active` | An outlet of exactly one `Business`. `business` drives scoping; `branch_type` is derived from the parent business for legacy POS catalog resolution |
 | `UserAccess` | `api_useraccess` | `user` FK, `role`, `business` FK (NULL = company-wide), `branches` M2M (empty = all), `is_primary`, `is_active` | One row per (user, role, business). `unique_together = (user, role, business)` + CHECK constraint: company roles must have `business = NULL`, business roles must not |
 
 `UserAccess.ROLE_CHOICES`: `OWNER`, `COMPANY_ADMIN`, `ACCOUNTANT`, `BUSINESS_MANAGER`, `SUPERVISOR`,
@@ -136,10 +167,21 @@ requirement, …) — that is what removed the need for per-business catalog tab
 
 ### 4.3 Operational domain (unchanged shape, now scoped)
 
-`ClientProfile` (company-wide customers + loyalty tier), `CustomerReward`, `RewardClaim`,
+`ClientProfile` (customers + loyalty tier), `CustomerReward`, `RewardClaim`,
 `RoomTable`, `Transaction` + `TransactionItem` (now FK → `Item`), `DailySales` (per-branch daily
 ledger), `Attendance` (unique on user + branch + date, so covering two outlets works),
 `CustomerFeedback`, `Expense`, `AuditLog`, `UserProfile` (legacy single role/branch + `skills`).
+
+> **Customers are per-business.** `ClientProfile.business` is the owning tenant; a customer
+> (and their loyalty balance, rewards and claims) is invisible to every other business. This
+> used to be a shared platform-wide list, which let a cashier at one outlet read and sell to
+> another business's customers. A business-scoped caller always has its own business stamped
+> on the customer it creates — the payload cannot choose — and a company-wide caller
+> (`OWNER`/`SUPERADMIN`) must name the business. Migration `0017` backfilled existing rows from
+> the business of a transaction the customer actually paid at, falling back to the first
+> business on the platform.
+> `CustomerReward` and `RewardClaim` have no `business` column of their own and inherit the
+> tenant through `customer__business` / `reward__customer__business`.
 
 ### 4.4 Migration history
 
@@ -149,6 +191,13 @@ ledger), `Attendance` (unique on user + branch + date, so covering two outlets w
 | `0008_business_businessitem_businesstype_category_company_and_more` | Adds `Company`, `BusinessType`, `Business`, `UserAccess`, `BusinessItem`, `Category`, `InventoryLevel`, `StockMovement`, `Branch.business`, `Branch.code`; widens `Attendance` uniqueness |
 | `0009_unified_catalog` | **Data migration**: copies the 7 legacy catalogs into `Item` + `Category` + `BusinessItem`, moves `BranchInventory` into `InventoryLevel` and writes opening-balance `StockMovement` rows |
 | `0010_delete_autospaservice_delete_bbproduct_and_more` | Drops the 7 legacy catalog models + `BranchInventory` |
+| `0011_branch_one_business` | Attaches orphan branches to a business (creating "Standalone Operations" if none), de-duplicates outlet names per business, makes `Branch.business` non-null and drops `branch_type` — the legacy label is derived now |
+| `0012_role_grants_from_profiles` | Converts every `UserProfile.role`/`.branch` into a `UserAccess` grant **before** dropping those columns; adds `avatar`/`phone_number`, branch opening hours and `RoomTable.item` |
+| `0013_transaction_item_branch_unit_price` | Gives `TransactionItem` its own `branch` and the `unit_price` / `description` snapshot a receipt needs |
+| `0014_alter_transactionitem_catalog_source` | `catalog_source` becomes a derived receipt label rather than a routing decision |
+| `0015_devicetoken` | Adds `DeviceToken`: per-device credentials, expiry, rotation chain |
+| `0016_split_superadmin_from_owner` | Un-merges `SUPERADMIN` from `OWNER` (the §6.3 experiment) and re-points existing grants |
+| `0017_clientprofile_business` | Gives `ClientProfile` its owning `business`, backfills it, and indexes `phone_number`; see §12 for the remaining nullable column |
 
 Apply with `python manage.py migrate`. A pre-refactor snapshot is kept at
 `backend/backup_pre_saas.json` (`python manage.py loaddata backup_pre_saas.json` restores it).
@@ -166,9 +215,9 @@ Access control answers two independent questions, handled by two independent lay
 
 | File | Responsibility |
 |------|----------------|
-| `access/models.py` | `UserAccess` grant model |
+| `access/models.py` | `UserAccess` grant model; `DeviceToken` — expiring, rotating, per-device credential (§7.9) |
 | `access/middleware.py` | `BusinessMiddleware` — early (session/admin) context resolution |
-| `access/authentication.py` | `BusinessContextMixin`, `BusinessTokenAuthentication`, `BusinessSessionAuthentication` — apply context right after DRF authenticates |
+| `access/authentication.py` | `BusinessContextMixin`, `DeviceTokenAuthentication` (rejects expired / rotated / revoked / password-stale keys), `BusinessSessionAuthentication` — apply context right after DRF authenticates |
 | `access/context.py` | `resolve_grant()`, `apply_business_context()`, `ensure_business_context()` — the single decision point |
 | `access/scoping.py` | `auto_scope()`, `ScopedQuerysetMixin` — queryset narrowing |
 | `access/managers.py` | context-var + `BusinessScopedManager` / `BusinessScopedModel` for model-level default filtering |
@@ -189,7 +238,7 @@ HTTP request
    │          • stamps request._business_context_for = user.pk
    │          • sets the context-var used by BusinessScopedManager
    ├─ DRF APIView.initial()
-   │     └─ BusinessTokenAuthentication.authenticate()  (Authorization: Token <key>)
+   │     └─ DeviceTokenAuthentication.authenticate()  (Authorization: Token <key>)
    │           └─ BusinessContextMixin → apply_business_context(request, user)
    │              ← this is what makes token auth work: the middleware ran while
    │                request.user was still AnonymousUser
@@ -249,11 +298,22 @@ when either `:list` or `:retrieve` is permitted.
 
 | Role | Scope | Notes |
 |------|-------|-------|
-| `SUPERADMIN` | `{'*'}` | Everything, including `UserAccess` / `Business` / `BusinessType` mutations |
-| `OWNER` | explicit read-only allow-list | Org-wide visibility + analytics; **cannot** mutate operational data (test-enforced) |
-| `BRANCH_ADMIN` | `{'*'}` minus `BRANCH_ADMIN_DENIED_ACTIONS` | Everything inside its scope; denied company-level actions (branch comparison, access-grant CRUD, business & business-type writes) |
+| `SUPERADMIN` | `{'*'}` minus nothing | **Platform operator.** Creates/retires businesses and business types, hands out access grants, changes company settings. No denial list |
+| `OWNER` | `{'*'}` minus `PLATFORM_DENIED_ACTIONS` | **Company owner.** Full read/write across every business, but may **not** restructure the platform it runs on (no `Business` / `BusinessType` / `UserAccess` writes, no `Company:update`) |
+| `COMPANY_ADMIN` | `{'*'}` minus `COMPANY_ADMIN_DENIED_ACTIONS` | Every business, except user management and business types |
+| `BUSINESS_MANAGER` | `{'*'}` minus `BUSINESS_MANAGER_DENIED_ACTIONS` | Everything inside its scope; denied company-level actions (branch comparison, access-grant CRUD, business & business-type writes) |
+| `SUPERVISOR` | `{'*'}` minus `SUPERVISOR_DENIED_ACTIONS` | Like a Business Manager, but may not add or delete catalog entries |
 | `CASHIER` | front-of-house allow-list | Catalogs, clients, rooms, checkout/void, reward claims, stock receiving, own attendance |
 | `STAFF` | customer / room / attendance allow-list | No transactions, expenses, or inventory values |
+
+> **SUPERADMIN vs OWNER.** §6.3 briefly folded these into one code, which made the
+> header read "Role: Owner" for the superadmin account. They are distinct roles
+> again because their jobs differ: the Superadmin operates the SaaS, the Owner
+> runs the company. Same wildcard, different denials. Note that Django's
+> `is_superuser` flag is a *separate* thing (it grants access to the Django admin
+> site); API authorization keys off the `UserAccess` role, and migration `0016`
+> re-labels any pre-existing platform operator's grant from `OWNER` to
+> `SUPERADMIN` so they are not silently downgraded.
 
 `get_user_role()` reads `UserProfile.role` first and otherwise maps Django group names through
 `ROLE_ALIASES` (`"Branch Admin"` → `BRANCH_ADMIN`, `"Spa Therapist"` → `STAFF`, …), so pre-profile
@@ -330,8 +390,9 @@ Every list endpoint below is automatically scoped per §5.5.
 
 | Method & path | Purpose |
 |---------------|---------|
-| `POST /api/auth/login/` | `{username, password}` → `{token, user{id, username, role, role_code, branch, services, is_staff, is_superuser}, businesses[], primary_business}`; writes an `AuditLog(LOGIN)` |
-| `POST /api/auth/logout/` | Revokes the current token |
+| `POST /api/auth/login/` | `{username, password, device_name?}` → `{token, expires_at, user{...}, businesses[], primary_business}`; writes an `AuditLog(LOGIN)`. The token is a per-device `DeviceToken` that expires (`API_TOKEN_LIFETIME_HOURS`, default 12) |
+| `POST /api/auth/logout/` | Revokes **this device's** token only — other tills stay signed in |
+| `POST /api/auth/rotate-token/` | Mints a fresh expiring token and revokes the presented one (renew a long shift without re-entering the password) |
 | `GET /api/businesses/` · `GET /api/businesses/{id}/` | Businesses the caller may open (company-wide grants see all) |
 | `GET,POST /api/business-types/` | Business-type dictionary (writes are company-level) |
 | `GET,POST /api/user-access/` · `PATCH/DELETE /api/user-access/{id}/` | `UserAccess` grants — mutations are company-level (denied to `BRANCH_ADMIN`); callers without a company-wide grant only see their own grants |
@@ -368,25 +429,20 @@ receipts, currency and tax defaults rather than exposed as its own endpoint.
 | `GET /api/expenses/` · `GET /api/expenses/summary/` · `GET /api/feedback/` · `GET /api/audit-logs/` · `GET /api/audit-logs/recent/` | Costs, feedback, audit trail |
 | `GET /api/dashboard/summary/` · `GET /api/dashboard/branch_comparison/` | Analytics; `branch_comparison` is company-level (denied to `BRANCH_ADMIN`) |
 
-### 7.4 Legacy compatibility shims (read-only)
+### 7.4 Legacy routes: retired, not shimmed
 
-The pre-refactor catalog URLs still resolve, backed by `Item` / `BusinessItem` through
-`views.business_catalog_queryset(business_slug, item_type)` — same viewset class names, routes,
-payload field names and `ROLE_ACTIONS` keys, so the current SPA keeps working untouched:
+The seven per-catalog URLs of the pre-SaaS schema (`/api/vss-services/`,
+`/api/vreal-products/`, `/api/bb-products/`, `/api/panganan-menus/`, `/api/kb-items/`,
+`/api/auto-spa/`), plus `/api/products/` and `/api/branch-inventory/`, **no longer
+resolve**. They were kept alive as read-only shims over `Item` / `InventoryLevel` so the
+SPA could migrate page by page; `SalesPage.jsx` and `AdministrationPage.jsx` were the last
+callers and both now read `/api/catalog/items/` and `/api/catalog/inventory/`. With no
+caller left, the shims and `business_catalog_queryset()` were deleted — two ways to read
+one catalog was a standing invitation for the two answers to disagree.
 
-| Legacy route | Serves |
-|--------------|--------|
-| `/api/vss-services/` | items linked to business slug `vss` |
-| `/api/vreal-products/` | slug `vreal` |
-| `/api/bb-products/` | slug `bb` |
-| `/api/panganan-menus/` | slug `panganan` |
-| `/api/kb-items/` | slug `kb` |
-| `/api/auto-spa/` | slug `autospa` |
-| `/api/products/` | every `Item` with `item_type=PRODUCT` |
-| `/api/branch-inventory/` | `InventoryLevel` (same field names as the old `BranchInventory`) |
-
-**Do not build new features on these routes** — they exist only so the frontend can migrate
-page-by-page. Removal is tracked in §12.
+If a request hits one of those paths today it gets `404`, which is the intended answer:
+the route contract changed, and silence would have been worse. `/api/branch-catalog/` is
+*not* a shim — it is the POS's catalog endpoint over the unified tables, and it stays.
 
 ---
 
@@ -395,8 +451,10 @@ page-by-page. Removal is tracked in §12.
 | Concern | Implementation |
 |---------|----------------|
 | Entry / shell | `src/App.jsx` — login screen, sidebar navigation, page switching, dark-mode toggle, header/layout |
-| Routing | React Router 7 routes exist for the three catalog pages (`/vss-services`, `/vreal-products`, `/bb-products`); the remaining pages are switched inside the shell by an active-page state, gated by `canAccess(role, capability)` against a client-side `ROLE_CAPABILITIES` map |
-| HTTP | seven `axios` instances (the shell plus six page components), each with a request interceptor that adds `Authorization: Token <token>` and `X-Business: <slug>` (helper in `src/utils/session.js`) |
+| Routing | React Router 7 routes exist for the two unified-catalog pages (`/catalog/services`, `/catalog/products`, both backed by `GET /catalog/items/`); the remaining pages are switched inside the shell by an active-page state, gated by `canAccess(role, capability)` |
+| HTTP | one shared `axios` instance in `src/utils/api.js` (plus the shell's own, which only adds a timeout). The request interceptor adds `Authorization: Token <token>` and `X-Business: <slug>` (helper in `src/utils/session.js`). The origin comes from `VITE_API_BASE_URL` (see `.env.example`); the old per-page copies of the base URL — one of which said `localhost` while the rest said `127.0.0.1` — are gone |
+| Page data | Every list in the shell is fetched, not seeded. `App.jsx` loads `/dashboard/summary/`, `/user-profiles/`, `/catalog/items/`, `/catalog/inventory/`, `/audit-logs/` and `/rooms/` on sign-in and whenever the active business changes (`Promise.allSettled`, so one failing endpoint cannot blank the rest). It previously held hardcoded demo rows — five fake staff, five fake products, three fake audit entries, fifteen fake rooms and a fixed revenue series — which meant the dashboard, users, inventory, rooms and audit tabs rendered invented data that never touched the database |
+| Nav permissions | `canAccess()` reads `GET /auth/capabilities/`, which derives the SPA's capability names from the live `ROLE_ACTIONS` matrix via `UI_CAPABILITY_PROBES` (`api/permissions.py`). The SPA's own `ROLE_CAPABILITIES` copy was a second, free-to-drift statement of the policy. Until that request resolves the nav shows nothing privileged |
 | Session | `localStorage` keys `authToken`, `authUser` (the login payload from §7.1), `authBusinesses` (granted businesses from login) and `activeBusiness` (the slug sent as `X-Business`); logout clears all four |
 | Business switcher | `App.jsx` keeps `businesses` / `primary_business` from the login payload; when the account holds **more than one** business the header shows a **Business** picker. Choosing one writes `activeBusiness` and re-keys the workspace container, so every page remounts and refetches under the new scope. The effective slug is derived during render, so a grant revoked between sessions falls back to the first remaining business instead of sending a stale slug |
 | Components | `CashierPOS.jsx` (outlet POS), `SalesPage.jsx` (sales history / manual sale), `ClientsPage.jsx`, `CustomersRewardsPage.jsx` + `CustomerRewardsPanel.jsx` + `CustomerTierBadge.jsx` (loyalty), `AdministrationPage.jsx` (staff, branches, access), `CrudTable.jsx` (generic list/editor reused by the catalog pages), `DocumentationPage.jsx` (in-app handbook, content in `components/documentation/content.js`) |
@@ -414,8 +472,10 @@ page-by-page. Removal is tracked in §12.
 So the POS is already **business-agnostic**: the outlet's `Branch.business` decides which items
 come back — no per-business code path in the client.
 
-**Still legacy in the client:** `SalesPage.jsx` loads `/products/` and `/vss-services/` (compat
-shims) — listed as follow-up #3 in §12. Both tills now send an `Idempotency-Key` header on
+**No longer legacy in the client:** `SalesPage.jsx` and `AdministrationPage.jsx` used to
+load `/products/` and `/vss-services/` (compat shims, follow-up #3 in §12). Both now
+read `/catalog/items/?item_type=…`, and the shell's catalog routes point at the same
+endpoint. Both tills send an `Idempotency-Key` header on
 checkout (one `crypto.randomUUID()` per attempted sale, reused while the cart is unsold), so a
 retry replays the original sale instead of creating a second one.
 
@@ -456,10 +516,12 @@ npm run dev                       # SPA on http://localhost:5173
 
 ```bash
 cd backend
-python manage.py check                                   # system check
-python manage.py test api                                # full suite (33 tests)
+python manage.py check                                   # system check (incl. api.E001)
+python manage.py makemigrations --check --dry-run        # no model left un-migrated
+python manage.py erd --check                             # ERD.md vs the live schema
+python manage.py test api                                # full suite (90 tests)
 python manage.py spectacular --file schema.yml           # OpenAPI regeneration
-cd ../frontend && npm run lint && npm run build
+cd ../frontend && npm run lint && npm test && npm run build
 ```
 
 ### 9.3 Backup / restore
@@ -473,18 +535,24 @@ python manage.py loaddata backup.json
 
 ## 10. Testing
 
-Three modules under `backend/api/tests/` (plain Django `TestCase`, SQLite test DB, no external
-services):
+Eight modules under `backend/api/tests/` — **98 tests**, plain Django `TestCase`,
+SQLite test DB, no external services (`test_erd.py` needs no DB at all):
 
 | Module | Covers |
 |--------|--------|
-| `test_api.py` (17 tests) | Login success/failure; role gating (cashier can read catalogs but not manage branches, therapist cannot read transactions, admin can); branch-admin visibility; owner is read-only on operational data; superuser can create branch admins and edit staff/branch; branch staffing gap report; checkout deducts stock; unauthenticated access rejected; client profile is org-wide; direct `POST /transactions/` rejected; void restores inventory and logs; branch-admin blocked from `branch_comparison` |
-| `test_business_isolation.py` (10 tests) | Cashier sees only granted-branch transactions; catalog scoped by active grant; **business switching via `X-Business` header**; grant-less user falls back to own branch; company owner sees every business; branch admin cannot create access grants; checkout idempotency; insufficient-stock rejection; void restores stock and writes the ledger; login returns `businesses` + `primary_business` |
-| `test_admin.py` (6 tests) | The `StockMovement` ledger is visible but immutable through the Django admin: list renders, `add/` and POSTing a change or delete return 403, bulk delete leaves the rows in place |
+| `test_api.py` (30) | Login success/failure; role gating (cashier reads catalogs but cannot manage branches, therapist cannot read transactions, admin can); branch-admin visibility; owner read-only on operational data; superuser creates branch admins and edits staff/branch; staffing gap report; checkout deducts stock; unauthenticated access rejected; client profile is org-wide; direct `POST /transactions/` rejected; void restores inventory and logs; branch-admin blocked from `branch_comparison` |
+| `test_business_isolation.py` (23) | Cashier sees only granted-branch transactions; catalog scoped by active grant; **business switching via `X-Business`**; grant-less user falls back to own branch; owner sees every business; branch admin cannot create grants; checkout idempotency; insufficient-stock rejection; void restores stock and writes the ledger; login returns `businesses` + `primary_business`; serializer fields cannot smuggle another tenant; unscoped reads fail closed inside a request |
+| `test_role_capability.py` (9) | Which grant decides a request when several exist (grant beats a stale profile, the active business picks the grant, revoked grants lock the account); then the per-role action matrix: business manager denied company-level actions, supervisor keeps operations but not catalog writes, company admin spans businesses but cannot manage users, accountant reads money and writes expenses but never sells, owner grant reaches every business |
+| `test_write_scoping.py` (6) | The tenant stamp on **writes**: expense / room / feedback created by a business user are stamped and visible; a company-wide writer is stamped from the branch, not from its owner-less grant; saving a room or an expense onto another business's branch is rejected |
+| `test_throttle_transfers.py` (13) | Checkout rate limiting (configured limit enforced, keyed per business, reads untouched); `transfer_stock`: moves stock and writes both balancing movements, creates the destination row, refuses to overdraw without side effects, refuses cross-business and self-transfers, denies a cashier; branch authority at checkout (a business grant covers every outlet, a narrowed grant pins the till to the ticked outlet, no grant = no sale) |
+| `test_audit_immutability.py` (3) | Every write is correlated by `X-Request-ID` and a caller-supplied id is reused; a `Transaction` cannot be hard-deleted |
+| `test_admin.py` (6) | The `StockMovement` ledger is visible but immutable through the Django admin: list renders, `add/` and POSTing a change or delete return 403, bulk delete leaves the rows in place |
+| `test_erd.py` (8) | The `ERD.md` registry equals the live model graph; the tenant edges and the money-row `PROTECT`s are present; `--model` impact analysis; `--check` **must fail** when a relationship is undocumented; `--write` is idempotent |
 
 Isolation tests deliberately mix auth styles — `APIClient` with `force_authenticate`/token **and**
 `client.force_login` sessions — because the business context is resolved lazily (§5.3). Adding a
-new scoped viewset? Add one isolation test that asserts a second business's rows are invisible.
+new scoped viewset? Add one isolation test that asserts a second business's rows are invisible,
+and run `manage.py erd --check` if the change touched the schema.
 
 ---
 
@@ -533,6 +601,18 @@ Other fixed settings worth knowing:
 committed, so they have been **untracked** (`git rm -r --cached`) while staying on disk: tracked
 files went from 7,210 → 60. Commit that removal once so clones stop carrying a virtualenv.
 
+Debugging output created by piping the terminal (`*_err.txt`, `*_out.txt`, `backend/mg.txt`,
+`frontend/bld.txt`) is now ignored too — a dozen such files had accumulated in the working
+tree, and they are gone. `frontend/_pv.txt` is one of them and is locked by OneDrive on this
+machine, so it survives on disk; it is ignored, and can be deleted whenever the lock clears.
+
+The catalog **input** files the importers read (`seed_products.txt`, `seed_services.txt`) are
+local-only too, and were never committed — the commands take the path as a positional
+argument (`python manage.py import_vreal_products seed_products.txt`), and the rows they
+produced are what lives in `db.sqlite3` (`32` categories, `257` items today). If those lists
+are needed again, export them from a migrated database rather than re-typing them:
+`python manage.py dumpdata api.Category api.Item api.BusinessItem --indent 2 > catalog.json`.
+
 ---
 
 ## 12. Known Gaps & Roadmap
@@ -541,21 +621,25 @@ files went from 7,210 → 60. Commit that removal once so clones stop carrying a
 
 | # | Gap | Where | Why it matters | Suggested fix |
 |---|-----|-------|----------------|---------------|
-| 1 | Two role systems coexist | `api/permissions.py` keys on `UserProfile.role`; scope keys on `UserAccess.role` | A user granted `BUSINESS_MANAGER` whose legacy profile still says `STAFF` is scoped to the right business but lacks manager *capabilities* | Key `ROLE_ACTIONS` on the active grant (`request.access.role`), generate `UserProfile.role` from grants, then drop the column |
+| 1 | ~~Two role systems coexist~~ **closed** | `api/permissions.py::get_effective_role`, `UserProfile.role` | Closed: authorization reads the **active grant**; `UserProfile.role` is now a read-only property derived from the account's most-powerful active grant and is never a source of truth | Regression-covered by `test_role_capability.py` |
 | 2 | ~~SPA has no business switcher~~ **closed** | `frontend/src/App.jsx`, `src/utils/session.js` | Closed 2026-09-29: login grants are kept in state, the header renders a **Business** picker (multi-business accounts), every axios instance injects `X-Business`, and switching remounts the workspace | Nothing left; per-request switching is covered by `test_business_isolation.py` |
-| 3 | Sales page on legacy shims | `SalesPage.jsx` calls `/products/`, `/vss-services/` | Keeps the retired route contract alive | Switch to `/api/catalog/items/` (+ `business-items`) |
+| 3 | ~~Sales page on legacy shims~~ **closed** | `SalesPage.jsx`, `AdministrationPage.jsx` | Closed: both read `/api/catalog/items/?item_type=…`; no caller of the old routes remained | Shims deleted — see #6 |
 | 4 | ~~No idempotency key from clients~~ **closed** | `CashierPOS.jsx`, `SalesPage.jsx` | Closed 2026-09-29: both tills generate one `crypto.randomUUID()` per attempted sale, send it as `Idempotency-Key`, and reuse it until the sale is recorded | Nothing left; the key resets only after a sale comes back |
-| 5 | `Branch.branch_type` still drives POS tabs | `CashierPOS.jsx`, `branch-catalog` payload | Duplicates what `Business` + `Category` already express | Group by category/business, then delete `branch_type` |
-| 6 | Compatibility shims still routed | §7.4 | Two ways to read a catalog invites drift | Delete the shims once #3 lands, and move their `ROLE_ACTIONS` keys to `Items`/`Inventory` |
+| 5 | POS tabs are still keyed on `branch_type` | `CashierPOS.jsx` reads `branch_type` / `branch_type_display` off `/branch-catalog/by-branch/…` | The **column** is gone (migration `0011`) and the value is now derived from the parent business, but the client still groups its tabs by that legacy label instead of by `Category` | Group by category/business in the client, then drop the derived property and the two payload keys |
+| 6 | ~~Compatibility shims still routed~~ **closed** | §7.4 | Closed: with #3 gone the eight legacy URLs 404 by design, and `business_catalog_queryset()` was deleted — one catalog, one way to read it | If an old device still calls them, fix the device |
 | 7 | `backend/.venv` is incomplete | venv has Django 5.2 but no `drf_spectacular`; the system Python 3.10 matches `requirements.txt` | `manage.py` fails under the venv interpreter | Recreate it: `python -m venv backend/.venv` then `pip install -r backend/requirements.txt` |
-| 8 | Stock transfers unimplemented | `StockMovement.REASONS` offers `TRANSFER_IN` / `TRANSFER_OUT` but no service uses them | Multi-branch company needs outlet-to-outlet moves | Add `transfer_stock(from_branch, to_branch, item, qty, reference)` writing both movements atomically, plus a `POST /catalog/inventory/{id}/transfer/` |
+| 8 | ~~Stock transfers unimplemented~~ **closed** | `api/sales/services.py::transfer_stock`, `POST /api/catalog/inventory/{id}/transfer/` | Closed: moves stock between two branches of **one** business atomically, writes the balancing `TRANSFER_OUT`/`TRANSFER_IN` pair with `balance_after`, and refuses overdrafts, self-transfers and cross-business moves | Client UI for the transfer form; the service and its 6 tests are in place |
 | 9 | Import de-duplication is name-based | `import_vss_services`, `import_vreal_products` `get_or_create(name, item_type)`; `Item.barcode` is globally unique | Same-named services across businesses collapse into one `Item`, and a duplicated barcode is swallowed by the broad `except Exception` per-row handler | Key on `(business, name)` or a per-business SKU namespace; surface import errors instead of printing them |
-| 10 | Single-company / single-box assumptions | `Company` singleton, SQLite, no CI | Fine for one legal entity; blocks hosting | Postgres + CI running `manage.py check`/`test api`/`npm run lint` on every push |
+| 10 | Postgres parity is untested | SQLite dev DB; `Company` singleton | CI (**added**: backend suite + `erd --check` + frontend lint/test/build) runs on SQLite too, so Postgres-specific behaviour — constraint names, `CheckConstraint` support, `on_delete` rebuilds — is unverified until deployment | Add a Postgres service job to `ci.yml` and run the same suite against it |
+| 11 | Schema map can drift | `ERD.md` | Closed the moment it was written: `manage.py erd --check` compares the committed registry against the live model graph in CI and in `test_erd.py`, and one test proves the check can fail | Keep the diagrams' rationale columns honest by hand — only the registry is machine-checked |
 
 ### 12.2 Verified while writing this document
 
-* `python manage.py check` clean; `python manage.py test api` → **33/33 passing** (§10), including
-  the new `test_admin.py` guard for the immutable ledger.
+* `python manage.py check` clean; `python manage.py makemigrations --check` clean;
+  `python manage.py test api` → **98/98 passing** (§10), including the `test_admin.py`
+  guard for the immutable ledger and the `test_erd.py` gate for the schema map.
+* `python manage.py erd --check` → `ERD.md matches the models (55 relationships)`, and
+  `--model Branch` / `--model Business` confirm the inbound counts quoted in `ERD.md` §8.
 * `import_vss_services` and `import_vreal_products` write to `Category` / `Item` / `BusinessItem`
   for slugs `vss` and `vreal` — exercised with a temporary seed file, then the two probe rows were
   deleted again.
@@ -568,10 +652,13 @@ files went from 7,210 → 60. Commit that removal once so clones stop carrying a
 
 ### 12.3 Suggested next sprint
 
-1. Grant-driven permission matrix (#1) with regression tests for each business role.
+1. ~~Grant-driven permission matrix (#1) with regression tests for each business role~~ — done,
+   covered by `test_role_capability.py`.
 2. ~~Business switcher + idempotency keys in the POS (#2, #4)~~ — done 2026-09-29.
-3. Migrate the remaining SPA pages to `/api/catalog/*`, then delete the shims and `branch_type` (#3, #5, #6).
-4. `transfer_stock` and its UI (#8).
-5. Postgres, CI, and a staging deploy (§11.1, #10).
+3. ~~Delete the catalog shims (#3, #6)~~ — done; `transfer_stock` (#8) is live, so what is left
+   of that list is **the POS tab grouping on `branch_type` (#5)** and a transfer form in the UI.
+4. Work `ERD.md` §8 top to bottom: rows 1–3 are one `on_delete` change each, and each one ends
+   with `erd --write` plus a diagram edit — the gate will not let the map stay stale.
+5. Postgres parity job in CI (#10) and a staging deploy (§11.1).
 
 
