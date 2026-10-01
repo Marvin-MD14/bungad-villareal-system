@@ -455,3 +455,101 @@ def role_choices():
     from api.access.models import UserAccess  # local import: app-loading order
 
     return [{'value': value, 'label': label} for value, label in UserAccess.ROLE_CHOICES]
+
+
+# ============================================================
+# ROLE GUIDE (login-screen preview + in-app "My access" panel)
+# ------------------------------------------------------------
+# A human-readable summary of each role, generated from the same live matrix
+# as the probes above: which pages appear and which actions are listed follows
+# ``ui_capabilities_for`` automatically. The wording map is display vocabulary,
+# not policy. The only per-role statements kept here are the tab the role
+# should land on after sign-in and how its scope is phrased.
+# ============================================================
+CAPABILITY_GUIDE = {
+    'dashboard': {'label': 'Dashboard', 'verb': 'view the performance dashboard'},
+    'sales': {'label': 'Sales & POS', 'verb': 'ring up sales, checkout and void'},
+    'clients': {'label': 'Clients', 'verb': 'look up clients and their history'},
+    'client_manage': {'label': None, 'verb': 'add and edit client records'},
+    'customer_rewards': {'label': 'Customer Rewards', 'verb': 'claim rewards for customers'},
+    'rooms': {'label': 'Room Status', 'verb': 'watch live room activity'},
+    'room_manage': {'label': None, 'verb': 'check rooms in and out'},
+    'inventory': {'label': 'Inventory', 'verb': 'view stock levels'},
+    'inventory_manage': {'label': None, 'verb': 'receive stock'},
+    'payments': {'label': None, 'verb': 'review payments'},
+    'shifts': {'label': None, 'verb': 'open and close a cashier shift'},
+    'loyalty': {'label': None, 'verb': 'see loyalty programs'},
+    'catalog': {'label': 'Catalog', 'verb': 'browse services and products'},
+    'catalog_manage': {'label': None, 'verb': 'add and edit catalog items'},
+    'users': {'label': 'User Profiling', 'verb': 'see the staff directory'},
+    'user_manage': {'label': None, 'verb': 'add and manage staff accounts'},
+    'administration': {'label': 'Administration', 'verb': 'run business administration'},
+    'audit': {'label': 'Audit Logs', 'verb': 'read the security audit trail'},
+    'documentation': {'label': 'Documentation', 'verb': None},
+}
+
+# Nav order the guide lists pages in — mirrors the SPA sidebar, not alphabetical.
+GUIDE_NAV_ORDER = [
+    'dashboard', 'sales', 'clients', 'customer_rewards', 'administration',
+    'users', 'rooms', 'inventory', 'audit', 'documentation', 'catalog',
+]
+
+# Tab the role should land on after sign-in + how its scope is phrased.
+ROLE_GUIDE_META = {
+    'SUPERADMIN': ('dashboard', 'the platform itself — every business, business types and access grants.'),
+    'OWNER': ('dashboard', 'every business of the company; switch businesses from the header picker.'),
+    'COMPANY_ADMIN': ('dashboard', 'every business of the company, except user management and business types.'),
+    'ACCOUNTANT': ('administration', 'the money of every business; no selling or floor duties.'),
+    'BUSINESS_MANAGER': ('administration', 'one business, only the branches ticked on its grant (empty ticks = all branches).'),
+    'SUPERVISOR': ('dashboard', 'one business like a Business Manager, but the catalog cannot be added to or pruned.'),
+    'CASHIER': ('sales', 'its own register; sales, clients and rooms of its branch only.'),
+    'STAFF': ('rooms', 'its own branch — clients, rooms and its own attendance; no sales or stock values.'),
+}
+
+GUIDE_LANDING_LABELS = {
+    'dashboard': 'Dashboard',
+    'sales': 'Sales & POS',
+    'rooms': 'Room Status',
+    'administration': 'Administration',
+}
+
+
+def role_guide_for(role):
+    """What ``role`` can see, can do, and where it belongs after sign-in."""
+    code = ROLE_ALIASES.get(role, role)
+    caps = ui_capabilities_for(code)
+    sees = [
+        CAPABILITY_GUIDE[cap]['label']
+        for cap in GUIDE_NAV_ORDER
+        if cap in caps and CAPABILITY_GUIDE.get(cap, {}).get('label')
+    ]
+    does = [
+        guide['verb']
+        for cap, guide in CAPABILITY_GUIDE.items()
+        if cap in caps and guide['verb']
+    ]
+    landing, scope = ROLE_GUIDE_META.get(
+        code, ('dashboard', 'ask an administrator what this account covers.')
+    )
+    return {
+        'role': code,
+        'label': code.replace('_', ' ').title(),
+        'capabilities': caps,
+        'sees': sees,
+        'does': does,
+        'lands_on': landing,
+        'lands_on_label': GUIDE_LANDING_LABELS.get(landing, 'Dashboard'),
+        'scope': scope,
+    }
+
+
+def all_role_guides():
+    """Guides keyed by role code, in ``ROLE_CHOICES`` order.
+
+    A mapping (not a list) is the wire contract: the SPA looks a guide up by
+    the signed-in role code, and the OpenAPI schema declares this response an
+    object.  Insertion order still follows ``ROLE_CHOICES``.
+    """
+    from api.access.models import UserAccess  # local import: app-loading order
+
+    return {code: role_guide_for(code) for code, _label in UserAccess.ROLE_CHOICES}

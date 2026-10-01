@@ -147,6 +147,29 @@ describe('the demo account picker never points at a missing key', () => {
   })
 })
 
+describe('the role guide tells each login what it gets', () => {
+  it('previews the selected demo role on the login screen', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    // The default node is Superadmin; the card arrives with /auth/role-guide/.
+    expect(await screen.findByText(/Superadmin — what you get/i)).toBeTruthy()
+    expect(screen.queryByText(/Cashier — what you get/i)).toBeNull()
+    await user.selectOptions(screen.getByRole('combobox'), 'Cashier')
+    expect(await screen.findByText(/Cashier — what you get/i)).toBeTruthy()
+    expect(screen.getByText(/ring up sales/i)).toBeTruthy()
+    // The span and its parent <p> both contain the phrase, so match the exact label.
+    expect(screen.getByText('Where you should be:')).toBeTruthy()
+  })
+
+  it('shows the signed-in account its own My access panel', async () => {
+    seedSignedInUser({ role: 'Cashier', role_code: 'CASHIER' })
+    renderApp('/')
+    expect(await screen.findByText(/My access — Cashier/i)).toBeTruthy()
+    expect(screen.getByText(/Go to Sales & POS/i)).toBeTruthy()
+    expect(mock.calls.some((c) => c.url === '/auth/role-guide/')).toBe(true)
+  })
+})
+
 describe('data is loaded from the API, not hardcoded', () => {
   it('requests the real endpoints on sign-in', async () => {
     seedSignedInUser()

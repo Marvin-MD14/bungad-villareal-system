@@ -9,7 +9,7 @@ from drf_spectacular.views import (
 )
 from .views import (
     # Auth
-    login_view, logout_view, rotate_token_view, capabilities_view,
+    login_view, logout_view, rotate_token_view, capabilities_view, role_guide_view,
     # ViewSets
     UserProfileViewSet,
     BranchViewSet,
@@ -173,6 +173,7 @@ urlpatterns = [
     path('auth/logout/', logout_view, name='auth-logout'),
     path('auth/rotate-token/', rotate_token_view, name='auth-rotate-token'),
     path('auth/capabilities/', capabilities_view, name='auth-capabilities'),
+    path('auth/role-guide/', role_guide_view, name='auth-role-guide'),
 
     # Router URLs
     path('', include(router.urls)),

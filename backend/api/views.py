@@ -20,7 +20,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
 
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 
 from .models import (
     Attendance, AuditLog, Branch,
@@ -459,6 +459,28 @@ def capabilities_view(request):
     })
 
 
+@extend_schema(
+    request=None,
+    responses={200: OpenApiTypes.OBJECT},
+    auth=[],
+    summary='What each role can see, can do, and where it lands',
+    description=(
+        'Human-readable guide for every assignable role, derived from the live '
+        'ROLE_ACTIONS matrix — the login-screen preview and the in-app "My '
+        'access" panel read it so the SPA never restates role policy. '
+        'Contains no tenant data, so it is reachable before sign-in.'
+    ),
+    tags=['Auth'],
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def role_guide_view(request):
+    """Role capabilities as prose, generated from the same live matrix."""
+    from .permissions import all_role_guides
+
+    return Response({'guides': all_role_guides()})
+
+
 # ============================================================
 # USER PROFILE VIEWSET
 # ============================================================
@@ -502,6 +524,24 @@ class BranchViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
             'missing_roles': [role for role, count in role_counts.items() if count == 0],
             'ready': all(count > 0 for count in role_counts.values()),
         })
+
+    @action(detail=False, methods=['get'], url_path='conformance')
+    def conformance(self, request):
+        """Staffing-rule violations for every outlet the caller may see.
+
+        One row per unit (branch, or a branch-less business) with the covering
+        manager/cashier/staff counts and the rules it fails
+        (§ api.access.staffing).  Company-wide callers see the whole platform;
+        a Business Manager sees the active business only.
+        """
+        from api.access.staffing import conformance_payload
+        from api.business.models import Business
+        if request.user.is_superuser or getattr(request, 'company_wide', False):
+            businesses = list(Business.objects.filter(is_active=True))
+        else:
+            active = getattr(request, 'business', None)
+            businesses = [active] if active is not None else []
+        return Response(conformance_payload(businesses))
 
     @action(detail=True, methods=['get'])
     def stats(self, request, pk=None):

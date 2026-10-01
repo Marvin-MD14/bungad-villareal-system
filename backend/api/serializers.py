@@ -16,6 +16,7 @@ from .company.models import Company
 from .payments.serializers import PaymentSerializer
 from .access.models import staff_count_for_branch
 from .access.scoping import assert_branch_in_active_business
+from .access.staffing import check_staffing_change, check_user_deactivation
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -121,6 +122,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
                     {'branch': 'Cashier and Staff accounts must be assigned to a branch.'}
                 )
 
+        # § staffing rules (api.access.staffing): assigning a role must not take
+        # any outlet further from 1+ manager / exactly 1 cashier / 2+ staff.
+        existing = UserAccess.objects.filter(user=user, role=code, business=business).first()
+        branch_ids = list(existing.branch_ids()) if existing else []
+        if branch is not None and branch.pk not in branch_ids:
+            branch_ids.append(branch.pk)
+        check_staffing_change(
+            role=code, business=business, branch_ids=branch_ids,
+            is_active=True,
+            exclude_grant_id=existing.pk if existing is not None else None,
+            user_active=user.is_active,
+        )
+
         grant, _ = UserAccess.objects.get_or_create(
             user=user, role=code, business=business,
             defaults={'is_primary': not user.access_grants.exists(), 'is_active': True},
@@ -217,6 +231,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         role = validated_data.pop('role', None)
         branch_id = validated_data.pop('branch', None)
         user = instance.user
+        # § staffing rules: deactivating the account removes its cover everywhere,
+        # so switching a required manager/cashier/staff off fails the same ratchet.
+        if user_data.get('is_active') is False and user.is_active:
+            check_user_deactivation(user)
         for field in ('first_name', 'last_name', 'email', 'is_active'):
             if field in user_data:
                 setattr(user, field, user_data[field])

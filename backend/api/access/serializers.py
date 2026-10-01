@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 from api.access.models import UserAccess
+from api.access.staffing import RULES as STAFFING_RULES, check_staffing_change
 
 
 class UserAccessSerializer(serializers.ModelSerializer):
@@ -33,4 +34,22 @@ class UserAccessSerializer(serializers.ModelSerializer):
                     {'role': 'There is already an active OWNER. Deactivate or '
                              'change the existing owner grant first.'}
                 )
+        # § staffing rules (api.access.staffing): a grant change may never take
+        # an outlet further from 1+ manager / exactly 1 cashier / 2+ staff.
+        if role in STAFFING_RULES and business is not None:
+            old_ids = self.instance.branch_ids() if self.instance is not None else None
+            if 'branches' in attrs:
+                branch_ids = [branch.pk for branch in attrs['branches']]
+            elif self.instance is not None:
+                branch_ids = old_ids
+            else:
+                branch_ids = []
+            holder = attrs.get('user') or getattr(self.instance, 'user', None)
+            check_staffing_change(
+                role=role, business=business, branch_ids=branch_ids,
+                is_active=is_active,
+                exclude_grant_id=self.instance.pk if self.instance is not None else None,
+                user_active=getattr(holder, 'is_active', True),
+                old_branch_ids=old_ids,
+            )
         return attrs

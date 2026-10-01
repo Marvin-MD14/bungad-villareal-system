@@ -83,6 +83,26 @@ export const FIXTURES = {
       { value: 'STAFF', label: 'Staff' },
     ],
   },
+  // Shape mirrors GET /auth/role-guide/ (see api.permissions.all_role_guides):
+  // an object keyed by role code.
+  '/auth/role-guide/': {
+    guides: {
+      SUPERADMIN: {
+        role: 'SUPERADMIN', label: 'Superadmin', capabilities: ['dashboard', 'sales'],
+        sees: ['Dashboard', 'Sales & POS', 'Administration', 'Audit Logs'],
+        does: ['run business administration', 'ring up sales, checkout and void'],
+        lands_on: 'dashboard', lands_on_label: 'Dashboard',
+        scope: 'the platform itself — every business, business types and access grants.',
+      },
+      CASHIER: {
+        role: 'CASHIER', label: 'Cashier', capabilities: ['sales'],
+        sees: ['Sales & POS', 'Room Status'],
+        does: ['ring up sales, checkout and void', 'open and close a cashier shift'],
+        lands_on: 'sales', lands_on_label: 'Sales & POS',
+        scope: 'its own register; sales, clients and rooms of its branch only.',
+      },
+    },
+  },
 }
 
 /** Signs in by seeding what handleLogin writes to localStorage. */

@@ -49,6 +49,102 @@ const DEMO_ACCOUNTS = {
   'Staff': { username: 'demo_staff', password: 'DemoStaff!2026' },
 };
 
+// Full demo-login roster as created by `manage.py reseed_demo` (mirrors
+// DEMO_LOGINS.md, one cashier + two staff per branch). The dropdown above
+// keeps the five role-picks; this directory feeds the browsable panel on the
+// login screen so every generated account is discoverable without the file.
+// Deterministic seeds — re-running reseed_demo reproduces the same names.
+const MGR_PW = 'DemoManager!2026';
+const CASHIER_PW = 'DemoCashier!2026';
+const STAFF_PW = 'DemoStaff!2026';
+const DEMO_DIRECTORY = [
+  {
+    group: 'Company',
+    accounts: [
+      { label: 'Owner · all businesses', username: 'demo_owner', password: 'DemoOwner!2026' },
+      { label: 'Superadmin · platform', username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
+    ],
+  },
+  {
+    group: 'Villareal Spa Services',
+    accounts: [
+      { label: 'Manager · all branches', username: 'demo_business_manager', password: 'DemoBusinessManager!2026' },
+      { label: 'Cashier · Main', username: 'demo_cashier', password: CASHIER_PW },
+      { label: 'Staff 1 · Main', username: 'demo_staff', password: STAFF_PW },
+      { label: 'Staff 2 · Main', username: 'staff_vss_main_2', password: STAFF_PW },
+      { label: 'Cashier · Diamond', username: 'cashier_vss_dia', password: CASHIER_PW },
+      { label: 'Staff 1 · Diamond', username: 'staff_vss_dia_1', password: STAFF_PW },
+      { label: 'Staff 2 · Diamond', username: 'staff_vss_dia_2', password: STAFF_PW },
+    ],
+  },
+  {
+    group: 'VReal Products',
+    accounts: [
+      { label: 'Manager · all branches', username: 'bm_vreal', password: MGR_PW },
+      { label: 'Cashier · Main', username: 'cashier_vreal_main', password: CASHIER_PW },
+      { label: 'Staff 1 · Main', username: 'staff_vreal_main_1', password: STAFF_PW },
+      { label: 'Staff 2 · Main', username: 'staff_vreal_main_2', password: STAFF_PW },
+      { label: 'Cashier · Ayala', username: 'cashier_vreal_ayl', password: CASHIER_PW },
+      { label: 'Staff 1 · Ayala', username: 'staff_vreal_ayl_1', password: STAFF_PW },
+      { label: 'Staff 2 · Ayala', username: 'staff_vreal_ayl_2', password: STAFF_PW },
+    ],
+  },
+  {
+    group: 'BB Retail',
+    accounts: [
+      { label: 'Manager · all branches', username: 'bm_bb', password: MGR_PW },
+      { label: 'Cashier · Main', username: 'cashier_bb_main', password: CASHIER_PW },
+      { label: 'Staff 1 · Main', username: 'staff_bb_main_1', password: STAFF_PW },
+      { label: 'Staff 2 · Main', username: 'staff_bb_main_2', password: STAFF_PW },
+    ],
+  },
+  {
+    group: 'Panganan Menu',
+    accounts: [
+      { label: 'Manager · all branches', username: 'bm_panganan', password: MGR_PW },
+      { label: 'Cashier · Main', username: 'cashier_panganan_main', password: CASHIER_PW },
+      { label: 'Staff 1 · Main', username: 'staff_panganan_main_1', password: STAFF_PW },
+      { label: 'Staff 2 · Main', username: 'staff_panganan_main_2', password: STAFF_PW },
+    ],
+  },
+  {
+    group: 'KB Items · no branch',
+    accounts: [
+      { label: 'Manager · business-wide', username: 'bm_kb', password: MGR_PW },
+      { label: 'Cashier · business-wide', username: 'cashier_kb', password: CASHIER_PW },
+      { label: 'Staff 1 · business-wide', username: 'staff_kb_1', password: STAFF_PW },
+      { label: 'Staff 2 · business-wide', username: 'staff_kb_2', password: STAFF_PW },
+    ],
+  },
+  {
+    group: 'Auto Spa Services',
+    accounts: [
+      { label: 'Manager · all branches', username: 'bm_autospa', password: MGR_PW },
+      { label: 'Cashier · Main', username: 'cashier_autospa_main', password: CASHIER_PW },
+      { label: 'Staff 1 · Main', username: 'staff_autospa_main_1', password: STAFF_PW },
+      { label: 'Staff 2 · Main', username: 'staff_autospa_main_2', password: STAFF_PW },
+    ],
+  },
+];
+
+// Which role code each demo node / directory row stands for. The quick-pick
+// map names it explicitly; the 32 directory rows carry labels that always
+// start with the role word ("Cashier · Main"), so their code is derived —
+// one statement of the mapping instead of thirty-two hand-copied ones.
+const DEMO_ACCOUNT_ROLES = {
+  'Superadmin': 'SUPERADMIN',
+  'Owner': 'OWNER',
+  'Business Manager': 'BUSINESS_MANAGER',
+  'Cashier': 'CASHIER',
+  'Staff': 'STAFF',
+};
+
+const roleCodeFromLabel = (label) => {
+  const first = String(label || '').split('·')[0].trim().toLowerCase().split(/\s+/)[0];
+  if (first === 'manager') return 'BUSINESS_MANAGER';
+  return Object.values(DEMO_ACCOUNT_ROLES).find((code) => code.toLowerCase() === first) || '';
+};
+
 // Capabilities and role list come from GET /auth/capabilities/, which derives
 // them from the live ROLE_ACTIONS matrix. This client used to carry its own
 // ROLE_CAPABILITIES copy, free to drift from the server's policy; now it holds
@@ -700,9 +796,38 @@ export default function App() {
   // it left the dropdown blank and out of sync.
   const [demoSelection, setDemoSelection] = useState(() => Object.keys(DEMO_ACCOUNTS)[0] || '');
 
+  // Role guide (GET /auth/role-guide/, derived server-side from the live
+  // ROLE_ACTIONS matrix). The login screen previews the selected demo role
+  // with it, and the dashboard shows the signed-in account its own panel —
+  // both read the same payload, so neither restates role policy locally.
+  const [roleGuides, setRoleGuides] = useState({});
+  const [previewRole, setPreviewRole] = useState(
+    () => DEMO_ACCOUNT_ROLES[Object.keys(DEMO_ACCOUNTS)[0]] || '',
+  );
+  const [myAccessOpen, setMyAccessOpen] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/auth/role-guide/')
+      .then((response) => {
+        if (cancelled) return;
+        // Keyed by role code — the shape the endpoint declares; an array of
+        // guides is still tolerated so a rollback of either side can't
+        // silently blank the card/panel.
+        const guides = response.data?.guides;
+        const list = Array.isArray(guides) ? guides : Object.values(guides ?? {});
+        const map = {};
+        list.forEach((guide) => { map[guide.role] = guide; });
+        setRoleGuides(map);
+      })
+      .catch(() => { /* guide is a convenience; it stays hidden if unreachable */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const handleDemoRoleChange = (event) => {
     const role = event.target.value;
     setDemoSelection(role);
+    setPreviewRole(DEMO_ACCOUNT_ROLES[role] || '');
     const account = DEMO_ACCOUNTS[role];
     if (account) {
       setLoginForm(account);
@@ -977,6 +1102,7 @@ export default function App() {
 
   // --- LOGIN SCREEN ---
   if (!isLoggedIn) {
+    const activeGuide = roleGuides[previewRole] || null;
     return (
       <div className={`min-h-screen ${
         isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
@@ -1014,19 +1140,52 @@ export default function App() {
               <input type="password" required value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white" />
             </div>
             <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-[10px] text-cyan-200">
-              <p className="font-semibold uppercase tracking-wider mb-2">Available demo accounts</p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {Object.entries(DEMO_ACCOUNTS).map(([label, account]) => (
-                  // Fill the form only. The role is whatever the server says it
-                  // is — pre-setting it from this button's label is what made the
-                  // header briefly show the wrong role before login completed.
-                  <button key={label} type="button" onClick={() => setLoginForm(account)} className="text-left hover:text-white">
-                    <span className="font-semibold">{label}:</span> {account.username}
-                  </button>
+              <p className="font-semibold uppercase tracking-wider mb-2">All demo accounts · seeded by reseed_demo</p>
+              {/* Full roster (mirrors DEMO_LOGINS.md). Clicking fills the form
+                  only — the role is whatever the server says it is;
+                  pre-setting it from a button's label is what once made the
+                  header briefly show the wrong role before login completed. */}
+              <div className="max-h-44 overflow-y-auto pr-1 space-y-2">
+                {DEMO_DIRECTORY.map(({ group, accounts }) => (
+                  <div key={group}>
+                    <p className="font-semibold text-cyan-300/90 uppercase tracking-wider text-[9px] mb-0.5">{group}</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                      {accounts.map((account) => (
+                        <button
+                          key={account.username}
+                          type="button"
+                          title={`Password: ${account.password}`}
+                          onClick={() => {
+                            setLoginForm({ username: account.username, password: account.password });
+                            setPreviewRole(roleCodeFromLabel(account.label));
+                            setLoginError('');
+                          }}
+                          className="text-left hover:text-white py-0.5"
+                        >
+                          <span className="font-semibold">{account.label}:</span> {account.username}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-              <p className="mt-2 text-slate-400">Demo passwords are for local development only.</p>
+              <p className="mt-2 text-slate-400">Hover a row for its password — demo credentials are for local development only.</p>
             </div>
+            {/* What this role can see / do and where it belongs, from
+                GET /auth/role-guide/ — hidden until (or unless) that call
+                resolves; the form works without it. */}
+            {activeGuide && (
+              <div role="status" className="rounded-xl border border-slate-600/40 bg-slate-800/60 p-3 text-[10px] text-slate-300 space-y-1">
+                <p className="font-semibold uppercase tracking-wider text-cyan-300">{activeGuide.label} — what you get</p>
+                <p><span className="text-slate-500">Can see:</span> {activeGuide.sees.join(' · ') || '—'}</p>
+                <p><span className="text-slate-500">Can do:</span> {activeGuide.does.join('; ') || '—'}</p>
+                <p>
+                  <span className="text-slate-500">Where you should be:</span>{' '}
+                  <span className="font-semibold text-white">{activeGuide.lands_on_label}</span>
+                  {' '}— this role covers {activeGuide.scope}
+                </p>
+              </div>
+            )}
             <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-sm py-3 rounded-xl transition-all shadow-lg shadow-cyan-600/20">Access Dashboard</button>
           </form>
         </div>
@@ -1035,6 +1194,13 @@ export default function App() {
   }
 
   // --- MAIN APP RENDER ---
+  // The signed-in account's own guide: role_code from the login payload, or
+  // the header display role turned back into a code ('Business Manager' ->
+  // 'BUSINESS_MANAGER') for sessions stored before role_code existed.
+  const myRoleCode = String(
+    currentUser.role_code || String(currentUserRole || '').replace(/\s+/g, '_').toUpperCase(),
+  );
+  const myGuide = roleGuides[myRoleCode] || null;
   return (
     <BrowserRouter>
       <div className={`flex h-screen ${
@@ -1428,6 +1594,56 @@ export default function App() {
             {/* DASHBOARD */}
             {activeTab === 'dashboard' && (
               <>
+                {/* My access: what this role sees, does, and where it belongs,
+                    from the same /auth/role-guide/ payload as the login
+                    preview — plus the scope the account actually resolved to. */}
+                {myGuide && (
+                  <div className={`${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-white border-slate-200'} border rounded-xl p-4 shadow-sm space-y-2`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                        My access — {myGuide.label}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {/* Harmless even if the role could not open the tab: the
+                            tab guard at the top of this component bounces
+                            unauthorized tabs back to the dashboard. */}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab(myGuide.lands_on)}
+                          className="text-[11px] font-semibold px-3 py-1 rounded-lg text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all"
+                        >
+                          Go to {myGuide.lands_on_label}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMyAccessOpen((open) => !open)}
+                          className={`text-[11px] font-semibold px-3 py-1 rounded-lg border ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                        >
+                          {myAccessOpen ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
+                    {myAccessOpen && (
+                      <div className="text-[11px] space-y-1">
+                        <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                          <span className="opacity-60">Where you should be:</span>{' '}
+                          <span className="font-semibold">{myGuide.lands_on_label}</span> — this role covers {myGuide.scope}{' '}
+                          Currently in{' '}
+                          {grantedBusinesses.length > 1
+                            ? `${grantedBusinesses.length} businesses — switch from the header picker`
+                            : (grantedBusinesses[0]?.name || 'the active business')}
+                          {currentUser.branch?.name ? ` · ${currentUser.branch.name}` : ''}.
+                        </p>
+                        <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                          <span className="opacity-60">Can see:</span> {myGuide.sees.join(' · ') || '—'}
+                        </p>
+                        <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                          <span className="opacity-60">Can do:</span> {myGuide.does.join('; ') || '—'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                   <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
                     <div>
