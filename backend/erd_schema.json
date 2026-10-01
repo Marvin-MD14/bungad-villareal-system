@@ -1,0 +1,1771 @@
+[
+ {
+  "model": "Company",
+  "table": "api_company",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "legal_name",
+    "CharField"
+   ],
+   [
+    "display_name",
+    "CharField"
+   ],
+   [
+    "logo",
+    "FileField"
+   ],
+   [
+    "tax_id",
+    "CharField"
+   ],
+   [
+    "address",
+    "TextField"
+   ],
+   [
+    "contact_number",
+    "CharField"
+   ],
+   [
+    "email",
+    "CharField"
+   ],
+   [
+    "default_currency",
+    "CharField"
+   ],
+   [
+    "timezone",
+    "CharField"
+   ],
+   [
+    "default_tax_rate",
+    "DecimalField"
+   ],
+   [
+    "receipt_footer",
+    "TextField"
+   ],
+   [
+    "loyalty_enabled",
+    "BooleanField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [],
+  "m2m": []
+ },
+ {
+  "model": "BusinessType",
+  "table": "api_businesstype",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "code",
+    "SlugField"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "icon",
+    "CharField"
+   ],
+   [
+    "default_unit",
+    "CharField"
+   ],
+   [
+    "tracks_stock",
+    "BooleanField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ]
+  ],
+  "fks": [],
+  "m2m": []
+ },
+ {
+  "model": "Business",
+  "table": "api_business",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "slug",
+    "SlugField"
+   ],
+   [
+    "business_type_id",
+    "FK -> BusinessType"
+   ],
+   [
+    "description",
+    "TextField"
+   ],
+   [
+    "logo",
+    "FileField"
+   ],
+   [
+    "receipt_header",
+    "TextField"
+   ],
+   [
+    "currency",
+    "CharField"
+   ],
+   [
+    "tax_rate",
+    "DecimalField"
+   ],
+   [
+    "loyalty_enabled",
+    "BooleanField"
+   ],
+   [
+    "owner_id",
+    "FK -> User"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business_type",
+    "BusinessType"
+   ],
+   [
+    "owner",
+    "User"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "UserAccess",
+  "table": "api_useraccess",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "user_id",
+    "FK -> User"
+   ],
+   [
+    "role",
+    "CharField"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "is_primary",
+    "BooleanField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "user",
+    "User"
+   ],
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": [
+   "branches <> Branch"
+  ]
+ },
+ {
+  "model": "DeviceToken",
+  "table": "api_devicetoken",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "user_id",
+    "FK -> User"
+   ],
+   [
+    "key",
+    "CharField"
+   ],
+   [
+    "device_name",
+    "CharField"
+   ],
+   [
+    "user_agent",
+    "CharField"
+   ],
+   [
+    "ip_address",
+    "GenericIPAddressField"
+   ],
+   [
+    "password_fingerprint",
+    "CharField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "last_used_at",
+    "DateTimeField"
+   ],
+   [
+    "expires_at",
+    "DateTimeField"
+   ],
+   [
+    "revoked_at",
+    "DateTimeField"
+   ],
+   [
+    "rotated_from_id",
+    "FK -> DeviceToken"
+   ]
+  ],
+  "fks": [
+   [
+    "user",
+    "User"
+   ],
+   [
+    "rotated_from",
+    "DeviceToken"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Category",
+  "table": "api_category",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "kind",
+    "CharField"
+   ],
+   [
+    "parent_id",
+    "FK -> Category"
+   ],
+   [
+    "sort_order",
+    "PositiveIntegerField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ]
+  ],
+  "fks": [
+   [
+    "parent",
+    "Category"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Item",
+  "table": "api_item",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "item_type",
+    "CharField"
+   ],
+   [
+    "category_id",
+    "FK -> Category"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "sku",
+    "CharField"
+   ],
+   [
+    "barcode",
+    "CharField"
+   ],
+   [
+    "description",
+    "TextField"
+   ],
+   [
+    "cost_price",
+    "DecimalField"
+   ],
+   [
+    "selling_price",
+    "DecimalField"
+   ],
+   [
+    "is_taxable",
+    "BooleanField"
+   ],
+   [
+    "tracks_stock",
+    "BooleanField"
+   ],
+   [
+    "min_stock",
+    "PositiveIntegerField"
+   ],
+   [
+    "unit",
+    "CharField"
+   ],
+   [
+    "duration",
+    "PositiveIntegerField"
+   ],
+   [
+    "duration_unit",
+    "CharField"
+   ],
+   [
+    "requires_staff",
+    "BooleanField"
+   ],
+   [
+    "requires_room",
+    "BooleanField"
+   ],
+   [
+    "attributes",
+    "JSONField"
+   ],
+   [
+    "image",
+    "FileField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "category",
+    "Category"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "BusinessItem",
+  "table": "api_businessitem",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "item_id",
+    "FK -> Item"
+   ],
+   [
+    "price_override",
+    "DecimalField"
+   ],
+   [
+    "is_available",
+    "BooleanField"
+   ],
+   [
+    "sort_order",
+    "PositiveIntegerField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "item",
+    "Item"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "InventoryLevel",
+  "table": "api_inventorylevel",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "item_id",
+    "FK -> Item"
+   ],
+   [
+    "stock_qty",
+    "IntegerField"
+   ],
+   [
+    "reorder_point",
+    "PositiveIntegerField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "item",
+    "Item"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "StockMovement",
+  "table": "api_stockmovement",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "item_id",
+    "FK -> Item"
+   ],
+   [
+    "quantity_delta",
+    "IntegerField"
+   ],
+   [
+    "reason",
+    "CharField"
+   ],
+   [
+    "reference",
+    "CharField"
+   ],
+   [
+    "balance_after",
+    "IntegerField"
+   ],
+   [
+    "created_by_id",
+    "FK -> User"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "item",
+    "Item"
+   ],
+   [
+    "created_by",
+    "User"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Branch",
+  "table": "api_branch",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "code",
+    "CharField"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "address",
+    "TextField"
+   ],
+   [
+    "contact_number",
+    "CharField"
+   ],
+   [
+    "email",
+    "CharField"
+   ],
+   [
+    "opens_at",
+    "TimeField"
+   ],
+   [
+    "closes_at",
+    "TimeField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "UserProfile",
+  "table": "api_userprofile",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "user_id",
+    "O2O -> User"
+   ],
+   [
+    "phone_number",
+    "CharField"
+   ],
+   [
+    "avatar",
+    "FileField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "user",
+    "User"
+   ]
+  ],
+  "m2m": [
+   "skills <> Item"
+  ]
+ },
+ {
+  "model": "ClientProfile",
+  "table": "api_clientprofile",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "first_name",
+    "CharField"
+   ],
+   [
+    "last_name",
+    "CharField"
+   ],
+   [
+    "age",
+    "PositiveIntegerField"
+   ],
+   [
+    "gender",
+    "CharField"
+   ],
+   [
+    "address",
+    "TextField"
+   ],
+   [
+    "phone_number",
+    "CharField"
+   ],
+   [
+    "email",
+    "CharField"
+   ],
+   [
+    "birth_date",
+    "DateField"
+   ],
+   [
+    "loyalty_points",
+    "DecimalField"
+   ],
+   [
+    "total_spent",
+    "DecimalField"
+   ],
+   [
+    "loyalty_tier",
+    "CharField"
+   ],
+   [
+    "free_items_available",
+    "IntegerField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "RoomTable",
+  "table": "api_roomtable",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "room_type",
+    "CharField"
+   ],
+   [
+    "is_occupied",
+    "BooleanField"
+   ],
+   [
+    "start_time",
+    "DateTimeField"
+   ],
+   [
+    "duration_minutes",
+    "IntegerField"
+   ],
+   [
+    "assigned_staff_id",
+    "FK -> User"
+   ],
+   [
+    "customer_name",
+    "CharField"
+   ],
+   [
+    "service_type",
+    "CharField"
+   ],
+   [
+    "item_id",
+    "FK -> Item"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "assigned_staff",
+    "User"
+   ],
+   [
+    "item",
+    "Item"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Transaction",
+  "table": "api_transaction",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "idempotency_key",
+    "CharField"
+   ],
+   [
+    "transaction_number",
+    "CharField"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "transaction_type",
+    "CharField"
+   ],
+   [
+    "customer_id",
+    "FK -> ClientProfile"
+   ],
+   [
+    "staff_id",
+    "FK -> User"
+   ],
+   [
+    "subtotal",
+    "DecimalField"
+   ],
+   [
+    "discount",
+    "DecimalField"
+   ],
+   [
+    "total",
+    "DecimalField"
+   ],
+   [
+    "amount_paid",
+    "DecimalField"
+   ],
+   [
+    "change",
+    "DecimalField"
+   ],
+   [
+    "status",
+    "CharField"
+   ],
+   [
+    "notes",
+    "TextField"
+   ],
+   [
+    "shift_id",
+    "FK -> CashierShift"
+   ],
+   [
+    "customer_tier_at_purchase",
+    "CharField"
+   ],
+   [
+    "tier_discount_applied",
+    "DecimalField"
+   ],
+   [
+    "points_earned",
+    "DecimalField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "customer",
+    "ClientProfile"
+   ],
+   [
+    "staff",
+    "User"
+   ],
+   [
+    "shift",
+    "CashierShift"
+   ]
+  ],
+  "m2m": [
+   "rewards_applied <> CustomerReward"
+  ]
+ },
+ {
+  "model": "TransactionItem",
+  "table": "api_transactionitem",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "transaction_id",
+    "FK -> Transaction"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "item_id",
+    "FK -> Item"
+   ],
+   [
+    "catalog_source",
+    "CharField"
+   ],
+   [
+    "item_type",
+    "CharField"
+   ],
+   [
+    "description",
+    "CharField"
+   ],
+   [
+    "unit_price",
+    "DecimalField"
+   ],
+   [
+    "quantity",
+    "IntegerField"
+   ],
+   [
+    "discount",
+    "DecimalField"
+   ],
+   [
+    "total",
+    "DecimalField"
+   ]
+  ],
+  "fks": [
+   [
+    "transaction",
+    "Transaction"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "item",
+    "Item"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "DailySales",
+  "table": "api_dailysales",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "date",
+    "DateField"
+   ],
+   [
+    "total_sales",
+    "DecimalField"
+   ],
+   [
+    "total_expenses",
+    "DecimalField"
+   ],
+   [
+    "total_void",
+    "DecimalField"
+   ],
+   [
+    "transaction_count",
+    "IntegerField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "branch",
+    "Branch"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Attendance",
+  "table": "api_attendance",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "user_id",
+    "FK -> User"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "date",
+    "DateField"
+   ],
+   [
+    "time_in",
+    "DateTimeField"
+   ],
+   [
+    "time_out",
+    "DateTimeField"
+   ],
+   [
+    "status",
+    "CharField"
+   ],
+   [
+    "notes",
+    "TextField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "user",
+    "User"
+   ],
+   [
+    "branch",
+    "Branch"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "CustomerFeedback",
+  "table": "api_customerfeedback",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "customer_id",
+    "FK -> ClientProfile"
+   ],
+   [
+    "transaction_id",
+    "FK -> Transaction"
+   ],
+   [
+    "staff_id",
+    "FK -> User"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "rating",
+    "IntegerField"
+   ],
+   [
+    "comment",
+    "TextField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "customer",
+    "ClientProfile"
+   ],
+   [
+    "transaction",
+    "Transaction"
+   ],
+   [
+    "staff",
+    "User"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Expense",
+  "table": "api_expense",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "category",
+    "CharField"
+   ],
+   [
+    "description",
+    "CharField"
+   ],
+   [
+    "amount",
+    "DecimalField"
+   ],
+   [
+    "expense_date",
+    "DateField"
+   ],
+   [
+    "recorded_by_id",
+    "FK -> User"
+   ],
+   [
+    "receipt",
+    "FileField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "recorded_by",
+    "User"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "AuditLog",
+  "table": "api_auditlog",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "user_id",
+    "FK -> User"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "action",
+    "CharField"
+   ],
+   [
+    "model_name",
+    "CharField"
+   ],
+   [
+    "object_id",
+    "CharField"
+   ],
+   [
+    "description",
+    "TextField"
+   ],
+   [
+    "ip_address",
+    "GenericIPAddressField"
+   ],
+   [
+    "request_id",
+    "CharField"
+   ],
+   [
+    "user_agent",
+    "CharField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "user",
+    "User"
+   ],
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "branch",
+    "Branch"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "CustomerReward",
+  "table": "api_customerreward",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "customer_id",
+    "FK -> ClientProfile"
+   ],
+   [
+    "reward_type",
+    "CharField"
+   ],
+   [
+    "status",
+    "CharField"
+   ],
+   [
+    "title",
+    "CharField"
+   ],
+   [
+    "description",
+    "TextField"
+   ],
+   [
+    "value",
+    "DecimalField"
+   ],
+   [
+    "discount_percent",
+    "DecimalField"
+   ],
+   [
+    "earned_at",
+    "DateTimeField"
+   ],
+   [
+    "claimed_at",
+    "DateTimeField"
+   ],
+   [
+    "expires_at",
+    "DateTimeField"
+   ],
+   [
+    "transaction_id",
+    "FK -> Transaction"
+   ],
+   [
+    "claimed_in_transaction_id",
+    "FK -> Transaction"
+   ]
+  ],
+  "fks": [
+   [
+    "customer",
+    "ClientProfile"
+   ],
+   [
+    "transaction",
+    "Transaction"
+   ],
+   [
+    "claimed_in_transaction",
+    "Transaction"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "RewardClaim",
+  "table": "api_rewardclaim",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "reward_id",
+    "FK -> CustomerReward"
+   ],
+   [
+    "transaction_id",
+    "FK -> Transaction"
+   ],
+   [
+    "claimed_by_id",
+    "FK -> User"
+   ],
+   [
+    "amount_applied",
+    "DecimalField"
+   ],
+   [
+    "claimed_at",
+    "DateTimeField"
+   ],
+   [
+    "notes",
+    "TextField"
+   ]
+  ],
+  "fks": [
+   [
+    "reward",
+    "CustomerReward"
+   ],
+   [
+    "transaction",
+    "Transaction"
+   ],
+   [
+    "claimed_by",
+    "User"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "LoyaltyProgram",
+  "table": "api_loyaltyprogram",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "earn_amount",
+    "DecimalField"
+   ],
+   [
+    "redeem_value",
+    "DecimalField"
+   ],
+   [
+    "free_item_threshold",
+    "DecimalField"
+   ],
+   [
+    "points_valid_days",
+    "PositiveIntegerField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "LoyaltyTransaction",
+  "table": "api_loyaltytransaction",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "customer_id",
+    "FK -> ClientProfile"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "transaction_id",
+    "FK -> Transaction"
+   ],
+   [
+    "entry_type",
+    "CharField"
+   ],
+   [
+    "points",
+    "DecimalField"
+   ],
+   [
+    "balance_after",
+    "DecimalField"
+   ],
+   [
+    "reason",
+    "CharField"
+   ],
+   [
+    "created_by_id",
+    "FK -> User"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "customer",
+    "ClientProfile"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "transaction",
+    "Transaction"
+   ],
+   [
+    "created_by",
+    "User"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "DocumentSequence",
+  "table": "api_documentsequence",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "prefix",
+    "CharField"
+   ],
+   [
+    "period",
+    "CharField"
+   ],
+   [
+    "last_number",
+    "PositiveIntegerField"
+   ],
+   [
+    "updated_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "PaymentMethod",
+  "table": "api_paymentmethod",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "code",
+    "CharField"
+   ],
+   [
+    "name",
+    "CharField"
+   ],
+   [
+    "is_active",
+    "BooleanField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "CashierShift",
+  "table": "api_cashiershift",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "branch_id",
+    "FK -> Branch"
+   ],
+   [
+    "staff_id",
+    "FK -> User"
+   ],
+   [
+    "status",
+    "CharField"
+   ],
+   [
+    "opening_float",
+    "DecimalField"
+   ],
+   [
+    "opened_at",
+    "DateTimeField"
+   ],
+   [
+    "closed_at",
+    "DateTimeField"
+   ],
+   [
+    "closing_cash",
+    "DecimalField"
+   ],
+   [
+    "expected_cash",
+    "DecimalField"
+   ],
+   [
+    "over_short",
+    "DecimalField"
+   ],
+   [
+    "notes",
+    "CharField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "branch",
+    "Branch"
+   ],
+   [
+    "staff",
+    "User"
+   ]
+  ],
+  "m2m": []
+ },
+ {
+  "model": "Payment",
+  "table": "api_payment",
+  "fields": [
+   [
+    "id",
+    "PK"
+   ],
+   [
+    "business_id",
+    "FK -> Business"
+   ],
+   [
+    "transaction_id",
+    "FK -> Transaction"
+   ],
+   [
+    "shift_id",
+    "FK -> CashierShift"
+   ],
+   [
+    "method_id",
+    "FK -> PaymentMethod"
+   ],
+   [
+    "amount",
+    "DecimalField"
+   ],
+   [
+    "tendered",
+    "DecimalField"
+   ],
+   [
+    "change",
+    "DecimalField"
+   ],
+   [
+    "reference",
+    "CharField"
+   ],
+   [
+    "created_at",
+    "DateTimeField"
+   ]
+  ],
+  "fks": [
+   [
+    "business",
+    "Business"
+   ],
+   [
+    "transaction",
+    "Transaction"
+   ],
+   [
+    "shift",
+    "CashierShift"
+   ],
+   [
+    "method",
+    "PaymentMethod"
+   ]
+  ],
+  "m2m": []
+ }
+]

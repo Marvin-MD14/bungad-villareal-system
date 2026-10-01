@@ -3,6 +3,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from api.access.managers import BusinessScopedModel
+
 
 class Category(models.Model):
     """Grouping inside the company catalog (Spa Services, Beverages, Soap ...)."""
@@ -65,13 +67,18 @@ class Item(models.Model):
         return f"{self.name} [{self.item_type}]"
 
 
-class BusinessItem(models.Model):
+class BusinessItem(BusinessScopedModel):
     """Which business sells which item, at what price.
 
     This is how ONE catalog serves MANY businesses with no duplication —
     and how the same item can cost 150 at the spa and 130 in the kiosk.
     """
-    business = models.ForeignKey('api.Business', on_delete=models.CASCADE, related_name='catalog_entries')
+    # Re-declared (same definition as before) so the FK keeps its related_name
+    # and stays editable in the admin, while `objects`/`all_objects` come from
+    # ``BusinessScopedModel``.
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, related_name='catalog_entries'
+    )
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='business_entries')
     price_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     is_available = models.BooleanField(default=True)
@@ -90,9 +97,13 @@ class BusinessItem(models.Model):
 
 
 class InventoryLevel(models.Model):
-    """Stock per BRANCH — physical stock lives at an outlet."""
-    branch = models.ForeignKey('api.Branch', on_delete=models.CASCADE, related_name='inventory_levels')
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='inventory_levels')
+    """Stock per BRANCH — physical stock lives at an outlet.
+
+    ``branch``/``item`` are ``PROTECT`` (§7.6): a catalog item or outlet is
+    retired with ``is_active=False``, never by breaking stock history.
+    """
+    branch = models.ForeignKey('api.Branch', on_delete=models.PROTECT, related_name='inventory_levels')
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='inventory_levels')
     stock_qty = models.IntegerField(default=0)
     reorder_point = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)

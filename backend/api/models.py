@@ -8,43 +8,70 @@ from .company.models import Company
 from .business.models import BusinessType, Business
 from .access.models import UserAccess
 from .catalog.models import Category, Item, BusinessItem, InventoryLevel, StockMovement
+from .access.managers import BusinessScopedModel, BusinessScopedQuerySetModel, BusinessStampMixin
 
 
 # ============================================================
 # BRANCH
 # ============================================================
 
-class Branch(models.Model):
-    BRANCH_TYPE_CHOICES = [
+class Branch(BusinessScopedQuerySetModel):
+    """An outlet (physical location) of exactly one parent **Business**.
+
+    Naming (this tripped us up before): a **Business** is the top operating unit
+    the Owner/superadmin creates (e.g. "Spa Biz"); a **Branch** is one *outlet*
+    of it (e.g. "Main", "DSM-01").  They are NOT the same thing — Business is the
+    parent and the isolation boundary, Branch is its outlet.  Every row a branch
+    owns (sales, expenses, rooms, stock) is stamped with the branch's business,
+    so a branch can never be shared across businesses.  The old ``branch_type``
+    column is gone; the legacy POS label it used to carry is now *derived* from
+    the parent business so older tills keep working.
+    """
+    LEGACY_TYPE_CHOICES = [
         ('VSS', 'VSS Services Branch'),
         ('VREAL', 'VReal Products Branch'),
         ('BB', 'BB Products Branch'),
         ('MIXED', 'Mixed (VSS + VReal + BB)'),
     ]
+    LEGACY_LABELS = dict(LEGACY_TYPE_CHOICES)
+    LEGACY_SLUGS = ('vss', 'vreal', 'bb')
 
     business = models.ForeignKey(
-        'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='branches'
+        'api.Business', on_delete=models.CASCADE, related_name='branches'
     )
     code = models.CharField(max_length=20, blank=True)
     name = models.CharField(max_length=100)
-    branch_type = models.CharField(
-        max_length=20,
-        choices=BRANCH_TYPE_CHOICES,
-        default='VSS',
-        help_text='Determines which catalog this branch offers in POS'
-    )
     address = models.TextField(blank=True, null=True)
     contact_number = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
+    opens_at = models.TimeField(null=True, blank=True)
+    closes_at = models.TimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def branch_type(self):
+        """Legacy catalog label, derived from the branch's business (read-only)."""
+        business = getattr(self, 'business', None)
+        if business is None:
+            return 'MIXED'
+        haystack = f'{business.slug or ""} {getattr(business.business_type, "code", "") or ""}'.lower()
+        for code in self.LEGACY_SLUGS:
+            if code in haystack:
+                return code.upper()
+        return 'MIXED'
+
+    def get_branch_type_display(self):
+        return self.LEGACY_LABELS.get(self.branch_type, 'Mixed (VSS + VReal + BB)')
+
     def __str__(self):
-        return f"{self.name} ({self.get_branch_type_display()})"
+        business = getattr(self, 'business', None)
+        return f"{self.name} ({business.name})" if business else self.name
 
     class Meta:
-        ordering = ['name']
+        ordering = ['business__name', 'name']
+        unique_together = ('business', 'name')
         verbose_name = "Branch"
         verbose_name_plural = "Branches"
 
@@ -54,25 +81,19 @@ class Branch(models.Model):
 # ============================================================
 
 class UserProfile(models.Model):
-    ROLE_CHOICES = [
-        ('SUPERADMIN', 'Superadmin'),
-        ('OWNER', 'Owner'),
-        ('BRANCH_ADMIN', 'Branch Admin'),
-        ('CASHIER', 'Cashier'),
-        ('STAFF', 'Staff'),
-    ]
+    """Personal data only.
+
+    ``role`` and ``branch`` were removed (§4.4): what a user may do, and where,
+    is decided by ``UserAccess`` grants so one account can be a cashier in one
+    business and a manager in another.  Staff skills point at the unified
+    catalog: ``services`` used to be an M2M to ``VSSService``, which is gone.
+    """
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='STAFF')
-    branch = models.ForeignKey(
-        Branch,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='user_profiles',
-    )
-    # NOTE: staff "services" now live on the unified catalog. The API keeps
-    # accepting/returning a `services` payload key, mapped onto `skills`.
+    phone_number = models.CharField(max_length=20, blank=True)
+    avatar = models.ImageField(upload_to='staff/', blank=True, null=True)
+    # NOTE: the API keeps accepting/returning a `services` payload key, mapped
+    # onto `skills` (Item ids) for backwards compatibility with the frontend.
     skills = models.ManyToManyField(
         'api.Item',
         blank=True,
@@ -83,8 +104,26 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        branch_name = self.branch.name if self.branch else 'All branches'
-        return f"{self.user.username} - {self.get_role_display()} ({branch_name})"
+        return f"{self.user.username} — profile"
+
+    @property
+    def role(self):
+        """Capability role, derived from the account's active/most-powerful grant.
+
+        Read-only convenience for the UI; never a source of truth.  Use
+        ``api.permissions.get_effective_role(request)`` for authorization.
+        """
+        grant = (
+            self.user.access_grants.filter(is_active=True)
+            .select_related('business')
+            .order_by('is_primary', 'id')
+            .first()
+        )
+        if grant is not None:
+            return grant.role
+        if self.user.is_superuser:
+            return 'OWNER'
+        return 'STAFF'
 
     class Meta:
         ordering = ['user__username']
@@ -139,6 +178,19 @@ class ClientProfile(models.Model):
     total_spent = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     loyalty_tier = models.CharField(max_length=20, choices=TIER_CHOICES, default='BRONZE')
     free_items_available = models.IntegerField(default=0)
+    # §7.10: customers are retired with is_active=False, never deleted, so old
+    # receipts keep resolving and the loyalty history stays truthful.
+    is_active = models.BooleanField(default=True)
+
+    # The tenant that owns this customer. A client (and therefore their loyalty
+    # balance and rewards) belongs to exactly one business: without this the
+    # customers table was shared by every tenant, and a cashier scoped to one
+    # outlet could read — and check out against — another business's customers.
+    # Nullable so the migration can land before the backfill assigns owners.
+    business = models.ForeignKey(
+        'api.Business', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='clients',
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -217,7 +269,7 @@ class ClientProfile(models.Model):
 # ROOM TABLE
 # ============================================================
 
-class RoomTable(models.Model):
+class RoomTable(BusinessScopedQuerySetModel):
     ROOM_TYPES = [
         ('PEDICURE', 'Pedicure & Manicure'),
         ('FOOT_SPA', 'Foot Spa'),
@@ -236,7 +288,17 @@ class RoomTable(models.Model):
     duration_minutes = models.IntegerField(default=0)
     assigned_staff = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_rooms')
     customer_name = models.CharField(max_length=255, blank=True, null=True)
+    # §4.5: `service_type` free text -> optional unified-catalog Item FK.
+    # The text column stays as a printable fallback/snapshot for legacy rows.
     service_type = models.CharField(max_length=255, blank=True, null=True)
+    item = models.ForeignKey(
+        'api.Item',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='room_bookings',
+        help_text='Catalog service currently being performed in this room, if any',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -283,7 +345,7 @@ class TimestampMixin(models.Model):
 # TRANSACTION
 # ============================================================
 
-class Transaction(models.Model):
+class Transaction(BusinessScopedQuerySetModel):
     TRANSACTION_TYPES = [
         ('SALE', 'Sale'),
         ('VOID', 'Void'),
@@ -302,8 +364,10 @@ class Transaction(models.Model):
         'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='transactions'
     )
     idempotency_key = models.CharField(max_length=128, unique=True, null=True, blank=True)
-    transaction_number = models.CharField(max_length=50, unique=True)
-    branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
+    # §3.4 L4: receipts are unique *per business*, so two outlets of different
+    # businesses can never collide on a counter-derived number.
+    transaction_number = models.CharField(max_length=50)
+    branch = models.ForeignKey(Branch, on_delete=models.PROTECT)
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, default='SALE')
     customer = models.ForeignKey(ClientProfile, on_delete=models.SET_NULL, null=True, blank=True)
     staff = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -314,6 +378,12 @@ class Transaction(models.Model):
     change = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     notes = models.TextField(blank=True, null=True)
+    # The till session that rang this sale up, when one was open. Payments made
+    # against a sale inherit it, which is what makes shift reconciliation work.
+    shift = models.ForeignKey(
+        'api.CashierShift', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='transactions',
+    )
 
     # Loyalty & Rewards fields
     customer_tier_at_purchase = models.CharField(max_length=20, blank=True, null=True)
@@ -334,6 +404,9 @@ class Transaction(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        # A receipt number only has to be unique inside the business that issued
+        # it (§3.4 L4); the global `unique=True` was stricter than needed.
+        unique_together = ('business', 'transaction_number')
 
 
 # ============================================================
@@ -353,16 +426,24 @@ class TransactionItem(models.Model):
     ]
 
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='items')
+    # §5.4: the line carries its own branch so stock/ledger questions ("which
+    # outlet sold this?") never need the parent transaction.
+    branch = models.ForeignKey(
+        Branch, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='transaction_items',
+    )
     item = models.ForeignKey('api.Item', on_delete=models.PROTECT, null=True, blank=True, related_name='transaction_items')
     catalog_source = models.CharField(
         max_length=20,
         choices=CATALOG_SOURCE_CHOICES,
         default='GENERIC',
-        help_text='Which catalog the item came from (VSS/VREAL/BB)'
+        help_text='Which legacy catalog the item came from (VSS/VREAL/BB) — derived, kept for receipts'
     )
     item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)
     description = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    # Snapshot (deliberate duplication, §5.4): a receipt must reprint the price
+    # that was actually charged even if the Item is repriced later.
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.IntegerField(default=1)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     total = models.DecimalField(max_digits=10, decimal_places=2)
@@ -380,7 +461,7 @@ class TransactionItem(models.Model):
 # DAILY SALES
 # ============================================================
 
-class DailySales(models.Model):
+class DailySales(BusinessScopedQuerySetModel):
     business = models.ForeignKey(
         'api.Business', on_delete=models.CASCADE, null=True, blank=True, related_name='daily_sales'
     )
@@ -404,7 +485,7 @@ class DailySales(models.Model):
 # ATTENDANCE TRACKING
 # ============================================================
 
-class Attendance(models.Model):
+class Attendance(BusinessScopedQuerySetModel):
     STATUS_CHOICES = [
         ('PRESENT', 'Present'),
         ('LATE', 'Late'),
@@ -445,7 +526,7 @@ class Attendance(models.Model):
 # CUSTOMER FEEDBACK
 # ============================================================
 
-class CustomerFeedback(models.Model):
+class CustomerFeedback(BusinessScopedQuerySetModel):
     RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
 
     customer = models.ForeignKey(
@@ -481,7 +562,7 @@ class CustomerFeedback(models.Model):
 # EXPENSE TRACKING
 # ============================================================
 
-class Expense(models.Model):
+class Expense(BusinessScopedQuerySetModel):
     CATEGORY_CHOICES = [
         ('SUPPLIES', 'Supplies'),
         ('UTILITIES', 'Utilities'),
@@ -519,7 +600,7 @@ class Expense(models.Model):
 # AUDIT LOG
 # ============================================================
 
-class AuditLog(models.Model):
+class AuditLog(BusinessScopedQuerySetModel):
     ACTION_CHOICES = [
         ('CREATE', 'Create'),
         ('UPDATE', 'Update'),

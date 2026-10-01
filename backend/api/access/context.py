@@ -24,7 +24,7 @@ used by :mod:`api.access.managers`:
 
 import logging
 
-from api.access.managers import set_business_context
+from api.access.managers import set_business_context, set_log_context
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +85,15 @@ def apply_business_context(request, user=None, header=_UNSET):
     grant = resolve_grant(user, header)
     if grant is None:
         for request_obj in _target(request):
+            request_obj.business = None
+            request_obj.allowed_branch_ids = []
             request_obj._business_context_for = user_pk
-        set_business_context(None, False)
+            # A Django superuser is the platform operator: with no grant it is
+            # still company-wide, so the fail-closed default managers stay
+            # usable in the admin / shell.
+            request_obj.company_wide = bool(getattr(user, 'is_superuser', False))
+        set_business_context(None, bool(getattr(user, 'is_superuser', False)))
+        set_log_context(user_id=user_pk)
         return request
 
     company_wide = grant.is_company_wide
@@ -97,6 +104,11 @@ def apply_business_context(request, user=None, header=_UNSET):
         request_obj.allowed_branch_ids = grant.branch_ids()
         request_obj._business_context_for = user_pk
     set_business_context(grant.business, company_wide)
+    set_log_context(
+        user_id=user_pk,
+        business_id=grant.business_id,
+        role=grant.role,
+    )
     return request
 
 

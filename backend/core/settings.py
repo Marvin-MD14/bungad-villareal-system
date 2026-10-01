@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'api.access.middleware.RequestIDMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -84,15 +85,68 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# Database - SQLite (simple at walang issue)
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+# Database
+# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+#
+# §7.1: production runs PostgreSQL, selected purely by the environment:
+#     DATABASE_URL=postgres://user:pass@host:5432/bungad
+# A real database is required for row locks, real concurrency, CHECK
+# constraints and backups (SQLite serialises writers and cannot do PITR).
+# With no DATABASE_URL we fall back to the SQLite file used for local work and
+# for the test suite (which builds an in-memory database of its own).
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+def _databases_from_url(url):
+    """Minimal ``DATABASE_URL`` parser, so ``dj-database-url`` stays optional."""
+    from urllib.parse import parse_qs, urlparse
+
+    parsed = urlparse(url)
+    engine = {
+        'postgres': 'django.db.backends.postgresql',
+        'postgresql': 'django.db.backends.postgresql',
+        'psql': 'django.db.backends.postgresql',
+        'mysql': 'django.db.backends.mysql',
+        'sqlite': 'django.db.backends.sqlite3',
+    }.get(parsed.scheme)
+    if engine is None:
+        raise ValueError(f'Unsupported DATABASE_URL scheme: {parsed.scheme!r}')
+
+    if parsed.scheme == 'sqlite':
+        return {'ENGINE': engine, 'NAME': parsed.path.lstrip('/') or ':memory:'}
+
+    query = parse_qs(parsed.query)
+    config = {
+        'ENGINE': engine,
+        'NAME': (parsed.path or '').lstrip('/'),
+        'USER': parsed.username or '',
+        'PASSWORD': parsed.password or '',
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or ''),
+        'CONN_MAX_AGE': int(query.get('conn_max_age', ['60'])[0]),
+        'OPTIONS': {'sslmode': query['sslmode'][0]} if 'sslmode' in query else {},
     }
-}
+    return config
+
+
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+
+if DATABASE_URL:
+    try:
+        import dj_database_url  # optional convenience dependency
+
+        DATABASES = {
+            'default': dj_database_url.parse(
+                DATABASE_URL, conn_max_age=60, conn_health_checks=True
+            )
+        }
+    except ImportError:
+        DATABASES = {'default': _databases_from_url(DATABASE_URL)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -136,6 +190,22 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# §8.2: uploads are filed per business (media/business_<slug>/…, media/company/…)
+# because there is one company but many businesses, and a flat tree cannot say
+# who owns a receipt or product photo.
+STORAGES = {
+    'default': {
+        'BACKEND': 'api.access.storage.BusinessMediaStorage',
+        'OPTIONS': {
+            'location': MEDIA_ROOT,
+            'base_url': MEDIA_URL,
+        },
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -177,11 +247,19 @@ CORS_ALLOW_HEADERS = [
 ]
 
 
+# §7.9 — how long a device token stays valid before the till must sign in
+# again.  Deliberately a *shift*, not a year: a leaked POS credential should
+# die on its own even if nobody remembers to revoke it.  A long-running front
+# desk calls POST /api/auth/rotate-token/ to renew without re-entering the
+# password.
+API_TOKEN_LIFETIME_HOURS = int(os.environ.get('API_TOKEN_LIFETIME_HOURS', '12'))
+
+
 # ============ REST FRAMEWORK CONFIGURATION ============
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'api.access.authentication.BusinessTokenAuthentication',
+        'api.access.authentication.DeviceTokenAuthentication',
         'api.access.authentication.BusinessSessionAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
@@ -204,6 +282,7 @@ REST_FRAMEWORK = {
         'anon': '100/minute',
         'user': '1000/minute',
         'login': '10/minute',
+        'checkout': '60/minute',
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -232,12 +311,20 @@ FILE_UPLOAD_PERMISSIONS = 0o644
 
 # ============ LOGGING CONFIGURATION ============
 
+# §7.11: every line is JSON and carries business_id / branch_id / user_id /
+# request_id, so an incident can be filtered by business or followed by request.
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'json_business': {
+            '()': 'api.access.logging.JsonBusinessFormatter',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'json_business',
         },
     },
     'root': {
@@ -252,7 +339,13 @@ LOGGING = {
         },
         'api': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # One line per request, with method/path/status/duration + business context.
+        'api.request': {
+            'handlers': ['console'],
+            'level': 'INFO',
             'propagate': False,
         },
     },

@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction as db_transaction
 from django.db.models import Avg, Count, Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -13,35 +14,39 @@ from uuid import uuid4
 
 from rest_framework import serializers as drf_serializers
 from rest_framework import status, viewsets
-from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
 
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 from .models import (
     Attendance, AuditLog, Branch,
     ClientProfile, CustomerFeedback, CustomerReward, DailySales, Expense,
-    RewardClaim, RoomTable, Transaction,
+    RewardClaim, RoomTable, Transaction, TransactionItem,
     UserProfile,
 )
 from .catalog.models import BusinessItem, Category, InventoryLevel, Item
 from .business.models import Business
+from .company.models import Company
 from .sales.services import checkout as sales_checkout, receive_stock, void_sale
-from .access.models import UserAccess
+from .access.context import ensure_business_context
+from .access.models import (
+    DeviceToken,
+    UserAccess,
+    staff_count_for_branch,
+    staff_counts_by_role_for_branch,
+)
 from .access.scoping import ScopedQuerysetMixin, auto_scope
 from .permissions import RoleBasedPermission
 from .serializers import (
-    AttendanceSerializer, AuditLogSerializer, AutoSpaServiceSerializer,
-    BBProductSerializer, BranchInventorySerializer,
-    BranchSerializer, ClientProfileSerializer, CustomerFeedbackSerializer,
+    AttendanceSerializer, AuditLogSerializer, BranchSerializer,
+    ClientProfileSerializer, CompanySerializer, CustomerFeedbackSerializer,
     CustomerRewardSerializer, DailySalesSerializer, ExpenseSerializer,
-    KBItemSerializer, PangananMenuSerializer, ProductSerializer,
     RewardClaimSerializer, RoomTableSerializer, TransactionSerializer,
-    UserProfileSerializer, VRealProductSerializer, VSSServiceSerializer,
+    UserProfileSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,9 +83,25 @@ def build_tier_payload(customer):
 
 
 def get_user_branch(user):
-    """Safely return the branch of a user."""
-    profile = getattr(user, 'profile', None)
-    return profile.branch if profile else None
+    """Best-guess branch for audit rows: the primary grant's ticked branches.
+
+    §4.4 removed ``UserProfile.branch``, so a branch is only known through the
+    grants that cover it.  Returns ``None`` for company-wide accounts (their
+    audit rows are business-less by design).
+    """
+    from .access.models import UserAccess
+
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return None
+    grants = UserAccess.objects.filter(user=user, is_active=True)
+    first_branch = (
+        grants.filter(branches__isnull=False)
+        .values_list('branches__pk', flat=True)
+        .first()
+    )
+    if first_branch:
+        return Branch.all_objects.filter(pk=first_branch).first()
+    return None
 
 
 def get_client_ip(request):
@@ -100,15 +121,18 @@ class AuditLogMixin:
 
     def _log_action(self, action, instance, description=''):
         try:
+            request = self.request
             AuditLog.objects.create(
-                user=self.request.user if self.request.user.is_authenticated else None,
-                branch=get_user_branch(self.request.user),
-                business=getattr(self.request, 'business', None),
+                user=request.user if request.user.is_authenticated else None,
+                branch=get_user_branch(request.user),
+                business=getattr(request, 'business', None),
                 action=action,
                 model_name=self.__class__.__name__.replace('ViewSet', ''),
                 object_id=str(getattr(instance, 'id', '')),
                 description=description or f"{action} on {self.__class__.__name__}",
-                ip_address=get_client_ip(self.request),
+                ip_address=get_client_ip(request),
+                request_id=getattr(request, 'request_id', None),
+                user_agent=(request.headers.get('User-Agent') or '')[:255] or None,
             )
         except Exception:  # noqa: BLE001 - auditing must never break the request
             logger.exception('Failed to write audit log for %s on %s', action, instance)
@@ -134,6 +158,27 @@ class AuditLogMixin:
 
 class LoginThrottle(AnonRateThrottle):
     rate = '10/minute'
+
+
+class CheckoutThrottle(SimpleRateThrottle):
+    """Rate limit sale submissions per user *and* business (§7.3).
+
+    Keying on the active business as well as the user means a cashier who works
+    two businesses cannot burn a busy outlet's allowance from a quiet one, and a
+    runaway POS tab only locks the till it belongs to.  Rate is configured in
+    ``REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['checkout']``.
+    """
+
+    scope = 'checkout'
+
+    def get_cache_key(self, request, view):
+        user = getattr(request, 'user', None)
+        if user is None or not user.is_authenticated:
+            return None  # anonymous traffic is covered by AnonRateThrottle
+        ensure_business_context(request)  # token auth resolves the grant late
+        business = getattr(request, 'business', None)
+        ident = f'{user.pk}:{getattr(business, "pk", "company")}'
+        return self.cache_format % {'scope': self.scope, 'ident': ident}
 
 
 # ============================================================
@@ -166,6 +211,7 @@ class BusinessChoiceSerializer(drf_serializers.Serializer):
 
 class LoginResponseSerializer(drf_serializers.Serializer):
     token = drf_serializers.CharField()
+    expires_at = drf_serializers.DateTimeField(help_text='When this device token stops working (§7.9).')
     user = AuthUserSerializer()
     businesses = BusinessChoiceSerializer(many=True)
     primary_business = drf_serializers.DictField(allow_null=True)
@@ -216,7 +262,14 @@ def login_view(request):
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
-    token, _ = Token.objects.get_or_create(user=user)
+    # §7.9: a per-device, expiring credential — not the stock single-row
+    # ``Token`` that every device of the account shares forever.
+    token = DeviceToken.issue(
+        user,
+        device_name=str(request.data.get('device_name', '') or '').strip(),
+        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        ip_address=get_client_ip(request),
+    )
 
     try:
         AuditLog.objects.create(
@@ -231,19 +284,12 @@ def login_view(request):
     except Exception:  # noqa: BLE001 - auditing must never break login
         logger.exception('Failed to write LOGIN audit log for %s', user.username)
 
-    if hasattr(user, 'profile'):
-        profile = user.profile
-        role = profile.get_role_display()
-        branch = profile.branch
-        services = list(profile.skills.values_list('name', flat=True))
-    else:
-        role = user.groups.values_list('name', flat=True).first()
-        if not role:
-            role = 'Superadmin' if user.is_superuser else 'Owner' if user.is_staff else 'Staff'
-        branch = None
-        services = []
+    profile = getattr(user, 'profile', None)
+    services = list(profile.skills.values_list('name', flat=True)) if profile else []
 
-    # Businesses this account may open (business switcher in the UI).
+    # Businesses this account may open (business switcher in the UI).  Both the
+    # list and the role shown in the header come from UserAccess (§4.4/§6.3) —
+    # the profile no longer decides either.
     grants = UserAccess.objects.filter(user=user, is_active=True).select_related('business')
     company_grant = grants.filter(business__isnull=True).first()
     if user.is_superuser or company_grant is not None:
@@ -255,6 +301,14 @@ def login_view(request):
         businesses_qs = Business.objects.filter(id__in=granted_ids, is_active=True)
         primary_grant = grants.filter(is_primary=True, business__isnull=False).first()
         primary_business = primary_grant.business if primary_grant else businesses_qs.first()
+
+    # A superuser with no grant still resolves to the platform role, not the
+    # company owner — they are different roles.
+    role_code = getattr(primary_grant, 'role', None) or (
+        'SUPERADMIN' if user.is_superuser else 'STAFF'
+    )
+    role = role_code.replace('_', ' ').title()
+    branch = get_user_branch(user)
 
     businesses = [
         {
@@ -269,11 +323,12 @@ def login_view(request):
 
     return Response({
         'token': token.key,
+        'expires_at': token.expires_at,
         'user': {
             'id': user.id,
             'username': user.username,
             'role': role,
-            'role_code': profile.role if hasattr(user, 'profile') else role.upper().replace(' ', '_'),
+            'role_code': role_code,
             'branch': {'id': branch.id, 'name': branch.name} if branch else None,
             'services': services,
             'is_staff': user.is_staff,
@@ -312,141 +367,96 @@ def logout_view(request):
             description=f"User {request.user.username} logged out",
             ip_address=get_client_ip(request),
         )
-        request.user.auth_token.delete()
+        # §7.9: revoke *this device's* credential only.  Deleting the account's
+        # single stock token used to sign the user out of every other till.
+        current = getattr(request, 'auth', None)
+        if isinstance(current, DeviceToken):
+            current.revoke()
     except Exception:  # noqa: BLE001 - auditing must never break logout
         logger.exception('Failed to complete logout for %s', request.user)
     return Response({'detail': 'Logged out successfully.'})
 
 
-# ============================================================
-# LEGACY CATALOG VIEWSHIMS (read-only, backed by the unified catalog)
-# ------------------------------------------------------------
-# These keep the old class names, URLs, actions and payload shapes so
-# ROLE_ACTIONS and the current frontend keep working unchanged, while
-# every row is now served from ``Item`` / ``BusinessItem``.
-# ============================================================
+class RotateTokenResponseSerializer(drf_serializers.Serializer):
+    token = drf_serializers.CharField(help_text='The new device token; the presented one is now revoked.')
+    expires_at = drf_serializers.DateTimeField()
 
-def business_catalog_queryset(slug, item_type=None):
-    """Active items a business sells, via its ``BusinessItem`` link."""
-    qs = Item.objects.select_related('category').filter(
-        business_entries__business__slug=slug,
-        business_entries__is_available=True,
-        is_active=True,
+
+@extend_schema(
+    request=None,
+    responses={200: RotateTokenResponseSerializer},
+    auth=[{'TokenAuth': []}],
+    summary='Rotate this device token',
+    description=(
+        'Issues a fresh expiring token for the calling device and revokes the one '
+        'that was presented. Use this to renew a long shift without re-entering '
+        'the password; a compromised key cannot be extended this way, because the '
+        'successor is a new random value rather than a reissue of the old one.'
+    ),
+    tags=['Auth'],
+)
+@api_view(['POST'])
+def rotate_token_view(request):
+    """Rotate the caller's device token (§7.9)."""
+    current = getattr(request, 'auth', None)
+    if not isinstance(current, DeviceToken):
+        # Session-authenticated callers have no device token to rotate.
+        return Response(
+            {'detail': 'No device token to rotate.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    successor = current.rotate()
+    try:
+        AuditLog.objects.create(
+            user=request.user,
+            branch=get_user_branch(request.user),
+            action='LOGIN',
+            model_name='User',
+            object_id=str(request.user.id),
+            description=f"Device token rotated for {request.user.username}",
+            ip_address=get_client_ip(request),
+        )
+    except Exception:  # noqa: BLE001 - auditing must never break rotation
+        logger.exception('Failed to write token-rotation audit log for %s', request.user)
+    return Response({'token': successor.key, 'expires_at': successor.expires_at})
+
+
+class CapabilitiesResponseSerializer(drf_serializers.Serializer):
+    role = drf_serializers.CharField(help_text='The caller’s effective role code.')
+    capabilities = drf_serializers.ListField(
+        child=drf_serializers.CharField(),
+        help_text='UI capability names the SPA may show for this role (§6.3).',
     )
-    if item_type:
-        qs = qs.filter(item_type=item_type)
-    return qs
+    roles = drf_serializers.ListField(
+        child=drf_serializers.DictField(),
+        help_text='Every assignable role, so the SPA builds its dropdowns from the API.',
+    )
 
 
-# ============================================================
-# VSS SERVICES VIEWSET
-# ============================================================
+@extend_schema(
+    request=None,
+    responses={200: CapabilitiesResponseSerializer},
+    auth=[{'TokenAuth': []}],
+    summary='Roles and UI capabilities for the caller',
+    description=(
+        'Derived from the live ROLE_ACTIONS matrix, so the SPA never keeps its own '
+        'copy of the permission policy. Returns the caller’s effective role, the '
+        'capability names they may show, and the full role list for pickers.'
+    ),
+    tags=['Auth'],
+)
+@api_view(['GET'])
+def capabilities_view(request):
+    """Expose the role matrix to the SPA instead of duplicating it there."""
+    from .permissions import get_effective_role, role_choices, ui_capabilities_for
 
-class VSSServiceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = business_catalog_queryset('vss', 'SERVICE').order_by('category__name', 'name')
-    serializer_class = VSSServiceSerializer
-    permission_classes = [RoleBasedPermission]
-
-    @action(detail=False, methods=['post'])
-    def preview(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def categories(self, request):
-        categories = self.get_queryset().values_list('category__name', flat=True).distinct()
-        return Response([c for c in categories if c])
-
-    @action(detail=False, methods=['get'])
-    def stats(self, request):
-        qs = self.get_queryset()
-        total = qs.count()
-        categories = qs.values('category_id').distinct().count()
-        total_price = qs.aggregate(total=Sum('selling_price'))['total'] or 0
-        return Response({
-            'total_services': total,
-            'total_categories': categories,
-            'total_price': total_price,
-        })
-
-
-# ============================================================
-# VREAL PRODUCTS VIEWSET
-# ============================================================
-
-class VRealProductViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = business_catalog_queryset('vreal', 'PRODUCT').order_by('category__name', 'name')
-    serializer_class = VRealProductSerializer
-    permission_classes = [RoleBasedPermission]
-
-    @action(detail=False, methods=['post'])
-    def preview(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def categories(self, request):
-        categories = self.get_queryset().values_list('category__name', flat=True).distinct()
-        return Response([c for c in categories if c])
-
-    @action(detail=False, methods=['get'])
-    def stats(self, request):
-        qs = self.get_queryset()
-        total = qs.count()
-        categories = qs.values('category_id').distinct().count()
-        total_price = qs.aggregate(total=Sum('selling_price'))['total'] or 0
-        return Response({
-            'total_products': total,
-            'total_categories': categories,
-            'total_price': total_price,
-        })
-
-
-# ============================================================
-# BB PRODUCTS VIEWSET
-# ============================================================
-
-class BBProductViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = business_catalog_queryset('bb', 'PRODUCT').order_by('-updated_at')
-    serializer_class = BBProductSerializer
-    permission_classes = [RoleBasedPermission]
-
-
-# ============================================================
-# PANGANAN MENU VIEWSET
-# ============================================================
-
-class PangananMenuViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = business_catalog_queryset('panganan', 'PRODUCT').order_by('-updated_at')
-    serializer_class = PangananMenuSerializer
-    permission_classes = [RoleBasedPermission]
-
-    @action(detail=False, methods=['get'])
-    def categories(self, request):
-        categories = self.get_queryset().values_list('category__name', flat=True).distinct()
-        return Response([c for c in categories if c])
-
-
-# ============================================================
-# KB ITEM VIEWSET
-# ============================================================
-
-class KBItemViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = business_catalog_queryset('kb', 'PRODUCT').order_by('name')
-    serializer_class = KBItemSerializer
-    permission_classes = [RoleBasedPermission]
-
-
-# ============================================================
-# AUTO SPA SERVICE VIEWSET
-# ============================================================
-
-class AutoSpaServiceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = business_catalog_queryset('autospa', 'SERVICE').order_by('name')
-    serializer_class = AutoSpaServiceSerializer
-    permission_classes = [RoleBasedPermission]
+    role = get_effective_role(request)
+    return Response({
+        'role': role,
+        'capabilities': ui_capabilities_for(role),
+        'roles': role_choices(),
+    })
 
 
 # ============================================================
@@ -454,7 +464,7 @@ class AutoSpaServiceViewSet(viewsets.ReadOnlyModelViewSet):
 # ============================================================
 
 class UserProfileViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = UserProfile.objects.select_related('user', 'branch').prefetch_related('skills').all()
+    queryset = UserProfile.objects.select_related('user').prefetch_related('skills').all()
     serializer_class = UserProfileSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -479,10 +489,12 @@ class BranchViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def staffing(self, request, pk=None):
+        """Who works here, by role — from UserAccess grants (§4.4)."""
         branch = self.get_object()
+        counts = staff_counts_by_role_for_branch(branch)
         role_counts = {
-            role: UserProfile.objects.filter(branch=branch, role=role, user__is_active=True).count()
-            for role in ('BRANCH_ADMIN', 'CASHIER', 'STAFF')
+            role: counts.get(role, 0)
+            for role in ('BUSINESS_MANAGER', 'CASHIER', 'STAFF')
         }
         return Response({
             'branch': branch.name,
@@ -512,112 +524,25 @@ class BranchViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
             'month_sales': month_sales,
             'month_expenses': month_expenses,
             'net_profit': float(month_sales) - float(month_expenses),
-            'total_staff': UserProfile.objects.filter(branch=branch, user__is_active=True).count(),
+            'total_staff': staff_count_for_branch(branch),
             'total_rooms': RoomTable.objects.filter(branch=branch).count(),
             'occupied_rooms': RoomTable.objects.filter(branch=branch, is_occupied=True).count(),
         })
 
 
 # ============================================================
-# PRODUCT VIEWSET
-# ============================================================
-
-class ProductViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
-    """Read-only /products/ shim over ``Item(item_type='PRODUCT')``."""
-
-    queryset = Item.objects.select_related('category').filter(item_type='PRODUCT', is_active=True)
-    serializer_class = ProductSerializer
-    permission_classes = [RoleBasedPermission]
-    branch_lookup = 'inventory_levels__branch_id'  # products are stocked per branch
-
-    @action(detail=False, methods=['get'])
-    def low_stock(self, request):
-        serializer = self.get_serializer(self.get_low_stock_items(), many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def by_category(self, request):
-        category = request.query_params.get('category')
-        if category:
-            products = self.get_queryset().filter(
-                Q(category_id=category) | Q(category__name__iexact=category)
-            )
-            serializer = self.get_serializer(products, many=True)
-            return Response(serializer.data)
-        return Response([])
-
-    def get_low_stock_items(self):
-        """Products whose stock (across the caller's scope) is at/below min_stock."""
-        stock_by_item = {}
-        for level in auto_scope(InventoryLevel.objects.all(), self.request):
-            stock_by_item[level.item_id] = stock_by_item.get(level.item_id, 0) + level.stock_qty
-        return [p for p in self.get_queryset() if stock_by_item.get(p.id, 0) <= p.min_stock]
-
-
-# ============================================================
-# BRANCH INVENTORY VIEWSET (read-only shim over InventoryLevel)
-# ============================================================
-
-class BranchInventoryViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = InventoryLevel.objects.select_related('branch', 'item').all()
-    serializer_class = BranchInventorySerializer
-    permission_classes = [RoleBasedPermission]
-
-    @action(detail=False, methods=['get'])
-    def by_branch(self, request):
-        branch_id = request.query_params.get('branch_id')
-        if branch_id:
-            # Scoped through self.get_queryset() so a branch user cannot read
-            # another branch's inventory by changing the query string.
-            inventory = self.get_queryset().filter(branch_id=branch_id)
-            serializer = self.get_serializer(inventory, many=True)
-            return Response(serializer.data)
-        return Response([])
-
-    @action(detail=True, methods=['post'])
-    def restock(self, request, pk=None):
-        """Add stock to a branch inventory item (ledgered ``StockMovement``)."""
-        inventory = self.get_object()
-        try:
-            quantity = int(request.data.get('quantity', 0))
-        except (TypeError, ValueError):
-            return Response({'detail': 'Quantity must be a whole number.'}, status=status.HTTP_400_BAD_REQUEST)
-        if quantity <= 0:
-            return Response({'detail': 'Quantity must be positive.'}, status=status.HTTP_400_BAD_REQUEST)
-        receive_stock(
-            branch=inventory.branch,
-            item=inventory.item,
-            quantity=quantity,
-            reference=str(request.data.get('reference', '')),
-            user=request.user,
-        )
-        inventory.refresh_from_db()
-        self._log_action(
-            'RESTOCK',
-            inventory,
-            f"Restocked {inventory.item.name} at {inventory.branch.name} by {quantity}",
-        )
-        return Response(self.get_serializer(inventory).data)
-
-
-# ============================================================
 # CLIENT PROFILE VIEWSET (with Customer Detection & Rewards)
 # ============================================================
 
-class ClientProfileViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class ClientProfileViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = ClientProfile.objects.all()
     serializer_class = ClientProfileSerializer
     permission_classes = [RoleBasedPermission]
 
-    def get_queryset(self):
-        """Clients are organization-wide.
-
-        ClientProfile has no branch ownership - a customer can transact at any
-        branch - so the branch scope for customer data lives on Transaction,
-        CustomerFeedback and CustomerReward. ``search``/``find_by_phone`` use
-        this same queryset so lookup endpoints cannot disagree with the list.
-        """
-        return super().get_queryset()
+    # Clients used to be organization-wide (ClientProfile had no `business`
+    # column at all), so a cashier scoped to one outlet could read — and sell to
+    # — every other business's customers. Each client now belongs to exactly one
+    # business and is scoped like any other tenant data.
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -748,6 +673,13 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     permission_classes = [RoleBasedPermission]
+    throttle_classes = [CheckoutThrottle]
+
+    def get_throttles(self):
+        """Only sale submissions are rate limited (§7.3) — reads stay free."""
+        if getattr(self, 'action', None) != 'checkout':
+            return []
+        return [throttle() for throttle in self.throttle_classes]
 
     def create(self, request, *args, **kwargs):
         """Block raw transaction creation: sales must go through checkout.
@@ -760,6 +692,41 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
+    def destroy(self, request, *args, **kwargs):
+        """Money rows are immutable: reverse them, never delete them.
+
+        ``Transaction``/``TransactionItem`` are the receipt ledger; deleting one
+        would also cascade its items and break stock history, so the only
+        supported correction is /transactions/{id}/void/.
+        """
+        return Response(
+            {'detail': 'Transactions cannot be deleted. Void the transaction instead.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    @staticmethod
+    def _branch_allowed_for_request(branch, request):
+        """Decide till authority from the access grant (§4.4/§6.3).
+
+        A grant that ticks specific branches pins the till to them; a plain
+        business grant covers every branch of that business and no other.  There
+        is no profile fallback any more: an account with **no** grant may not
+        sell at all (fail closed), which is also what the default scoped
+        manager does with its querysets.
+        """
+        ensure_business_context(request)
+        if request.user.is_superuser:
+            return True
+        access = getattr(request, 'access', None)
+        if access is None:
+            return False
+
+        business = getattr(request, 'business', None)
+        if business is not None and branch.business_id != business.pk:
+            return False
+        allowed_branch_ids = getattr(request, 'allowed_branch_ids', None) or []
+        return not allowed_branch_ids or branch.id in allowed_branch_ids
+
     @action(detail=False, methods=['post'])
     def checkout(self, request):
         """Record a sale through the unified sales service (atomic + idempotent)."""
@@ -771,6 +738,8 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
         reward_ids = request.data.get('reward_ids', [])
         apply_tier_discount = request.data.get('apply_tier_discount', True)
         customer_name_walkin = request.data.get('customer_name', '')
+        payments = request.data.get('payments') or None
+        shift_id = request.data.get('shift')
 
         if not branch_id or not items:
             return Response({'detail': 'A branch and at least one item are required.'}, status=400)
@@ -778,7 +747,10 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
             return Response({'detail': 'Discount and payment cannot be negative.'}, status=400)
 
         try:
-            branch = Branch.objects.get(pk=branch_id, is_active=True)
+            # Look the branch up unscoped so a till in a *different* business is
+            # seen (and then refused a 403 by the authority check below) rather
+            # than vanishing behind the ambient business filter as a 400.
+            branch = Branch.all_objects.get(pk=branch_id, is_active=True)
             customer = ClientProfile.objects.get(pk=customer_id) if customer_id else None
         except (Branch.DoesNotExist, ClientProfile.DoesNotExist):
             return Response({'detail': 'The selected branch or customer does not exist.'}, status=400)
@@ -792,9 +764,21 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
                 loyalty_tier='BRONZE',
             )
 
-        profile = getattr(request.user, 'profile', None)
-        if profile and profile.role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'} and profile.branch_id != branch.id:
+        if not self._branch_allowed_for_request(branch, request):
             return Response({'detail': 'You can only transact for your assigned branch.'}, status=403)
+
+        # Optional till session: explicit `shift` must be open and at this
+        # branch; otherwise the service auto-attaches the cashier's open one.
+        shift_obj = None
+        if shift_id:
+            from api.payments.models import CashierShift  # local: import order
+            shift_obj = CashierShift.objects.filter(pk=shift_id, status='OPEN').first()
+            if shift_obj is None:
+                return Response({'detail': 'No open shift with that id.'}, status=400)
+            if shift_obj.branch_id != branch.pk:
+                return Response(
+                    {'detail': 'The shift belongs to a different branch.'}, status=400,
+                )
 
         # Normalise line items: legacy keys `product` / `service` and the new
         # `item` key all carry a unified catalog Item id.
@@ -831,6 +815,8 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
                     or None
                 ),
                 notes=str(request.data.get('notes', '')),
+                payments=payments,
+                shift=shift_obj,
             )
         except DRFValidationError as error:
             detail = error.detail
@@ -902,10 +888,12 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
 # CUSTOMER REWARD VIEWSET
 # ============================================================
 
-class CustomerRewardViewSet(AuditLogMixin, viewsets.ModelViewSet):
+class CustomerRewardViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
     queryset = CustomerReward.objects.all()
     serializer_class = CustomerRewardSerializer
     permission_classes = [RoleBasedPermission]
+    # A reward has no business column; it belongs to whoever owns its customer.
+    business_lookup = 'customer__business'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -964,10 +952,12 @@ class CustomerRewardViewSet(AuditLogMixin, viewsets.ModelViewSet):
 # REWARD CLAIM VIEWSET
 # ============================================================
 
-class RewardClaimViewSet(viewsets.ReadOnlyModelViewSet):
+class RewardClaimViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = RewardClaim.objects.all()
     serializer_class = RewardClaimSerializer
     permission_classes = [RoleBasedPermission]
+    # The tenant comes from the claim's reward -> customer.
+    business_lookup = 'reward__customer__business'
 
 
 # ============================================================
@@ -1190,6 +1180,43 @@ class DashboardStatsViewSet(viewsets.ViewSet):
             ).order_by('-total_sales')[:5]
         )
 
+        # 7-day revenue/expense trend, so the dashboard chart is drawn from the
+        # caller's own scoped sales rather than a hardcoded series in the SPA.
+        today_local = timezone.localdate()
+        week_start = today_local - timedelta(days=6)
+        sales_by_day = {
+            row['day']: row['total']
+            for row in transactions.filter(
+                transaction_type='SALE', created_at__date__gte=week_start
+            ).annotate(day=TruncDate('created_at')).values('day').annotate(total=Sum('total'))
+        }
+        expenses_by_day = {
+            row['day']: row['total']
+            for row in expenses.filter(
+                expense_date__gte=week_start
+            ).annotate(day=TruncDate('expense_date')).values('day').annotate(total=Sum('amount'))
+        }
+        revenue_trend = []
+        for offset in range(7):
+            day = week_start + timedelta(days=offset)
+            revenue_trend.append({
+                'day': day.isoformat(),
+                'label': day.strftime('%a'),
+                'sales': float(sales_by_day.get(day, 0) or 0),
+                'expenses': float(expenses_by_day.get(day, 0) or 0),
+            })
+
+        # Best sellers by revenue, from real line items.
+        top_services = [
+            {'name': row['item__name'], 'quantity': row['quantity'], 'revenue': float(row['revenue'] or 0)}
+            for row in TransactionItem.objects.filter(
+                transaction__in=transactions.filter(transaction_type='SALE'),
+                item__isnull=False,
+            ).values('item__name').annotate(
+                quantity=Sum('quantity'), revenue=Sum('total'),
+            ).order_by('-quantity')[:5]
+        ]
+
         return Response({
             'active_rooms': active_rooms,
             'total_rooms': total_rooms,
@@ -1203,6 +1230,8 @@ class DashboardStatsViewSet(viewsets.ViewSet):
             'total_products': products.count(),
             'total_services': Item.objects.filter(item_type='SERVICE', is_active=True).count(),
             'top_staff': top_staff,
+            'revenue_trend': revenue_trend,
+            'top_services': top_services,
         })
 
     @extend_schema(
@@ -1233,7 +1262,7 @@ class DashboardStatsViewSet(viewsets.ViewSet):
                 'branch_type': branch.branch_type,
                 'today_sales': today_sales,
                 'month_sales': month_sales,
-                'total_staff': UserProfile.objects.filter(branch=branch, user__is_active=True).count(),
+                'total_staff': staff_count_for_branch(branch),
                 'occupied_rooms': RoomTable.objects.filter(branch=branch, is_occupied=True).count(),
             })
 
@@ -1245,13 +1274,43 @@ class DashboardStatsViewSet(viewsets.ViewSet):
 # ============================================================
 
 class BranchCatalogViewSet(viewsets.ViewSet):
-    """POS catalog for a branch — nested arrays, served from the unified catalog.
+    """POS catalog for a branch — one flat list from ``BusinessItem`` (§8.2).
 
-    The three legacy slots (vss_services / vreal_products / bb_products) are
-    filled from the branch's ``Business`` (falling back to ``branch_type`` for
-    branches created before the SaaS migration).
+    ``items`` is authoritative: every product/service the branch's business
+    sells, each with the per-business price override already applied, grouped
+    by the unified catalog's own category.  The three legacy arrays
+    (``vss_services`` / ``vreal_products`` / ``bb_products``) are filled in from
+    the same rows so tills that still render three tabs keep working while they
+    migrate; they carry the payloads the retired shims used to return and are
+    deprecated along with ``Branch.branch_type``.
     """
     permission_classes = [RoleBasedPermission]
+
+    @staticmethod
+    def _legacy_rows(rows, shape):
+        """Reshape flat catalog rows into a retired shim's payload (read-only)."""
+        shaped = []
+        for row in rows:
+            entry = {
+                'id': row['id'],
+                'category': row['category'],
+                'category_display': row['category'],
+                'price': row['price'],
+                'is_active': row['is_active'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at'],
+            }
+            if shape == 'service':
+                entry['description'] = row['name']
+            elif shape == 'vreal':
+                entry['product'] = row['name']
+                entry['size'] = (row['attributes'] or {}).get('size', '')
+            elif shape == 'bb':
+                entry['product_name'] = row['name']
+            else:
+                entry['menu'] = row['name']
+            shaped.append(entry)
+        return shaped
 
     @extend_schema(
         responses={200: drf_serializers.DictField()},
@@ -1259,19 +1318,54 @@ class BranchCatalogViewSet(viewsets.ViewSet):
             OpenApiParameter(name='branch_id', type=int, location='path', required=True),
         ],
         summary='POS catalog for a branch',
-        description='Returns the VSS/VReal/BB catalog applicable to the given branch.',
+        description=(
+            'Returns the unified catalog the given branch sells, as one flat `items` '
+            'list plus the legacy vss/vreal/bb slots built from the same rows.'
+        ),
         tags=['Branch Catalog'],
     )
     @action(detail=False, methods=['get'], url_path='by-branch/(?P<branch_id>[^/.]+)')
     def by_branch(self, request, branch_id=None):
-        try:
-            branch = Branch.objects.get(pk=branch_id, is_active=True)
-        except Branch.DoesNotExist:
+        # auto_scope with branch_lookup='pk': a caller may only ask for an outlet
+        # their grant actually covers — this closes the cross-business read that
+        # the old `Branch.objects.get(pk=...)` allowed.
+        branch = auto_scope(
+            Branch.objects.filter(is_active=True), request, branch_lookup='pk'
+        ).filter(pk=branch_id).first()
+        if branch is None:
             return Response({'detail': 'Branch not found.'}, status=404)
 
-        branch_type = branch.branch_type
-        slug = branch.business.slug if branch.business_id else None
+        business = branch.business
+        entries = BusinessItem.objects.select_related(
+            'item', 'item__category'
+        ).filter(
+            business=business, is_available=True, item__is_active=True
+        ).order_by(
+            'item__category__sort_order', 'item__category__name', 'sort_order', 'item__name'
+        )
 
+        rows = [
+            {
+                'id': entry.item_id,
+                'name': entry.item.name,
+                'item_type': entry.item.item_type,
+                'category': entry.item.category.name if entry.item.category_id else '',
+                'category_id': entry.item.category_id,
+                'price': entry.effective_price,
+                'selling_price': entry.item.selling_price,
+                'is_active': entry.item.is_active,
+                'attributes': entry.item.attributes or {},
+                'created_at': entry.item.created_at,
+                'updated_at': entry.item.updated_at,
+            }
+            for entry in entries
+        ]
+
+        services = [row for row in rows if row['item_type'] == 'SERVICE']
+        products = [row for row in rows if row['item_type'] == 'PRODUCT']
+
+        slug = business.slug or ''
+        branch_type = branch.branch_type
         if slug == 'vss':
             wants = (True, False, False)
         elif slug == 'vreal':
@@ -1279,8 +1373,6 @@ class BranchCatalogViewSet(viewsets.ViewSet):
         elif slug == 'bb':
             wants = (False, False, True)
         elif slug in {'panganan', 'kb', 'autospa'}:
-            # These businesses have no legacy POS tab; their items are sold
-            # through the unified catalog / Sales page.
             wants = (False, False, False)
         else:
             wants = {
@@ -1290,40 +1382,58 @@ class BranchCatalogViewSet(viewsets.ViewSet):
                 'MIXED': (True, True, True),
             }.get(branch_type, (True, False, False))
 
-        catalog = {
+        return Response({
             'branch_id': branch.id,
             'branch_name': branch.name,
             'branch_type': branch_type,
             'branch_type_display': branch.get_branch_type_display(),
             'business': slug,
-            'vss_services': [],
-            'vreal_products': [],
-            'bb_products': [],
-        }
-
-        if wants[0]:
-            catalog['vss_services'] = VSSServiceSerializer(
-                business_catalog_queryset('vss', 'SERVICE')
-                .order_by('category__name', 'name'),
-                many=True
-            ).data
-
-        if wants[1]:
-            catalog['vreal_products'] = VRealProductSerializer(
-                business_catalog_queryset('vreal', 'PRODUCT')
-                .order_by('category__name', 'name'),
-                many=True
-            ).data
-
-        if wants[2]:
-            catalog['bb_products'] = BBProductSerializer(
-                business_catalog_queryset('bb', 'PRODUCT').order_by('name'),
-                many=True
-            ).data
-
-        return Response(catalog)
+            'business_id': business.id,
+            'business_name': business.name,
+            # Authoritative payload (§8.2): one flat list, per-business prices applied.
+            'items': rows,
+            'categories': sorted({row['category'] for row in rows}),
+            # Deprecated mirrors of the retired shims:
+            'vss_services': self._legacy_rows(services, 'service') if wants[0] else [],
+            'vreal_products': self._legacy_rows(products, 'vreal') if wants[1] else [],
+            'bb_products': self._legacy_rows(products, 'bb') if wants[2] else [],
+        })
 
 
+# ============================================================
+# COMPANY VIEWSET (singleton settings, §4.1)
+# ============================================================
+
+class CompanyViewSet(viewsets.ModelViewSet):
+    """Read/patch the single company row - receipt footer, tax default, branding.
+
+    §4.1 makes this a writable API instead of settings.py on purpose: the owner
+    must be able to change the receipt footer and default tax rate **without a
+    deploy**.  The row is a singleton, so create/delete are refused and the
+    detail lookup always resolves to pk=1.
+    """
+
+    serializer_class = CompanySerializer
+    permission_classes = [RoleBasedPermission]
+    http_method_names = ['get', 'put', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return Company.objects.all()
+
+    def get_object(self):
+        return Company.get_solo()
+
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'The company record already exists; PATCH it instead.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'The company record cannot be deleted.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 # ============================================================
 # CUSTOMER DETECTION VIEWSET (Auto-detect returning customers)
 # ============================================================
@@ -1390,11 +1500,18 @@ class NotificationViewSet(viewsets.ViewSet):
     )
     @action(detail=False, methods=['get'])
     def customer_alerts(self, request):
+        """Get notifications for cashier about customers with rewards.
+
+        Customers are company-level (§3.2), so the list is not branch-filtered;
+        what *is* checked is that the caller may act at all — a grant-less
+        account gets an empty list instead of a company-wide one.
         """
-        Get notifications for cashier about customers with rewards.
-        """
-        profile = getattr(request.user, 'profile', None)
-        if not profile or not profile.branch:
+        ensure_business_context(request)
+        if (
+            not request.user.is_superuser
+            and getattr(request, 'access', None) is None
+            and not getattr(request, 'company_wide', False)
+        ):
             return Response([])
 
         # Get customers with available rewards

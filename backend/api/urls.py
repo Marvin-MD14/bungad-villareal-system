@@ -9,18 +9,10 @@ from drf_spectacular.views import (
 )
 from .views import (
     # Auth
-    login_view, logout_view,
+    login_view, logout_view, rotate_token_view, capabilities_view,
     # ViewSets
-    VSSServiceViewSet,
-    VRealProductViewSet,
-    BBProductViewSet,
-    PangananMenuViewSet,
-    KBItemViewSet,
-    AutoSpaServiceViewSet,
     UserProfileViewSet,
     BranchViewSet,
-    ProductViewSet,
-    BranchInventoryViewSet,
     ClientProfileViewSet,
     RoomTableViewSet,
     TransactionViewSet,
@@ -30,6 +22,7 @@ from .views import (
     ExpenseViewSet,
     AuditLogViewSet,
     BranchCatalogViewSet,
+    CompanyViewSet,
     DailySalesViewSet,
     # Loyalty & Rewards
     CustomerRewardViewSet,
@@ -48,26 +41,28 @@ from api.catalog.views import (  # noqa: E402
 )
 from api.business.views import BusinessViewSet, BusinessTypeViewSet  # noqa: E402
 from api.access.views import UserAccessViewSet  # noqa: E402
+from api.payments.views import (  # noqa: E402
+    CashierShiftViewSet, PaymentMethodViewSet, PaymentViewSet,
+)
+from api.loyalty.views import (  # noqa: E402
+    LoyaltyProgramViewSet, LoyaltyTransactionViewSet,
+)
 
 router = DefaultRouter()
 
 # ============================================================
 # PRODUCT MANAGEMENT
+# ------------------------------------------------------------
+# The seven per-catalog routes (vss-services, vreal-products, bb-products,
+# panganan-menus, kb-items, auto-spa) and /products/, /branch-inventory/ were
+# retired in Phase 5: everything they exposed now lives under /catalog/*.
 # ============================================================
-router.register(r'vss-services', VSSServiceViewSet, basename='vss-services')
-router.register(r'vreal-products', VRealProductViewSet, basename='vreal-products')
-router.register(r'bb-products', BBProductViewSet, basename='bb-products')
-router.register(r'panganan-menus', PangananMenuViewSet, basename='panganan-menus')
-router.register(r'kb-items', KBItemViewSet, basename='kb-items')
-router.register(r'auto-spa', AutoSpaServiceViewSet, basename='auto-spa')
 router.register(r'user-profiles', UserProfileViewSet)
 
 # ============================================================
 # INVENTORY MANAGEMENT
 # ============================================================
 router.register(r'branches', BranchViewSet)
-router.register(r'products', ProductViewSet, basename='products')
-router.register(r'branch-inventory', BranchInventoryViewSet, basename='branch-inventory')
 
 # ============================================================
 # CLIENT MANAGEMENT
@@ -130,12 +125,28 @@ router.register(r'businesses', BusinessViewSet)
 router.register(r'business-types', BusinessTypeViewSet)
 router.register(r'user-access', UserAccessViewSet, basename='user-access')
 
+# Company singleton settings (§4.1): receipt footer / tax default / branding.
+router.register(r'company', CompanyViewSet, basename='company')
+
 # ============================================================
 # CUSTOMER LOYALTY & REWARDS
 # ============================================================
 router.register(r'customer-rewards', CustomerRewardViewSet)
 router.register(r'reward-claims', RewardClaimViewSet)
 router.register(r'customer-tier', CustomerTierViewSet, basename='customer-tier')
+
+# ============================================================
+# PAYMENTS & CASHIER SHIFTS (priority modules)
+# ============================================================
+router.register(r'payment-methods', PaymentMethodViewSet, basename='payment-methods')
+router.register(r'payments', PaymentViewSet, basename='payments')
+router.register(r'cashier-shifts', CashierShiftViewSet, basename='cashier-shifts')
+
+# ============================================================
+# LOYALTY PROGRAM CONFIG + POINTS LEDGER
+# ============================================================
+router.register(r'loyalty-programs', LoyaltyProgramViewSet, basename='loyalty-programs')
+router.register(r'loyalty-ledger', LoyaltyTransactionViewSet, basename='loyalty-ledger')
 
 # ============================================================
 # CUSTOMER DETECTION & NOTIFICATIONS
@@ -160,6 +171,8 @@ urlpatterns = [
     # Authentication
     path('auth/login/', login_view, name='auth-login'),
     path('auth/logout/', logout_view, name='auth-logout'),
+    path('auth/rotate-token/', rotate_token_view, name='auth-rotate-token'),
+    path('auth/capabilities/', capabilities_view, name='auth-capabilities'),
 
     # Router URLs
     path('', include(router.urls)),

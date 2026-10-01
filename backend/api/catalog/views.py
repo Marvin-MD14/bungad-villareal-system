@@ -9,12 +9,14 @@ from api.catalog.serializers import (
     CategorySerializer, ItemSerializer, BusinessItemSerializer,
     InventoryLevelSerializer, StockMovementSerializer
 )
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from api.permissions import RoleBasedPermission
-from api.access.scoping import ScopedQuerysetMixin
-from api.sales.services import receive_stock
+from api.access.scoping import ScopedQuerysetMixin, auto_scope
+from api.models import Branch
+from api.sales.services import receive_stock, transfer_stock
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [RoleBasedPermission]
@@ -23,7 +25,15 @@ class CategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ['sort_order', 'name']
 
 
-class ItemViewSet(viewsets.ModelViewSet):
+class ItemViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
+    """The unified catalog.
+
+    Items are company-level master data (§3.2), but a *business* must only see
+    the items it actually sells, so the queryset is narrowed to the active
+    business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+    ``business`` column of ``BusinessItem``.
+    """
+
     queryset = Item.objects.select_related('category').all()
     serializer_class = ItemSerializer
     permission_classes = [RoleBasedPermission]
@@ -42,7 +52,14 @@ class ItemViewSet(viewsets.ModelViewSet):
         is_active = self.request.query_params.get('is_active')
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() in ('true', '1'))
-        return qs
+        # A company-wide grant keeps the whole catalog; every other grant only
+        # sees items its business has linked (or, with `?all=1`, an explicit
+        # cross-business view used by the seed screens).
+        business = getattr(self.request, 'business', None)
+        include_all = self.request.query_params.get('all') in ('1', 'true', 'yes')
+        if business is not None and not include_all:
+            qs = qs.filter(business_entries__business=business)
+        return qs.distinct()
 
 
 class BusinessItemViewSet(ScopedQuerysetMixin, viewsets.ModelViewSet):
@@ -95,6 +112,46 @@ class InventoryLevelViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         )
         level.refresh_from_db()
         return Response(self.get_serializer(level).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def transfer(self, request, pk=None):
+        """Send stock from this level's branch to another branch of the same business.
+
+        Writes a matching ``TRANSFER_OUT`` / ``TRANSFER_IN`` pair, so the ledger
+        always balances; the destination must be a branch the caller can see.
+        """
+        level = self.get_object()
+        try:
+            quantity = int(request.data.get('quantity', 0))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Quantity must be a whole number.'}, status=status.HTTP_400_BAD_REQUEST)
+        if quantity <= 0:
+            return Response({'detail': 'Quantity must be positive.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        to_branch_id = request.data.get('to_branch')
+        if not to_branch_id:
+            return Response({'detail': 'to_branch is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        # auto_scope keeps a business-scoped caller inside their own business and
+        # a branch-restricted grant inside its allowed branches.
+        to_branch = auto_scope(
+            Branch.objects.filter(is_active=True), request, branch_lookup='pk'
+        ).filter(pk=to_branch_id).first()
+        if to_branch is None:
+            return Response({'detail': 'Destination branch does not exist or is not accessible.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            destination = transfer_stock(
+                from_branch=level.branch,
+                to_branch=to_branch,
+                item=level.item,
+                quantity=quantity,
+                reference=str(request.data.get('reference', '')),
+                user=request.user,
+            )
+        except DRFValidationError as exc:
+            return Response({'detail': str(exc.detail)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(destination).data, status=status.HTTP_200_OK)
 
 
 class StockMovementViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):

@@ -74,6 +74,14 @@ Company  "Bungad & Villareal Group"          ← ONE company (a single settings 
       └── Branch  "Bacoor"
 ```
 
+**Naming (Business ≠ Branch).** This pair is easy to conflate, so: a
+**Business** is the top operating unit the Owner/superadmin *creates* (the parent
+and the isolation boundary — "VSS Aesthetic Spa"), while a **Branch** is one
+physical **outlet** *of* that business ("Cavite Main", "Dasma"). A branch always
+implies its parent business; a grant either covers a whole business
+(`business=<biz>`) or is narrowed to specific outlets of it (`branches=[…]`).
+The Owner can create as many businesses as the company runs.
+
 ### 3.2 Who owns what — the rule that decides every foreign key
 
 | Level | Owns | Examples |
@@ -281,7 +289,17 @@ class UserAccess(models.Model):
         return self.role in self.COMPANY_ROLES
 
     def branch_ids(self):
-        return list(self.branches.values_list('id', flat=True))
+        # NB: the implementation reads the M2M *through* table rather than
+        # `self.branches.values_list(...)`.  `self.branches` goes through
+        # Branch's business-scoped default manager, which fails closed to none()
+        # before the request's business context is set — which would silently
+        # report a ticked grant as covering no branch (§4.4, security).
+        return list(
+            self.branches.through.objects
+            .filter(useraccess_id=self.pk)
+            .order_by('branch_id')
+            .values_list('branch_id', flat=True)
+        )
 
     def __str__(self):
         where = self.business.name if self.business else 'Whole company'
@@ -645,10 +663,20 @@ class RoleBasedPermission(BasePermission):
                 and action_allowed(get_user_role(request.user), view))
 ```
 
-Rename two role codes so the matrix matches `UserAccess.ROLE_CHOICES`:
-`SUPERADMIN` → `OWNER` (company-wide), `BRANCH_ADMIN` → `BUSINESS_MANAGER` (business-wide, branch-limited).
+Rename one role code so the matrix matches `UserAccess.ROLE_CHOICES`:
+`BRANCH_ADMIN` → `BUSINESS_MANAGER` (business-wide, branch-limited).
 `BRANCH_ADMIN_DENIED_ACTIONS` becomes **`BUSINESS_MANAGER_DENIED_ACTIONS`** and gains the company-level actions a business manager must never do:
 `Business:create/update/destroy`, `BusinessType:*`, `UserAccess:create/update/destroy`, `Company:update`, `DashboardStats:business_comparison`.
+
+> **Amendment — `SUPERADMIN` and `OWNER` are separate roles.** This step also folded
+> `SUPERADMIN` into `OWNER`, which was a mistake: they do different jobs and the
+> UI could not tell them apart. `SUPERADMIN` operates the platform (creates and
+> retires businesses and business types, hands out access grants, changes company
+> settings); `OWNER` runs the company across every business but may not restructure
+> the tenant it runs on. They share the `{'*'}` wildcard and differ only by a new
+> **`PLATFORM_DENIED_ACTIONS`** set, which `ORGANIZATION_DENIED_ACTIONS` builds on
+> so the deny-lists below stay consistent. Migration `0016` re-labels existing
+> platform operators from `OWNER` to `SUPERADMIN`.
 
 ### 6.4 Deleting the manual scoping
 
@@ -727,7 +755,7 @@ Why this matters: `select_for_update()` on SQLite effectively serialises the who
 | 7.6 | **`on_delete=PROTECT`** on `Item`/`Branch` references from sales and stock rows | Retire catalog data with `is_active=False`, never by breaking history |
 | 7.7 | **Audit log gains `business`, `request_id`, `user_agent`** (branch already there) | "Who did this, in which business, on which device" |
 | 7.8 | **Throttling stays** — 10/min login, global anon/user limits; add a `checkout` throttle (~60/min) | Abuse and runaway clients contained |
-| 7.9 | **Token hardening** — expiring/rotating token per device, invalidated on password change | Today's single long-lived token is a weak spot |
+| 7.9 | **Token hardening** — `DeviceToken`: expiring, rotating token per device, invalidated on password change | ✅ Shipped: `api/access/models.py::DeviceToken` + `POST /api/auth/rotate-token/`. Replaces DRF's single immortal token. Password change kills every outstanding token via a `password_fingerprint` HMAC (no signal to forget to send). |
 | 7.10 | **Soft delete + `is_active`** for catalog, customers and staff instead of DELETE | Historical reports stay truthful |
 | 7.11 | **Observability** — JSON logs carrying `business_id`, `branch_id`, `user_id`, `request_id`; `/healthz` + `/readyz`; error tracking | Fast incident triage |
 | 7.12 | **Backups** — nightly `pg_dump` + PITR + a monthly **restore drill** | Recoverability actually proven |

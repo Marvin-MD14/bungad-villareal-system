@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { Search, Plus, Edit3, Trash2, RefreshCw, ChevronLeft, ChevronRight, Download, X, Loader2 } from 'lucide-react';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+import { API_BASE_URL } from '../utils/api';
+import { applyBusinessHeader } from '../utils/session';
 
 export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = false, readOnly = false }) {
   const [data, setData] = useState([]); // Default to empty array
@@ -18,7 +18,23 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
 
   const authHeaders = () => {
     const token = localStorage.getItem('authToken');
-    return token ? { Authorization: `Token ${token}` } : {};
+    // CrudTable uses fetch() rather than the shared axios client, so it applies
+    // the same two headers by hand — the business context included, which the
+    // old copy silently dropped.
+    return {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+      ...applyBusinessHeader({ headers: {} }).headers,
+    };
+  };
+
+  // ============ URL BUILDING ============
+  // `apiEndpoint` may carry a filter (e.g. `catalog/items?item_type=SERVICE`),
+  // so the trailing slash has to go on the *path*, before the query string —
+  // appending it blindly would turn `item_type=SERVICE` into `SERVICE/`.
+  const endpointUrl = (id) => {
+    const [path, query] = apiEndpoint.split('?');
+    const url = id ? `${API_BASE_URL}/${path}/${id}/` : `${API_BASE_URL}/${path}/`;
+    return query ? `${url}?${query}` : url;
   };
 
   // ============ FETCH DATA ============
@@ -26,7 +42,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/${apiEndpoint}/`, {
+      const res = await fetch(endpointUrl(), {
         headers: authHeaders(),
       });
       
@@ -67,9 +83,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
 
   // ============ SAVE DATA ============
   const saveData = async () => {
-    const url = editingId 
-      ? `${API_BASE_URL}/${apiEndpoint}/${editingId}/`
-      : `${API_BASE_URL}/${apiEndpoint}/`;
+    const url = endpointUrl(editingId || null);
     
     const method = editingId ? 'PUT' : 'POST';
     
@@ -128,7 +142,7 @@ export default function CrudTable({ title, apiEndpoint, columns, isDarkMode = fa
     
     if (result.isConfirmed) {
       try {
-        await fetch(`${API_BASE_URL}/${apiEndpoint}/${id}/`, {
+        await fetch(endpointUrl(id), {
           method: 'DELETE',
           headers: authHeaders(),
         });

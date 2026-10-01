@@ -68,7 +68,16 @@ class Command(BaseCommand):
         unassigned_branches = Branch.objects.filter(business__isnull=True)
         count = unassigned_branches.count()
         if count:
-            unassigned_branches.update(business=primary_biz)
+            taken = set(Branch.objects.filter(business=primary_biz).values_list('name', flat=True))
+            for branch in unassigned_branches.order_by('id'):
+                name = branch.name
+                if name in taken:
+                    suffix = 2
+                    while f"{name} ({suffix})" in taken:
+                        suffix += 1
+                    name = f"{name} ({suffix})"
+                taken.add(name)
+                Branch.objects.filter(pk=branch.pk).update(business=primary_biz, name=name)
             self.stdout.write(self.style.SUCCESS(f"Attached {count} branches to {primary_biz.name}"))
 
         # 5. Ensure superusers/staff have OWNER/COMPANY_ADMIN access

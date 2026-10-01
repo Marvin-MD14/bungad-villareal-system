@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Search, ChevronRight, Info, AlertTriangle, CheckCircle, ShieldAlert, X, Check } from 'lucide-react';
 import { DOC_META, SECTIONS } from './documentation/content';
+import { API_BASE_URL } from '../utils/api';
 
 /**
  * In-app documentation handbook (Sidebar -> Documentation).
@@ -344,8 +345,8 @@ export default function DocumentationPage({ isDarkMode = false }) {
                 <strong className={heading}>backend/README.md</strong> - backend quick start and the checklist for adding an endpoint the right way.
               </li>
               <li>
-                <a href="http://localhost:8000/api/docs/" target="_blank" rel="noreferrer" className="text-cyan-600 hover:underline">
-                  http://localhost:8000/api/docs/
+                <a href={`${API_BASE_URL}/docs/`} target="_blank" rel="noreferrer" className="text-cyan-600 hover:underline">
+                  {`${API_BASE_URL}/docs/`}
                 </a>{' '}
                 - interactive API reference; <span className="font-mono text-[11px]">/api/redoc/</span> is the readable version.
               </li>

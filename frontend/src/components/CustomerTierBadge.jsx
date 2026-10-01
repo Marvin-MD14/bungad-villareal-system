@@ -1,3 +1,4 @@
+import React from 'react';
 import { Crown, Award, Star, Shield } from 'lucide-react';
 
 const TIER_CONFIG = {

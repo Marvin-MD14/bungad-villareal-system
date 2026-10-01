@@ -38,12 +38,26 @@ export const forgetBusinessContext = () => {
   localStorage.removeItem(GRANTED_BUSINESSES_KEY);
 };
 
-/** Adds `X-Business` to an axios request config; used by every axios instance. */
+/**
+ * Adds `X-Business` to an axios request config; used by every axios instance.
+ */
 export const applyBusinessHeader = (config) => {
   const slug = getActiveBusinessSlug();
   if (slug) config.headers['X-Business'] = slug;
   return config;
 };
+
+/**
+ * The API origin. Configurable per environment via `VITE_API_BASE_URL`
+ * (put it in `.env`, or `.env.local` for a local override) so the same build
+ * can point at a dev backend or a deployed one without a code change.
+ * The fallback only exists so a fresh clone runs with no env file at all.
+ */
+export const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
+  'http://127.0.0.1:8000/api';
+
+
 
 /**
  * One key per sale attempt. The backend replays a checkout that carries a key it has

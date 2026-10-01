@@ -12,16 +12,29 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
+    # §8.2: expose what the *active business* actually charges for this item —
+    # the per-business price override of BusinessItem, else the catalog price.
+    effective_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Item
         fields = [
             'id', 'item_type', 'category', 'category_name', 'name', 'sku', 'barcode',
-            'description', 'cost_price', 'selling_price', 'is_taxable',
+            'description', 'cost_price', 'selling_price', 'effective_price',
+            'is_taxable',
             'tracks_stock', 'min_stock', 'unit', 'duration', 'duration_unit',
             'requires_staff', 'requires_room', 'attributes', 'image', 'is_active',
             'created_at', 'updated_at'
         ]
+
+    def get_effective_price(self, obj):
+        business = getattr(self.context.get('request'), 'business', None)
+        if business is None:
+            return obj.selling_price
+        entry = obj.business_entries.filter(business=business).first()
+        if entry is None:
+            return obj.selling_price
+        return entry.price_override if entry.price_override is not None else obj.selling_price
 
 
 class BusinessItemSerializer(serializers.ModelSerializer):

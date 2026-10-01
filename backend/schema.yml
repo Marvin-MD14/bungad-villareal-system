@@ -24,7 +24,7 @@ paths:
       tags:
       - attendance
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -49,7 +49,7 @@ paths:
               $ref: '#/components/schemas/AttendanceRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -76,7 +76,7 @@ paths:
       tags:
       - attendance
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -108,7 +108,7 @@ paths:
               $ref: '#/components/schemas/AttendanceRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -139,7 +139,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedAttendanceRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -165,7 +165,7 @@ paths:
       tags:
       - attendance
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -187,7 +187,7 @@ paths:
               $ref: '#/components/schemas/AttendanceRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -213,7 +213,7 @@ paths:
               $ref: '#/components/schemas/AttendanceRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -233,7 +233,7 @@ paths:
       tags:
       - attendance
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -253,7 +253,7 @@ paths:
       tags:
       - attendance
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -280,7 +280,7 @@ paths:
       tags:
       - audit-logs
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -307,7 +307,7 @@ paths:
       tags:
       - audit-logs
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -327,13 +327,31 @@ paths:
       tags:
       - audit-logs
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/auth/capabilities/:
+    get:
+      operationId: auth_capabilities_retrieve
+      description: Derived from the live ROLE_ACTIONS matrix, so the SPA never keeps
+        its own copy of the permission policy. Returns the caller’s effective role,
+        the capability names they may show, and the full role list for pickers.
+      summary: Roles and UI capabilities for the caller
+      tags:
+      - Auth
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
           description: ''
   /api/auth/login/:
     post:
@@ -380,94 +398,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/LogoutResponse'
           description: ''
-  /api/auto-spa/:
-    get:
-      operationId: auto_spa_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
+  /api/auth/rotate-token/:
+    post:
+      operationId: auth_rotate_token_create
+      description: Issues a fresh expiring token for the calling device and revokes
+        the one that was presented. Use this to renew a long shift without re-entering
+        the password; a compromised key cannot be extended this way, because the successor
+        is a new random value rather than a reissue of the old one.
+      summary: Rotate this device token
       tags:
-      - auto-spa
+      - Auth
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedAutoSpaServiceList'
-          description: ''
-  /api/auto-spa/{id}/:
-    get:
-      operationId: auto_spa_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - auto-spa
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutoSpaService'
-          description: ''
-  /api/bb-products/:
-    get:
-      operationId: bb_products_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - bb-products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedBBProductList'
-          description: ''
-  /api/bb-products/{id}/:
-    get:
-      operationId: bb_products_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - bb-products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BBProduct'
+                $ref: '#/components/schemas/RotateTokenResponse'
           description: ''
   /api/branch-catalog/by-branch/{branch_id}/:
     get:
       operationId: branch_catalog_by_branch_retrieve
-      description: Returns the VSS/VReal/BB catalog applicable to the given branch.
+      description: Returns the unified catalog the given branch sells, as one flat
+        `items` list plus the legacy vss/vreal/bb slots built from the same rows.
       summary: POS catalog for a branch
       parameters:
       - in: path
@@ -478,7 +432,7 @@ paths:
       tags:
       - Branch Catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -487,108 +441,6 @@ paths:
                 type: object
                 additionalProperties: {}
                 description: Unspecified response body
-          description: ''
-  /api/branch-inventory/:
-    get:
-      operationId: branch_inventory_list
-      description: |-
-        Give a viewset automatic business/branch scoping.
-
-        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
-        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
-        the unified catalog, or ``pk`` for Branch itself).
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - branch-inventory
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedBranchInventoryList'
-          description: ''
-  /api/branch-inventory/{id}/:
-    get:
-      operationId: branch_inventory_retrieve
-      description: |-
-        Give a viewset automatic business/branch scoping.
-
-        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
-        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
-        the unified catalog, or ``pk`` for Branch itself).
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this inventory level.
-        required: true
-      tags:
-      - branch-inventory
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BranchInventory'
-          description: ''
-  /api/branch-inventory/{id}/restock/:
-    post:
-      operationId: branch_inventory_restock_create
-      description: Add stock to a branch inventory item (ledgered ``StockMovement``).
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this inventory level.
-        required: true
-      tags:
-      - branch-inventory
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BranchInventoryRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BranchInventory'
-          description: ''
-  /api/branch-inventory/by_branch/:
-    get:
-      operationId: branch_inventory_by_branch_retrieve
-      description: |-
-        Give a viewset automatic business/branch scoping.
-
-        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
-        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
-        the unified catalog, or ``pk`` for Branch itself).
-      tags:
-      - branch-inventory
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BranchInventory'
           description: ''
   /api/branches/:
     get:
@@ -609,7 +461,7 @@ paths:
       tags:
       - branches
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -634,7 +486,7 @@ paths:
               $ref: '#/components/schemas/BranchRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -661,7 +513,7 @@ paths:
       tags:
       - branches
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -693,7 +545,7 @@ paths:
               $ref: '#/components/schemas/BranchRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -724,7 +576,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedBranchRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -750,19 +602,14 @@ paths:
       tags:
       - branches
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
   /api/branches/{id}/staffing/:
     get:
       operationId: branches_staffing_retrieve
-      description: |-
-        Give a viewset automatic business/branch scoping.
-
-        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
-        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
-        the unified catalog, or ``pk`` for Branch itself).
+      description: Who works here, by role — from UserAccess grants (§4.4).
       parameters:
       - in: path
         name: id
@@ -773,7 +620,7 @@ paths:
       tags:
       - branches
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -795,7 +642,7 @@ paths:
       tags:
       - branches
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -822,7 +669,7 @@ paths:
       tags:
       - business-types
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -841,7 +688,7 @@ paths:
               $ref: '#/components/schemas/BusinessTypeRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -862,7 +709,7 @@ paths:
       tags:
       - business-types
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -888,7 +735,7 @@ paths:
               $ref: '#/components/schemas/BusinessTypeRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -913,7 +760,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedBusinessTypeRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -933,7 +780,7 @@ paths:
       tags:
       - business-types
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -956,7 +803,7 @@ paths:
       tags:
       - businesses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -975,7 +822,7 @@ paths:
               $ref: '#/components/schemas/BusinessRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -996,7 +843,7 @@ paths:
       tags:
       - businesses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1022,7 +869,7 @@ paths:
               $ref: '#/components/schemas/BusinessRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1047,7 +894,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedBusinessRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1057,6 +904,12 @@ paths:
           description: ''
     delete:
       operationId: businesses_destroy
+      description: |-
+        Hard-delete a business, refusing when it still owns history.
+
+        §7.10 prefers deactivating (``is_active = False``) over deleting, so a
+        business that has ever traded is retired rather than erased; otherwise
+        historical reports would silently lose their rows.
       parameters:
       - in: path
         name: id
@@ -1067,7 +920,7 @@ paths:
       tags:
       - businesses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -1085,7 +938,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1105,7 +958,7 @@ paths:
               $ref: '#/components/schemas/BusinessItemRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -1127,7 +980,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1154,7 +1007,7 @@ paths:
               $ref: '#/components/schemas/BusinessItemRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1180,7 +1033,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedBusinessItemRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1201,13 +1054,19 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
   /api/catalog/categories/:
     get:
       operationId: catalog_categories_list
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - name: ordering
         required: false
@@ -1230,7 +1089,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1240,6 +1099,12 @@ paths:
           description: ''
     post:
       operationId: catalog_categories_create
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       tags:
       - catalog
       requestBody:
@@ -1249,7 +1114,7 @@ paths:
               $ref: '#/components/schemas/CategoryRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -1260,6 +1125,12 @@ paths:
   /api/catalog/categories/{id}/:
     get:
       operationId: catalog_categories_retrieve
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1270,7 +1141,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1280,6 +1151,12 @@ paths:
           description: ''
     put:
       operationId: catalog_categories_update
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1296,7 +1173,7 @@ paths:
               $ref: '#/components/schemas/CategoryRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1306,6 +1183,12 @@ paths:
           description: ''
     patch:
       operationId: catalog_categories_partial_update
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1321,7 +1204,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedCategoryRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1331,6 +1214,12 @@ paths:
           description: ''
     delete:
       operationId: catalog_categories_destroy
+      description: |-
+        Give a viewset automatic business/branch scoping.
+
+        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
+        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
+        the unified catalog, or ``pk`` for Branch itself).
       parameters:
       - in: path
         name: id
@@ -1341,7 +1230,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -1359,7 +1248,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1381,7 +1270,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1409,7 +1298,39 @@ paths:
               $ref: '#/components/schemas/InventoryLevelRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLevel'
+          description: ''
+  /api/catalog/inventory/{id}/transfer/:
+    post:
+      operationId: catalog_inventory_transfer_create
+      description: |-
+        Send stock from this level's branch to another branch of the same business.
+
+        Writes a matching ``TRANSFER_OUT`` / ``TRANSFER_IN`` pair, so the ledger
+        always balances; the destination must be a branch the caller can see.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventory level.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryLevelRequest'
+        required: true
+      security:
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1420,6 +1341,13 @@ paths:
   /api/catalog/items/:
     get:
       operationId: catalog_items_list
+      description: |-
+        The unified catalog.
+
+        Items are company-level master data (§3.2), but a *business* must only see
+        the items it actually sells, so the queryset is narrowed to the active
+        business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+        ``business`` column of ``BusinessItem``.
       parameters:
       - name: ordering
         required: false
@@ -1442,7 +1370,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1452,6 +1380,13 @@ paths:
           description: ''
     post:
       operationId: catalog_items_create
+      description: |-
+        The unified catalog.
+
+        Items are company-level master data (§3.2), but a *business* must only see
+        the items it actually sells, so the queryset is narrowed to the active
+        business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+        ``business`` column of ``BusinessItem``.
       tags:
       - catalog
       requestBody:
@@ -1461,7 +1396,7 @@ paths:
               $ref: '#/components/schemas/ItemRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -1472,6 +1407,13 @@ paths:
   /api/catalog/items/{id}/:
     get:
       operationId: catalog_items_retrieve
+      description: |-
+        The unified catalog.
+
+        Items are company-level master data (§3.2), but a *business* must only see
+        the items it actually sells, so the queryset is narrowed to the active
+        business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+        ``business`` column of ``BusinessItem``.
       parameters:
       - in: path
         name: id
@@ -1482,7 +1424,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1492,6 +1434,13 @@ paths:
           description: ''
     put:
       operationId: catalog_items_update
+      description: |-
+        The unified catalog.
+
+        Items are company-level master data (§3.2), but a *business* must only see
+        the items it actually sells, so the queryset is narrowed to the active
+        business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+        ``business`` column of ``BusinessItem``.
       parameters:
       - in: path
         name: id
@@ -1508,7 +1457,7 @@ paths:
               $ref: '#/components/schemas/ItemRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1518,6 +1467,13 @@ paths:
           description: ''
     patch:
       operationId: catalog_items_partial_update
+      description: |-
+        The unified catalog.
+
+        Items are company-level master data (§3.2), but a *business* must only see
+        the items it actually sells, so the queryset is narrowed to the active
+        business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+        ``business`` column of ``BusinessItem``.
       parameters:
       - in: path
         name: id
@@ -1533,7 +1489,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedItemRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1543,6 +1499,13 @@ paths:
           description: ''
     delete:
       operationId: catalog_items_destroy
+      description: |-
+        The unified catalog.
+
+        Items are company-level master data (§3.2), but a *business* must only see
+        the items it actually sells, so the queryset is narrowed to the active
+        business's ``BusinessItem`` links — automatically, via ``auto_scope`` on the
+        ``business`` column of ``BusinessItem``.
       parameters:
       - in: path
         name: id
@@ -1553,7 +1516,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -1576,7 +1539,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1603,7 +1566,7 @@ paths:
       tags:
       - catalog
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1625,7 +1588,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1645,7 +1608,7 @@ paths:
               $ref: '#/components/schemas/ClientProfileRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -1667,7 +1630,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1694,7 +1657,7 @@ paths:
               $ref: '#/components/schemas/ClientProfileRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1720,7 +1683,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedClientProfileRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1741,7 +1704,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -1759,7 +1722,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1781,7 +1744,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1807,7 +1770,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1829,7 +1792,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1844,7 +1807,7 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1859,13 +1822,133 @@ paths:
       tags:
       - clients
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClientProfile'
+          description: ''
+  /api/company/:
+    get:
+      operationId: company_list
+      description: |-
+        Read/patch the single company row - receipt footer, tax default, branding.
+
+        §4.1 makes this a writable API instead of settings.py on purpose: the owner
+        must be able to change the receipt footer and default tax rate **without a
+        deploy**.  The row is a singleton, so create/delete are refused and the
+        detail lookup always resolves to pk=1.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - company
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCompanyList'
+          description: ''
+  /api/company/{id}/:
+    get:
+      operationId: company_retrieve
+      description: |-
+        Read/patch the single company row - receipt footer, tax default, branding.
+
+        §4.1 makes this a writable API instead of settings.py on purpose: the owner
+        must be able to change the receipt footer and default tax rate **without a
+        deploy**.  The row is a singleton, so create/delete are refused and the
+        detail lookup always resolves to pk=1.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this company.
+        required: true
+      tags:
+      - company
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+          description: ''
+    put:
+      operationId: company_update
+      description: |-
+        Read/patch the single company row - receipt footer, tax default, branding.
+
+        §4.1 makes this a writable API instead of settings.py on purpose: the owner
+        must be able to change the receipt footer and default tax rate **without a
+        deploy**.  The row is a singleton, so create/delete are refused and the
+        detail lookup always resolves to pk=1.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this company.
+        required: true
+      tags:
+      - company
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyRequest'
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+          description: ''
+    patch:
+      operationId: company_partial_update
+      description: |-
+        Read/patch the single company row - receipt footer, tax default, branding.
+
+        §4.1 makes this a writable API instead of settings.py on purpose: the owner
+        must be able to change the receipt footer and default tax rate **without a
+        deploy**.  The row is a singleton, so create/delete are refused and the
+        detail lookup always resolves to pk=1.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this company.
+        required: true
+      tags:
+      - company
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCompanyRequest'
+      security:
+      - TokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
           description: ''
   /api/customer-detection/detect/:
     post:
@@ -1883,7 +1966,7 @@ paths:
               additionalProperties: {}
               description: Unspecified request body
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1907,7 +1990,7 @@ paths:
       tags:
       - customer-rewards
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1927,7 +2010,7 @@ paths:
               $ref: '#/components/schemas/CustomerRewardRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -1949,7 +2032,7 @@ paths:
       tags:
       - customer-rewards
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -1976,7 +2059,7 @@ paths:
               $ref: '#/components/schemas/CustomerRewardRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2002,7 +2085,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedCustomerRewardRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2023,7 +2106,7 @@ paths:
       tags:
       - customer-rewards
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -2047,7 +2130,7 @@ paths:
               $ref: '#/components/schemas/CustomerRewardRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2062,7 +2145,7 @@ paths:
       tags:
       - customer-rewards
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2083,7 +2166,7 @@ paths:
       tags:
       - Customer Detection
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2107,7 +2190,7 @@ paths:
       tags:
       - daily-sales
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2129,7 +2212,7 @@ paths:
       tags:
       - daily-sales
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2145,7 +2228,7 @@ paths:
       tags:
       - Dashboard
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2164,7 +2247,7 @@ paths:
       tags:
       - Dashboard
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2193,7 +2276,7 @@ paths:
       tags:
       - expenses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2218,7 +2301,7 @@ paths:
               $ref: '#/components/schemas/ExpenseRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -2245,7 +2328,7 @@ paths:
       tags:
       - expenses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2277,7 +2360,7 @@ paths:
               $ref: '#/components/schemas/ExpenseRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2308,7 +2391,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedExpenseRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2334,7 +2417,7 @@ paths:
       tags:
       - expenses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -2350,7 +2433,7 @@ paths:
       tags:
       - expenses
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2377,7 +2460,7 @@ paths:
       tags:
       - feedback
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2402,7 +2485,7 @@ paths:
               $ref: '#/components/schemas/CustomerFeedbackRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -2429,7 +2512,7 @@ paths:
       tags:
       - feedback
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2461,7 +2544,7 @@ paths:
               $ref: '#/components/schemas/CustomerFeedbackRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2492,7 +2575,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedCustomerFeedbackRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2518,7 +2601,7 @@ paths:
       tags:
       - feedback
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -2534,55 +2617,13 @@ paths:
       tags:
       - feedback
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CustomerFeedback'
-          description: ''
-  /api/kb-items/:
-    get:
-      operationId: kb_items_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - kb-items
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedKBItemList'
-          description: ''
-  /api/kb-items/{id}/:
-    get:
-      operationId: kb_items_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - kb-items
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KBItem'
           description: ''
   /api/notifications/customer_alerts/:
     get:
@@ -2593,7 +2634,7 @@ paths:
       tags:
       - Notifications
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2602,136 +2643,6 @@ paths:
                 type: object
                 additionalProperties: {}
                 description: Unspecified response body
-          description: ''
-  /api/panganan-menus/:
-    get:
-      operationId: panganan_menus_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - panganan-menus
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedPangananMenuList'
-          description: ''
-  /api/panganan-menus/{id}/:
-    get:
-      operationId: panganan_menus_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - panganan-menus
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PangananMenu'
-          description: ''
-  /api/panganan-menus/categories/:
-    get:
-      operationId: panganan_menus_categories_retrieve
-      tags:
-      - panganan-menus
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PangananMenu'
-          description: ''
-  /api/products/:
-    get:
-      operationId: products_list
-      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedProductList'
-          description: ''
-  /api/products/{id}/:
-    get:
-      operationId: products_retrieve
-      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Product'
-          description: ''
-  /api/products/by_category/:
-    get:
-      operationId: products_by_category_retrieve
-      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
-      tags:
-      - products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Product'
-          description: ''
-  /api/products/low_stock/:
-    get:
-      operationId: products_low_stock_retrieve
-      description: Read-only /products/ shim over ``Item(item_type='PRODUCT')``.
-      tags:
-      - products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Product'
           description: ''
   /api/reward-claims/:
     get:
@@ -2746,7 +2657,7 @@ paths:
       tags:
       - reward-claims
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2767,7 +2678,7 @@ paths:
       tags:
       - reward-claims
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2794,7 +2705,7 @@ paths:
       tags:
       - rooms
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2819,7 +2730,7 @@ paths:
               $ref: '#/components/schemas/RoomTableRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -2846,7 +2757,7 @@ paths:
       tags:
       - rooms
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2878,7 +2789,7 @@ paths:
               $ref: '#/components/schemas/RoomTableRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2909,7 +2820,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedRoomTableRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2935,7 +2846,7 @@ paths:
       tags:
       - rooms
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -2964,7 +2875,7 @@ paths:
               $ref: '#/components/schemas/RoomTableRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -2997,7 +2908,7 @@ paths:
               $ref: '#/components/schemas/RoomTableRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3017,7 +2928,7 @@ paths:
       tags:
       - rooms
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3037,7 +2948,7 @@ paths:
       tags:
       - rooms
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3064,7 +2975,7 @@ paths:
       tags:
       - transactions
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3088,7 +2999,7 @@ paths:
               $ref: '#/components/schemas/TransactionRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -3115,7 +3026,7 @@ paths:
       tags:
       - transactions
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3147,7 +3058,7 @@ paths:
               $ref: '#/components/schemas/TransactionRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3178,7 +3089,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedTransactionRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3189,11 +3100,11 @@ paths:
     delete:
       operationId: transactions_destroy
       description: |-
-        Give a viewset automatic business/branch scoping.
+        Money rows are immutable: reverse them, never delete them.
 
-        Set ``branch_lookup`` to the ORM path that maps a row to a branch when it
-        is not a plain ``branch_id`` (e.g. ``inventory_levels__branch_id`` for
-        the unified catalog, or ``pk`` for Branch itself).
+        ``Transaction``/``TransactionItem`` are the receipt ledger; deleting one
+        would also cascade its items and break stock history, so the only
+        supported correction is /transactions/{id}/void/.
       parameters:
       - in: path
         name: id
@@ -3204,7 +3115,7 @@ paths:
       tags:
       - transactions
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -3228,7 +3139,7 @@ paths:
               $ref: '#/components/schemas/TransactionRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3249,7 +3160,7 @@ paths:
               $ref: '#/components/schemas/TransactionRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3269,7 +3180,7 @@ paths:
       tags:
       - transactions
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3289,7 +3200,7 @@ paths:
       tags:
       - transactions
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3310,7 +3221,7 @@ paths:
       tags:
       - user-access
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3329,7 +3240,7 @@ paths:
               $ref: '#/components/schemas/UserAccessRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -3350,7 +3261,7 @@ paths:
       tags:
       - user-access
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3376,7 +3287,7 @@ paths:
               $ref: '#/components/schemas/UserAccessRequest'
         required: true
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3401,7 +3312,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedUserAccessRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3421,7 +3332,7 @@ paths:
       tags:
       - user-access
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -3444,7 +3355,7 @@ paths:
       tags:
       - user-profiles
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3468,7 +3379,7 @@ paths:
             schema:
               $ref: '#/components/schemas/UserProfileRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '201':
           content:
@@ -3495,7 +3406,7 @@ paths:
       tags:
       - user-profiles
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3526,7 +3437,7 @@ paths:
             schema:
               $ref: '#/components/schemas/UserProfileRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3557,7 +3468,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedUserProfileRequest'
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
@@ -3583,7 +3494,7 @@ paths:
       tags:
       - user-profiles
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '204':
           description: No response body
@@ -3594,193 +3505,13 @@ paths:
       tags:
       - user-profiles
       security:
-      - tokenAuth: []
+      - TokenAuth: []
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
-          description: ''
-  /api/vreal-products/:
-    get:
-      operationId: vreal_products_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - vreal-products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedVRealProductList'
-          description: ''
-  /api/vreal-products/{id}/:
-    get:
-      operationId: vreal_products_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - vreal-products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
-  /api/vreal-products/categories/:
-    get:
-      operationId: vreal_products_categories_retrieve
-      tags:
-      - vreal-products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
-  /api/vreal-products/preview/:
-    post:
-      operationId: vreal_products_preview_create
-      tags:
-      - vreal-products
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VRealProductRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
-  /api/vreal-products/stats/:
-    get:
-      operationId: vreal_products_stats_retrieve
-      tags:
-      - vreal-products
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VRealProduct'
-          description: ''
-  /api/vss-services/:
-    get:
-      operationId: vss_services_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - vss-services
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedVSSServiceList'
-          description: ''
-  /api/vss-services/{id}/:
-    get:
-      operationId: vss_services_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this item.
-        required: true
-      tags:
-      - vss-services
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
-          description: ''
-  /api/vss-services/categories/:
-    get:
-      operationId: vss_services_categories_retrieve
-      tags:
-      - vss-services
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
-          description: ''
-  /api/vss-services/preview/:
-    post:
-      operationId: vss_services_preview_create
-      tags:
-      - vss-services
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VSSServiceRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
-          description: ''
-  /api/vss-services/stats/:
-    get:
-      operationId: vss_services_stats_retrieve
-      tags:
-      - vss-services
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VSSService'
           description: ''
 components:
   schemas:
@@ -3903,6 +3634,9 @@ components:
         user:
           type: integer
           nullable: true
+        business:
+          type: integer
+          nullable: true
         branch:
           type: integer
           nullable: true
@@ -3920,6 +3654,14 @@ components:
         ip_address:
           type: string
           nullable: true
+        request_id:
+          type: string
+          nullable: true
+          maxLength: 64
+        user_agent:
+          type: string
+          nullable: true
+          maxLength: 255
         created_at:
           type: string
           format: date-time
@@ -3970,66 +3712,6 @@ components:
       - role_code
       - services
       - username
-    AutoSpaService:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        service:
-          type: string
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-      - created_at
-      - id
-      - price
-      - service
-      - updated_at
-    BBProduct:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        product_name:
-          type: string
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        category:
-          type: string
-          readOnly: true
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-      - category
-      - created_at
-      - id
-      - price
-      - product_name
-      - updated_at
     BlankEnum:
       enum:
       - ''
@@ -4039,19 +3721,24 @@ components:
         id:
           type: integer
           readOnly: true
+        business:
+          type: integer
+          nullable: true
+        business_name:
+          type: string
+          readOnly: true
         name:
           type: string
           maxLength: 100
+        code:
+          type: string
+          maxLength: 20
         branch_type:
-          allOf:
-          - $ref: '#/components/schemas/BranchTypeEnum'
-          description: |-
-            Determines which catalog this branch offers in POS
-
-            * `VSS` - VSS Services Branch
-            * `VREAL` - VReal Products Branch
-            * `BB` - BB Products Branch
-            * `MIXED` - Mixed (VSS + VReal + BB)
+          type: string
+          readOnly: true
+        branch_type_display:
+          type: string
+          readOnly: true
         address:
           type: string
           nullable: true
@@ -4067,6 +3754,14 @@ components:
             maxLength: 254
           - type: string
             maxLength: 0
+        opens_at:
+          type: string
+          format: time
+          nullable: true
+        closes_at:
+          type: string
+          format: time
+          nullable: true
         is_active:
           type: boolean
         created_at:
@@ -4084,78 +3779,28 @@ components:
           type: string
           readOnly: true
       required:
+      - branch_type
+      - branch_type_display
+      - business_name
       - created_at
       - id
       - name
       - total_rooms
       - total_staff
       - updated_at
-    BranchInventory:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        branch:
-          type: integer
-        product:
-          type: integer
-          readOnly: true
-        stock_qty:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: -9223372036854775808
-          format: int64
-        last_updated:
-          type: string
-          format: date-time
-          readOnly: true
-        branch_name:
-          type: string
-          readOnly: true
-        product_name:
-          type: string
-          readOnly: true
-        is_low_stock:
-          type: string
-          readOnly: true
-      required:
-      - branch
-      - branch_name
-      - id
-      - is_low_stock
-      - last_updated
-      - product
-      - product_name
-    BranchInventoryRequest:
-      type: object
-      properties:
-        branch:
-          type: integer
-        stock_qty:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: -9223372036854775808
-          format: int64
-      required:
-      - branch
     BranchRequest:
       type: object
       properties:
+        business:
+          type: integer
+          nullable: true
         name:
           type: string
           minLength: 1
           maxLength: 100
-        branch_type:
-          allOf:
-          - $ref: '#/components/schemas/BranchTypeEnum'
-          description: |-
-            Determines which catalog this branch offers in POS
-
-            * `VSS` - VSS Services Branch
-            * `VREAL` - VReal Products Branch
-            * `BB` - BB Products Branch
-            * `MIXED` - Mixed (VSS + VReal + BB)
+        code:
+          type: string
+          maxLength: 20
         address:
           type: string
           nullable: true
@@ -4171,22 +3816,18 @@ components:
             maxLength: 254
           - type: string
             maxLength: 0
+        opens_at:
+          type: string
+          format: time
+          nullable: true
+        closes_at:
+          type: string
+          format: time
+          nullable: true
         is_active:
           type: boolean
       required:
       - name
-    BranchTypeEnum:
-      enum:
-      - VSS
-      - VREAL
-      - BB
-      - MIXED
-      type: string
-      description: |-
-        * `VSS` - VSS Services Branch
-        * `VREAL` - VReal Products Branch
-        * `BB` - BB Products Branch
-        * `MIXED` - Mixed (VSS + VReal + BB)
     Business:
       type: object
       properties:
@@ -4417,6 +4058,28 @@ components:
       required:
       - code
       - name
+    CapabilitiesResponse:
+      type: object
+      properties:
+        role:
+          type: string
+          description: The caller’s effective role code.
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: UI capability names the SPA may show for this role (§6.3).
+        roles:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: Every assignable role, so the SPA builds its dropdowns from
+            the API.
+      required:
+      - capabilities
+      - role
+      - roles
     CatalogSourceEnum:
       enum:
       - VSS
@@ -4531,6 +4194,8 @@ components:
           type: string
           format: date
           nullable: true
+        is_active:
+          type: boolean
         loyalty_points:
           type: string
           format: decimal
@@ -4628,9 +4293,118 @@ components:
           type: string
           format: date
           nullable: true
+        is_active:
+          type: boolean
       required:
       - first_name
       - last_name
+    Company:
+      type: object
+      description: |-
+        The single company row — receipt footer, tax default, branding.
+
+        §4.1 deliberately makes this a writable API instead of settings: the owner
+        must be able to change the receipt footer without a deploy.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        legal_name:
+          type: string
+          maxLength: 200
+        display_name:
+          type: string
+          maxLength: 150
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        tax_id:
+          type: string
+          maxLength: 30
+        address:
+          type: string
+        contact_number:
+          type: string
+          maxLength: 20
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        default_currency:
+          type: string
+          maxLength: 3
+        timezone:
+          type: string
+          maxLength: 64
+        default_tax_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        receipt_footer:
+          type: string
+        loyalty_enabled:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - updated_at
+    CompanyRequest:
+      type: object
+      description: |-
+        The single company row — receipt footer, tax default, branding.
+
+        §4.1 deliberately makes this a writable API instead of settings: the owner
+        must be able to change the receipt footer without a deploy.
+      properties:
+        legal_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        display_name:
+          type: string
+          maxLength: 150
+        logo:
+          type: string
+          format: binary
+          nullable: true
+        tax_id:
+          type: string
+          maxLength: 30
+        address:
+          type: string
+        contact_number:
+          type: string
+          maxLength: 20
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        default_currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        default_tax_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        receipt_footer:
+          type: string
+        loyalty_enabled:
+          type: boolean
     CustomerFeedback:
       type: object
       properties:
@@ -5055,6 +4829,9 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        effective_price:
+          type: string
+          readOnly: true
         is_taxable:
           type: boolean
         tracks_stock:
@@ -5100,6 +4877,7 @@ components:
       - category
       - category_name
       - created_at
+      - effective_price
       - id
       - item_type
       - name
@@ -5178,35 +4956,6 @@ components:
       description: |-
         * `PRODUCT` - Product
         * `SERVICE` - Service
-    KBItem:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        name:
-          type: string
-          maxLength: 255
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-      - created_at
-      - id
-      - name
-      - price
-      - updated_at
     KindEnum:
       enum:
       - PRODUCT
@@ -5235,6 +4984,10 @@ components:
       properties:
         token:
           type: string
+        expires_at:
+          type: string
+          format: date-time
+          description: When this device token stops working (§7.9).
         user:
           $ref: '#/components/schemas/AuthUser'
         businesses:
@@ -5247,6 +5000,7 @@ components:
           nullable: true
       required:
       - businesses
+      - expires_at
       - primary_business
       - token
       - user
@@ -5315,75 +5069,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuditLog'
-    PaginatedAutoSpaServiceList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/AutoSpaService'
-    PaginatedBBProductList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/BBProduct'
-    PaginatedBranchInventoryList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/BranchInventory'
     PaginatedBranchList:
       type: object
       required:
@@ -5522,6 +5207,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ClientProfile'
+    PaginatedCompanyList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Company'
     PaginatedCustomerFeedbackList:
       type: object
       required:
@@ -5660,75 +5368,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Item'
-    PaginatedKBItemList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/KBItem'
-    PaginatedPangananMenuList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/PangananMenu'
-    PaginatedProductList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/Product'
     PaginatedRewardClaimList:
       type: object
       required:
@@ -5867,86 +5506,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserProfile'
-    PaginatedVRealProductList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/VRealProduct'
-    PaginatedVSSServiceList:
-      type: object
-      required:
-      - count
-      - results
-      properties:
-        count:
-          type: integer
-          example: 123
-        next:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=4
-        previous:
-          type: string
-          nullable: true
-          format: uri
-          example: http://api.example.org/accounts/?page=2
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/VSSService'
-    PangananMenu:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        category:
-          type: string
-        menu:
-          type: string
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-        category_display:
-          type: string
-          readOnly: true
-      required:
-      - category_display
-      - created_at
-      - id
-      - menu
-      - price
-      - updated_at
     PatchedAttendanceRequest:
       type: object
       properties:
@@ -5973,20 +5532,16 @@ components:
     PatchedBranchRequest:
       type: object
       properties:
+        business:
+          type: integer
+          nullable: true
         name:
           type: string
           minLength: 1
           maxLength: 100
-        branch_type:
-          allOf:
-          - $ref: '#/components/schemas/BranchTypeEnum'
-          description: |-
-            Determines which catalog this branch offers in POS
-
-            * `VSS` - VSS Services Branch
-            * `VREAL` - VReal Products Branch
-            * `BB` - BB Products Branch
-            * `MIXED` - Mixed (VSS + VReal + BB)
+        code:
+          type: string
+          maxLength: 20
         address:
           type: string
           nullable: true
@@ -6002,6 +5557,14 @@ components:
             maxLength: 254
           - type: string
             maxLength: 0
+        opens_at:
+          type: string
+          format: time
+          nullable: true
+        closes_at:
+          type: string
+          format: time
+          nullable: true
         is_active:
           type: boolean
     PatchedBusinessItemRequest:
@@ -6139,6 +5702,58 @@ components:
           type: string
           format: date
           nullable: true
+        is_active:
+          type: boolean
+    PatchedCompanyRequest:
+      type: object
+      description: |-
+        The single company row — receipt footer, tax default, branding.
+
+        §4.1 deliberately makes this a writable API instead of settings: the owner
+        must be able to change the receipt footer without a deploy.
+      properties:
+        legal_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        display_name:
+          type: string
+          maxLength: 150
+        logo:
+          type: string
+          format: binary
+          nullable: true
+        tax_id:
+          type: string
+          maxLength: 30
+        address:
+          type: string
+        contact_number:
+          type: string
+          maxLength: 20
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        default_currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        default_tax_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        receipt_footer:
+          type: string
+        loyalty_enabled:
+          type: boolean
     PatchedCustomerFeedbackRequest:
       type: object
       properties:
@@ -6320,6 +5935,11 @@ components:
           type: string
           nullable: true
           maxLength: 255
+        item:
+          type: integer
+          nullable: true
+          description: Catalog service currently being performed in this room, if
+            any
     PatchedTransactionRequest:
       type: object
       properties:
@@ -6377,7 +5997,7 @@ components:
         user:
           type: integer
         role:
-          $ref: '#/components/schemas/UserAccessRoleEnum'
+          $ref: '#/components/schemas/RoleEnum'
         business:
           type: integer
           nullable: true
@@ -6394,6 +6014,12 @@ components:
           type: boolean
     PatchedUserProfileRequest:
       type: object
+      description: |-
+        Personal data plus a read-only summary of the account's access grants.
+
+        §4.4 removed ``role``/``branch`` from this model; ``role`` and ``access``
+        below are derived from ``UserAccess`` so the UI can keep showing them.  The
+        grants themselves are managed through ``/api/user-access/``.
       properties:
         password:
           type: string
@@ -6409,71 +6035,23 @@ components:
           type: string
           format: email
           minLength: 1
+        phone_number:
+          type: string
+          maxLength: 20
+        avatar:
+          type: string
+          format: binary
+          nullable: true
         role:
-          $ref: '#/components/schemas/UserProfileRoleEnum'
+          type: string
         branch:
           type: integer
+          writeOnly: true
           nullable: true
         services:
           type: array
           items:
             type: integer
-    Product:
-      type: object
-      description: Legacy /products/ payload shape, backed by ``Item(item_type='PRODUCT')``.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        name:
-          type: string
-          maxLength: 255
-        category:
-          type: string
-          readOnly: true
-        barcode:
-          type: string
-          nullable: true
-          maxLength: 100
-        purchase_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-          readOnly: true
-        selling_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-        min_stock:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: 0
-          format: int64
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-        stock_quantity:
-          type: string
-          readOnly: true
-        is_low_stock:
-          type: string
-          readOnly: true
-      required:
-      - category
-      - created_at
-      - id
-      - is_low_stock
-      - name
-      - purchase_price
-      - stock_quantity
-      - updated_at
     RatingEnum:
       enum:
       - 1
@@ -6559,6 +6137,26 @@ components:
         * `FREE_ITEM` - Free Item
         * `POINTS` - Points
         * `TIER_UPGRADE` - Tier Upgrade
+    RoleEnum:
+      enum:
+      - SUPERADMIN
+      - OWNER
+      - COMPANY_ADMIN
+      - ACCOUNTANT
+      - BUSINESS_MANAGER
+      - SUPERVISOR
+      - CASHIER
+      - STAFF
+      type: string
+      description: |-
+        * `SUPERADMIN` - Superadmin
+        * `OWNER` - Owner
+        * `COMPANY_ADMIN` - Company Admin
+        * `ACCOUNTANT` - Accountant
+        * `BUSINESS_MANAGER` - Business Manager
+        * `SUPERVISOR` - Supervisor
+        * `CASHIER` - Cashier
+        * `STAFF` - Staff
     RoomTable:
       type: object
       properties:
@@ -6594,6 +6192,14 @@ components:
           type: string
           nullable: true
           maxLength: 255
+        item:
+          type: integer
+          nullable: true
+          description: Catalog service currently being performed in this room, if
+            any
+        item_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -6617,6 +6223,7 @@ components:
       - branch_name
       - created_at
       - id
+      - item_name
       - name
       - time_remaining
       - updated_at
@@ -6653,6 +6260,11 @@ components:
           type: string
           nullable: true
           maxLength: 255
+        item:
+          type: integer
+          nullable: true
+          description: Catalog service currently being performed in this room, if
+            any
       required:
       - branch
       - name
@@ -6668,6 +6280,18 @@ components:
         * `FOOT_SPA` - Foot Spa
         * `MASSAGE` - Massage Room
         * `VIP` - VIP Room
+    RotateTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The new device token; the presented one is now revoked.
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - expires_at
+      - token
     StockMovement:
       type: object
       properties:
@@ -6725,6 +6349,10 @@ components:
         transaction_number:
           type: string
           readOnly: true
+        business:
+          type: integer
+          readOnly: true
+          nullable: true
         branch:
           type: integer
         customer:
@@ -6808,6 +6436,7 @@ components:
       required:
       - branch
       - branch_name
+      - business
       - created_at
       - customer_name
       - id
@@ -6825,13 +6454,19 @@ components:
           readOnly: true
         transaction:
           type: integer
+        branch:
+          type: integer
+          nullable: true
+        branch_name:
+          type: string
+          readOnly: true
         item_type:
           $ref: '#/components/schemas/ItemTypeEnum'
         catalog_source:
           allOf:
           - $ref: '#/components/schemas/CatalogSourceEnum'
           description: |-
-            Which catalog the item came from (VSS/VREAL/BB)
+            Which legacy catalog the item came from (VSS/VREAL/BB) — derived, kept for receipts
 
             * `VSS` - VSS Service
             * `VREAL` - VReal Product
@@ -6843,10 +6478,15 @@ components:
         description:
           type: string
           maxLength: 255
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
         price:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
         quantity:
           type: integer
           maximum: 9223372036854775807
@@ -6867,6 +6507,7 @@ components:
           type: string
           readOnly: true
       required:
+      - branch_name
       - description
       - id
       - item_type
@@ -6875,18 +6516,22 @@ components:
       - service_name
       - total
       - transaction
+      - unit_price
     TransactionItemRequest:
       type: object
       properties:
         transaction:
           type: integer
+        branch:
+          type: integer
+          nullable: true
         item_type:
           $ref: '#/components/schemas/ItemTypeEnum'
         catalog_source:
           allOf:
           - $ref: '#/components/schemas/CatalogSourceEnum'
           description: |-
-            Which catalog the item came from (VSS/VREAL/BB)
+            Which legacy catalog the item came from (VSS/VREAL/BB) — derived, kept for receipts
 
             * `VSS` - VSS Service
             * `VREAL` - VReal Product
@@ -6899,7 +6544,7 @@ components:
           type: string
           minLength: 1
           maxLength: 255
-        price:
+        unit_price:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
@@ -6919,9 +6564,9 @@ components:
       required:
       - description
       - item_type
-      - price
       - total
       - transaction
+      - unit_price
     TransactionRequest:
       type: object
       properties:
@@ -7011,7 +6656,7 @@ components:
           type: string
           readOnly: true
         role:
-          $ref: '#/components/schemas/UserAccessRoleEnum'
+          $ref: '#/components/schemas/RoleEnum'
         business:
           type: integer
           nullable: true
@@ -7047,7 +6692,7 @@ components:
         user:
           type: integer
         role:
-          $ref: '#/components/schemas/UserAccessRoleEnum'
+          $ref: '#/components/schemas/RoleEnum'
         business:
           type: integer
           nullable: true
@@ -7066,26 +6711,14 @@ components:
       - business
       - role
       - user
-    UserAccessRoleEnum:
-      enum:
-      - OWNER
-      - COMPANY_ADMIN
-      - ACCOUNTANT
-      - BUSINESS_MANAGER
-      - SUPERVISOR
-      - CASHIER
-      - STAFF
-      type: string
-      description: |-
-        * `OWNER` - Owner
-        * `COMPANY_ADMIN` - Company Admin
-        * `ACCOUNTANT` - Accountant
-        * `BUSINESS_MANAGER` - Business Manager
-        * `SUPERVISOR` - Supervisor
-        * `CASHIER` - Cashier
-        * `STAFF` - Staff
     UserProfile:
       type: object
+      description: |-
+        Personal data plus a read-only summary of the account's access grants.
+
+        §4.4 removed ``role``/``branch`` from this model; ``role`` and ``access``
+        below are derived from ``UserAccess`` so the UI can keep showing them.  The
+        grants themselves are managed through ``/api/user-access/``.
       properties:
         id:
           type: integer
@@ -7096,6 +6729,9 @@ components:
         username:
           type: string
           readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
         first_name:
           type: string
         last_name:
@@ -7103,15 +6739,16 @@ components:
         email:
           type: string
           format: email
-        role:
-          $ref: '#/components/schemas/UserProfileRoleEnum'
-        role_display:
+        phone_number:
           type: string
-          readOnly: true
-        branch:
-          type: integer
+          maxLength: 20
+        avatar:
+          type: string
+          format: uri
           nullable: true
-        branch_name:
+        role:
+          type: string
+        access:
           type: string
           readOnly: true
         services:
@@ -7132,16 +6769,22 @@ components:
           format: date-time
           readOnly: true
       required:
-      - branch_name
+      - access
       - created_at
       - id
-      - role_display
+      - is_active
       - service_names
       - updated_at
       - user
       - username
     UserProfileRequest:
       type: object
+      description: |-
+        Personal data plus a read-only summary of the account's access grants.
+
+        §4.4 removed ``role``/``branch`` from this model; ``role`` and ``access``
+        below are derived from ``UserAccess`` so the UI can keep showing them.  The
+        grants themselves are managed through ``/api/user-access/``.
       properties:
         password:
           type: string
@@ -7157,140 +6800,26 @@ components:
           type: string
           format: email
           minLength: 1
+        phone_number:
+          type: string
+          maxLength: 20
+        avatar:
+          type: string
+          format: binary
+          nullable: true
         role:
-          $ref: '#/components/schemas/UserProfileRoleEnum'
+          type: string
         branch:
           type: integer
+          writeOnly: true
           nullable: true
         services:
           type: array
           items:
             type: integer
-    UserProfileRoleEnum:
-      enum:
-      - SUPERADMIN
-      - OWNER
-      - BRANCH_ADMIN
-      - CASHIER
-      - STAFF
-      type: string
-      description: |-
-        * `SUPERADMIN` - Superadmin
-        * `OWNER` - Owner
-        * `BRANCH_ADMIN` - Branch Admin
-        * `CASHIER` - Cashier
-        * `STAFF` - Staff
-    VRealProduct:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        category:
-          type: string
-        product:
-          type: string
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        size:
-          type: string
-          readOnly: true
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-        category_display:
-          type: string
-          readOnly: true
-      required:
-      - category_display
-      - created_at
-      - id
-      - price
-      - product
-      - size
-      - updated_at
-    VRealProductRequest:
-      type: object
-      properties:
-        category:
-          type: string
-          minLength: 1
-        product:
-          type: string
-          minLength: 1
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-      required:
-      - price
-      - product
-    VSSService:
-      type: object
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        category:
-          type: string
-        description:
-          type: string
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-        category_display:
-          type: string
-          readOnly: true
-      required:
-      - category_display
-      - created_at
-      - description
-      - id
-      - price
-      - updated_at
-    VSSServiceRequest:
-      type: object
-      properties:
-        category:
-          type: string
-          minLength: 1
-        description:
-          type: string
-          minLength: 1
-        price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-      required:
-      - description
-      - price
   securitySchemes:
-    tokenAuth:
+    TokenAuth:
       type: apiKey
       in: header
       name: Authorization
-      description: Token-based authentication with required prefix "Token"
+      description: Device token, sent as `Token <key>`. Expires; rotate at POST /api/auth/rotate-token/.

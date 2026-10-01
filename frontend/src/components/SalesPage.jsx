@@ -1,20 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { CreditCard, Plus, Receipt, Trash2 } from 'lucide-react';
-import { applyBusinessHeader, newIdempotencyKey } from '../utils/session';
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) config.headers.Authorization = `Token ${token}`;
-  return applyBusinessHeader(config);
-});
+import { newIdempotencyKey } from '../utils/session';
+import { api } from '../utils/api';
 
 const records = (response) => response.data.results || response.data;
 
@@ -43,8 +30,9 @@ export default function SalesPage({ isDarkMode = false, readOnly = false }) {
     try {
       const [branchResponse, productResponse, serviceResponse, customerResponse, transactionResponse] = await Promise.all([
         api.get('/branches/'),
-        api.get('/products/'),
-        api.get('/vss-services/'),
+        // Unified catalog — the retired /products/ and /vss-services/ shims are gone.
+        api.get('/catalog/items/?item_type=PRODUCT'),
+        api.get('/catalog/items/?item_type=SERVICE'),
         api.get('/clients/'),
         api.get('/transactions/today/'),
       ]);

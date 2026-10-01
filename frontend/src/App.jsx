@@ -12,6 +12,7 @@ import {
 } from './utils/session';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL as SHARED_API_BASE_URL } from './utils/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line
@@ -22,49 +23,86 @@ import {
   Edit3, Check, EyeOff, Filter, Info, UserCheck, Briefcase, Calendar,
   DollarSign, Activity, Archive, Star, Clock, Zap, Box, UserCog, Eye, History,
   Mail, Phone, MapPin, Award, Target, ChevronLeft, ChevronRight,
-  RefreshCw, Download, Loader2, Sun, Moon, Settings, HelpCircle,
-  CreditCard, Gift, ShoppingBag, Scissors, Sparkles, Shield,
-  Maximize2, Minimize2, Crown, BookOpen, Building2
+  Download, Loader2, Sun, Moon, Settings,
+  CreditCard, ShoppingBag, Scissors,
+  Crown, BookOpen, Building2
 } from 'lucide-react';
 
 // ============ API CONFIGURATION ============
-const API_BASE_URL = 'http://localhost:8000/api';
+// Origin comes from VITE_API_BASE_URL (see utils/api.js); the fallback keeps a
+// fresh clone runnable. The old copy here used `localhost` while every other
+// page used `127.0.0.1` — the same backend, two very different hosts.
+const API_BASE_URL = SHARED_API_BASE_URL;
 
+// One-click sign-in shortcuts. These mirror the demo accounts created by
+// `manage.py create_demo_users` — one per UserAccess role, so each login shows a
+// different dashboard. SUPERADMIN (platform operator) and OWNER (company owner)
+// are separate roles: same wildcard, different denied actions.
 const DEMO_ACCOUNTS = {
-  Superadmin: { username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
-  Owner: { username: 'demo_owner', password: 'DemoOwner!2026' },
-  'Branch Admin': { username: 'demo_branch_admin', password: 'DemoBranchAdmin!2026' },
-  Cashier: { username: 'demo_cashier', password: 'DemoCashier!2026' },
-  Staff: { username: 'demo_staff', password: 'DemoStaff!2026' },
+  'Superadmin': { username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
+  'Owner': { username: 'demo_owner', password: 'DemoOwner!2026' },
+  'Company Admin': { username: 'demo_company_admin', password: 'DemoCompanyAdmin!2026' },
+  'Accountant': { username: 'demo_accountant', password: 'DemoAccountant!2026' },
+  'Business Manager': { username: 'demo_business_manager', password: 'DemoBusinessManager!2026' },
+  'Supervisor': { username: 'demo_supervisor', password: 'DemoSupervisor!2026' },
+  'Cashier': { username: 'demo_cashier', password: 'DemoCashier!2026' },
+  'Staff': { username: 'demo_staff', password: 'DemoStaff!2026' },
 };
 
-const ROLE_CAPABILITIES = {
-  Superadmin: [
-    'dashboard', 'sales', 'clients', 'administration', 'users', 'user_manage',
-    'rooms', 'room_manage', 'inventory', 'inventory_manage', 'audit',
-    'catalog', 'catalog_manage', 'client_manage', 'customer_rewards',
-    'documentation'
-  ],
-  Owner: [
-    'dashboard', 'sales', 'clients', 'users', 'rooms', 'inventory',
-    'audit', 'catalog', 'customer_rewards', 'documentation'
-  ],
-  'Branch Admin': [
-    'dashboard', 'sales', 'clients', 'users', 'user_manage', 'rooms',
-    'room_manage', 'inventory', 'inventory_manage', 'audit', 'catalog',
-    'catalog_manage', 'client_manage', 'customer_rewards', 'documentation'
-  ],
-  Cashier: [
-    'dashboard', 'sales', 'clients', 'rooms', 'room_manage',
-    'inventory', 'catalog', 'client_manage', 'customer_rewards', 'documentation'
-  ],
-  Staff: [
-    'dashboard', 'clients', 'rooms', 'room_manage', 'catalog', 'documentation'
-  ],
+// Capabilities and role list come from GET /auth/capabilities/, which derives
+// them from the live ROLE_ACTIONS matrix. This client used to carry its own
+// ROLE_CAPABILITIES copy, free to drift from the server's policy; now it holds
+// only what the caller is actually allowed, and falls back to "show nothing
+// privileged" until that request resolves.
+const ROLE_CAPABILITIES = {};
+
+/**
+ * The nav entries, used only as a safety net.
+ *
+ * If /auth/capabilities/ cannot be reached we do NOT lock the operator out of a
+ * blank shell: every action is still authorized server-side, so showing the nav
+ * costs nothing security-wise and avoids a dead UI. Capability checks stay
+ * "closed" while the real list is in flight.
+ */
+const FALLBACK_CAPABILITIES = [
+  'dashboard', 'sales', 'clients', 'client_manage', 'customer_rewards',
+  'administration', 'users', 'user_manage', 'rooms', 'room_manage',
+  'inventory', 'inventory_manage', 'catalog', 'catalog_manage', 'audit',
+  'documentation',
+];
+
+/** Only used if /auth/capabilities/ is unreachable; the API has the real list. */
+const FALLBACK_ROLE_OPTIONS = [
+  { code: 'CASHIER', label: 'Cashier' },
+  { code: 'STAFF', label: 'Staff' },
+  { code: 'SUPERVISOR', label: 'Supervisor' },
+  { code: 'BUSINESS_MANAGER', label: 'Business Manager' },
+];
+
+/** Company-wide roles must NOT carry a branch (UserAccess check constraint). */
+const COMPANY_ROLE_CODES = new Set(['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT']);
+const isCompanyWideRole = (label) => COMPANY_ROLE_CODES.has(
+  String(label || '').replace(/[\s_]+/g, '_').toUpperCase(),
+);
+
+/**
+ * 'BUSINESS_MANAGER' -> 'Business Manager'.
+ *
+ * The login payload exposes roles as a display name (the backend does
+ * `role.replace('_', ' ').title()`) while /auth/capabilities/ reports the
+ * canonical code. Keys are stored under both so a lookup by either matches.
+ */
+const displayRole = (role) =>
+  String(role || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+const canAccess = (role, capability) => {
+  if (!role) return false;
+  const caps = ROLE_CAPABILITIES[role] ?? ROLE_CAPABILITIES[displayRole(role)];
+  return Array.isArray(caps) ? caps.includes(capability) : false;
 };
 
-const canAccess = (role, capability) => ROLE_CAPABILITIES[role]?.includes(capability);
-
+// The shared client already attaches `Authorization` and `X-Business`; this
+// instance only adds a request timeout.
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -77,13 +115,6 @@ api.interceptors.request.use((config) => {
   // Scope every call to the business the user last picked (backend resolves it per request).
   return applyBusinessHeader(config);
 });
-
-// ============ LOADING SPINNER ============
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-8">
-    <Loader2 size={32} className="text-cyan-600 animate-spin" />
-  </div>
-);
 
 const AccessDenied = () => (
   <div className="p-8 text-center text-slate-500">
@@ -106,10 +137,11 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
     { id: 'documentation', label: 'Documentation', icon: <BookOpen size={16} /> },
   ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id));
 
+  // The seven per-catalog pages collapsed into one unified catalog (Phase 3);
+  // these routes used to point at the retired /vss-services/ etc. shims.
   const productMenus = [
-    { path: '/vss-services', label: 'VSS Services', icon: <Scissors size={14} /> },
-    { path: '/vreal-products', label: 'VREAL Products', icon: <Sparkles size={14} /> },
-    { path: '/bb-products', label: 'BB Products', icon: <ShoppingBag size={14} /> },
+    { path: '/catalog/services', label: 'Services', icon: <Scissors size={14} /> },
+    { path: '/catalog/products', label: 'Products', icon: <ShoppingBag size={14} /> },
   ].filter(() => canAccess(currentUserRole, 'catalog'));
 
   return (
@@ -229,13 +261,35 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(
     localStorage.getItem('authToken') && localStorage.getItem('authUser')
   ));
-  const [loginForm, setLoginForm] = useState(DEMO_ACCOUNTS.Superadmin);
+  // Default to the first demo account. Deriving from the list (rather than
+  // naming a key) means renaming or reordering a demo account can never leave
+  // `loginForm` undefined and crash the login screen.
+  const [loginForm, setLoginForm] = useState(
+    () => Object.values(DEMO_ACCOUNTS)[0] || { username: '', password: '' }
+  );
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Role comes from the signed-in account only. This used to fall back to a
+  // hardcoded 'Superadmin' when nothing was stored, which made the header show
+  // a role before the real one arrived and then flip. Empty until known, and
+  // canAccess() treats an empty role as "no capabilities", so nothing privileged
+  // is shown before the real role arrives.
   const [currentUserRole, setCurrentUserRole] = useState(() => {
-    const savedUser = localStorage.getItem('authUser');
-    return savedUser ? JSON.parse(savedUser).role : 'Superadmin';
+    try {
+      return JSON.parse(localStorage.getItem('authUser'))?.role || '';
+    } catch {
+      return '';
+    }
+  });
+  // Kept for the header badge, which keys off `role_code` — the SUPERADMIN role
+  // is distinct from OWNER, and distinct again from Django's is_superuser flag.
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('authUser')) || {};
+    } catch {
+      return {};
+    }
   });
 
   // --- ACTIVE BUSINESS (what X-Business sends) ---
@@ -291,6 +345,7 @@ export default function App() {
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
 
   // --- LIVE CLOCK ENGINE ---
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -337,87 +392,62 @@ export default function App() {
 
   // --- INPUT FORM OBJECTS ---
   const [userForm, setUserForm] = useState({
-    name: '', address: '', age: '', gender: 'Female', role: 'Cashier',
+    name: '', address: '', age: '', gender: 'Female', role: 'Cashier', branch: '',
     email: '', phone: '', startDate: new Date().toISOString().split('T')[0]
   });
   const [roomForm, setRoomForm] = useState({
     staffId: '', customerName: '', serviceType: 'Pedicure & Manicure', minutes: '30'
   });
+  // Outlets of the active business + the role list, both read from the API so the
+  // "add user" form can never offer a retired role or omit a required outlet.
+  const [branches, setBranches] = useState([]);
+  const [roleOptions, setRoleOptions] = useState([]);
   const [productForm, setProductForm] = useState({
     name: '', category: 'Cosmetics', quantity: '', price: ''
   });
 
   // --- DEFAULT DATA REGISTRIES ---
-  const [staffList, setStaffList] = useState([
-    { id: 1, name: 'Maria Santos', address: 'Virac, Catanduanes', age: 28, gender: 'Female', role: 'Cashier', status: 'Active', assignment: 'Counter 1', email: 'maria.santos@bungad.com', phone: '+63 912 3456 789', startDate: '2024-01-15', history: ['Completed Cashier Training (Jan 2024)', 'Processed 500+ transactions', 'Employee of the Month - March 2024'], avatar: 'MS' },
-    { id: 2, name: 'Jane Doe', address: 'San Andres, Catanduanes', age: 24, gender: 'Female', role: 'Staff Specialist', status: 'Active', assignment: 'Room 2', email: 'jane.doe@bungad.com', phone: '+63 923 4567 890', startDate: '2024-02-20', history: ['Specialist Certification (Feb 2024)', 'Handled 200+ client sessions', 'Received 5-star rating from 50 clients'], avatar: 'JD' },
-    { id: 3, name: 'Grace Luna', address: 'Bato, Catanduanes', age: 31, gender: 'Female', role: 'Spa Therapist', status: 'Active', assignment: 'Room 7', email: 'grace.luna@bungad.com', phone: '+63 934 5678 901', startDate: '2023-11-10', history: ['Advanced Spa Therapy Workshop', 'Completed 300+ massage sessions', 'Top Rated Therapist - Q1 2024'], avatar: 'GL' },
-    { id: 4, name: 'Rose Cruz', address: 'Baras, Catanduanes', age: 27, gender: 'Female', role: 'Massage Therapist', status: 'Deactivated', assignment: 'Unassigned', email: 'rose.cruz@bungad.com', phone: '+63 945 6789 012', startDate: '2024-03-05', history: ['Massage Certification (Mar 2024)', 'Handled 80+ sessions before deactivation'], avatar: 'RC' },
-    { id: 5, name: 'Alex Gonzaga', address: 'Gigmoto, Catanduanes', age: 29, gender: 'Male', role: 'Admin', status: 'Active', assignment: 'Unassigned', email: 'alex.gonzaga@bungad.com', phone: '+63 956 7890 123', startDate: '2023-09-01', history: ['Admin Training Completion', 'System Management Expert', 'Staff Training Facilitator'], avatar: 'AG' },
-  ]);
+  // These were hardcoded demo rows (fake staff, fake products, fake receipts,
+  // fake rooms, fake charts). Every one now comes from the API via loadFromApi
+  // below, scoped by the active business, and starts empty so the UI can never
+  // show invented data.
+  const [staffList, setStaffList] = useState([]);
 
-  const [inventoryList, setInventoryList] = useState([
-    { id: 1, name: 'VReal Rejuvenating Set Classic', category: 'Cosmetics', quantity: 2, price: 350, sku: 'VR-001' },
-    { id: 2, name: 'VReal Premium Sunshield SPF50', category: 'Cosmetics', quantity: 15, price: 220, sku: 'VR-002' },
-    { id: 3, name: 'VReal Deep Cleansing Toner', category: 'Cosmetics', quantity: 3, price: 180, sku: 'VR-003' },
-    { id: 4, name: 'Essential Lavender Massage Oil', category: 'Supplies', quantity: 25, price: 450, sku: 'SP-001' },
-    { id: 5, name: 'Sterilized Nail Toolkit Pro', category: 'Equipment', quantity: 15, price: 1200, sku: 'EQ-001' },
-  ]);
+  const [inventoryList, setInventoryList] = useState([]);
 
-  const [auditLogs, setAuditLogs] = useState([
-    { id: 1, time: '2026-05-27 02:12', type: 'VOID', target: 'VReal Rejuvenating Set', value: 350, agent: 'superadmin_vreal' },
-    { id: 2, time: '2026-05-26 18:44', type: 'CANCEL', target: 'Pedicure Service - Walk-in', value: 250, agent: 'Cashier (Maria)' },
-    { id: 3, time: '2026-05-26 14:10', type: 'RESTOCK', target: 'Supply - Lavender Oil', value: 4500, agent: 'superadmin_vreal' },
-  ]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
-  const [roomsState, setRoomsState] = useState([
-    ...Array.from({ length: 5 }, (_, i) => ({ id: i + 1, type: 'Pedicure & Manicure', customer: i === 0 ? 'John Smith' : '', service: i === 0 ? 'Pedicure & Manicure' : '', timeLeft: i === 0 ? 18 : 0, startTime: i === 0 ? new Date().toISOString() : null })),
-    ...Array.from({ length: 5 }, (_, i) => ({ id: i + 6, type: 'Foot Spa', customer: '', service: '', timeLeft: 0, startTime: null })),
-    ...Array.from({ length: 5 }, (_, i) => ({ id: i + 11, type: 'Massage', customer: '', service: '', timeLeft: 0, startTime: null })),
-  ]);
+  const [roomsState, setRoomsState] = useState([]);
+  // Room sections are derived from the rooms that actually exist, grouped by
+  // their type — previously three hardcoded zones of five.
+  const [roomZones, setRoomZones] = useState([]);
 
-  const roomZones = [
-    { title: "Pedicure & Manicure Section", min: 1, max: 5, icon: "💅" },
-    { title: "Foot Spa Section", min: 6, max: 10, icon: "🦶" },
-    { title: "Massage Rooms Section", min: 11, max: 15, icon: "💆" }
-  ];
+  // --- CHART DATA ---
+  // Populated from /dashboard/summary/ (the caller's own scoped sales) and
+  // /catalog/items/ (category names), not from a hardcoded series.
+  const [revenueTrend, setRevenueTrend] = useState([]);
+  const [popularServices, setPopularServices] = useState([]);
 
-  // --- CHART DATA CONFIGURATION ---
-  const revenueTrend = [
-    { day: 'Mon', Sales: 24000, Expenses: 8000 },
-    { day: 'Tue', Sales: 18000, Expenses: 6000 },
-    { day: 'Wed', Sales: 32000, Expenses: 10000 },
-    { day: 'Thu', Sales: 28000, Expenses: 9000 },
-    { day: 'Fri', Sales: 40000, Expenses: 12000 },
-    { day: 'Sat', Sales: 45000, Expenses: 14000 },
-    { day: 'Sun', Sales: 38000, Expenses: 11000 },
-  ];
-
-  const popularServices = [
-    { name: 'Pedicure', Bookings: 120, fill: '#0ea5e9' },
-    { name: 'Manicure', Bookings: 95, fill: '#ec4899' },
-    { name: 'Foot Spa', Bookings: 80, fill: '#10b981' },
-    { name: 'Massage', Bookings: 65, fill: '#f59e0b' },
-  ];
-
-  const productDistribution = [
-    { name: 'Rejuv Sets', value: 45, color: '#f97316', percentage: '45%' },
-    { name: 'Sunshield', value: 25, color: '#22c55e', percentage: '25%' },
-    { name: 'Toners', value: 18, color: '#a855f7', percentage: '18%' },
-    { name: 'Oils & Tools', value: 12, color: '#3b82f6', percentage: '12%' },
-  ];
+  const CHART_COLORS = ['#0ea5e9', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6'];
+  const [productDistribution, setProductDistribution] = useState([]);
+  const [dashboard, setDashboard] = useState({});
+  const [, setCapabilitiesTick] = useState(0);
 
   const activeCount = staffList.filter(s => s.status === 'Active').length;
   const deactivatedCount = staffList.filter(s => s.status === 'Deactivated').length;
+  // staffList is populated from the API, so it starts empty: guard the
+  // percentage or the chart legend reads "NaN%".
+  const pct = (count) => (staffList.length ? `${Math.round((count / staffList.length) * 100)}%` : '0%');
 
   const userStatusDistribution = [
-    { name: 'Active Users', value: activeCount, color: '#06b6d4', percentage: `${Math.round((activeCount / staffList.length) * 100)}%` },
-    { name: 'Deactivated', value: deactivatedCount, color: '#f43f5e', percentage: `${Math.round((deactivatedCount / staffList.length) * 100)}%` }
+    { name: 'Active Users', value: activeCount, color: '#06b6d4', percentage: pct(activeCount) },
+    { name: 'Deactivated', value: deactivatedCount, color: '#f43f5e', percentage: pct(deactivatedCount) }
   ];
 
   const lowStockItemsCount = inventoryList.filter(item => item.quantity <= 5).length;
   const occupiedRoomsCount = roomsState.filter(r => r.customer !== '').length;
-  const totalSales = 284950;
+  // Real figure from the dashboard summary, not a typed-in constant.
+  const totalSales = Number(dashboard.month_sales || 0);
 
   const systemNotifications = [
     ...(lowStockItemsCount > 0 ? [{ id: 'notif-1', text: `⚠️ Warning: ${lowStockItemsCount} items are low in stock.`, type: 'alert' }] : []),
@@ -444,6 +474,187 @@ export default function App() {
     setSweetAlert({ show: true, type, title, message });
   };
 
+  // --- API DATA LOADER ---
+  // Every page in this shell reads from the API. Previously these lists were
+  // hardcoded demo rows, so the dashboard, users, inventory, rooms and audit
+  // tabs all rendered invented data that never touched the database. Each
+  // response is mapped into the shape the existing render code expects, so the
+  // UI is unchanged — only the source is now real and business-scoped.
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    let cancelled = false;
+
+    // Accepts a settled promise and returns its unwrapped list ([] on failure),
+    // so one failing endpoint cannot blank out the whole shell.
+    const val = (settled) => {
+      if (settled.status !== 'fulfilled') return null;
+      const data = settled.value?.data;
+      return data?.results ?? data ?? [];
+    };
+
+    const load = async () => {
+      try {
+        const [dash, staffRes, itemRes, levelRes, auditRes, roomRes, capsRes] = await Promise.allSettled([
+          api.get('/dashboard/summary/'),
+          api.get('/user-profiles/'),
+          api.get('/catalog/items/?item_type=PRODUCT'),
+          api.get('/catalog/inventory/'),
+          api.get('/audit-logs/'),
+          api.get('/rooms/'),
+          api.get('/auth/capabilities/'),
+        ]);
+        if (cancelled) return;
+
+        const dashData = (dash.status === 'fulfilled' && dash.value?.data) || {};
+        setDashboard(dashData);
+
+        // The nav is gated by whatever the server says this role may do.
+        if (capsRes.status === 'fulfilled' && capsRes.value?.data) {
+          const { role, capabilities } = capsRes.value.data;
+          Object.keys(ROLE_CAPABILITIES).forEach((key) => delete ROLE_CAPABILITIES[key]);
+          // Key under the canonical code *and* the display name, because the
+          // shell's nav checks the latter (it comes from the login payload).
+          ROLE_CAPABILITIES[role] = capabilities;
+          ROLE_CAPABILITIES[displayRole(role)] = capabilities;
+        } else {
+          // Capabilities unreachable — show the nav rather than a dead shell.
+          // The API still authorizes every request, so this hides nothing.
+          Object.keys(ROLE_CAPABILITIES).forEach((key) => delete ROLE_CAPABILITIES[key]);
+          ROLE_CAPABILITIES[currentUserRole] = FALLBACK_CAPABILITIES;
+        }
+        setCapabilitiesTick((tick) => tick + 1); // re-render the gated nav
+
+        // Outlets + the role vocabulary for the "add user" form.
+        const [branchRes, rolesRes] = await Promise.allSettled([
+          api.get('/branches/'),
+          api.get('/auth/capabilities/'),
+        ]);
+        if (!cancelled) {
+          setBranches((val(branchRes) || []).map((b) => ({ id: b.id, name: b.name })));
+          const roles = rolesRes.status === 'fulfilled' ? rolesRes.value?.data?.roles : null;
+          if (Array.isArray(roles) && roles.length) setRoleOptions(roles);
+        }
+        setRevenueTrend(
+          (dashData.revenue_trend || []).map((row) => ({
+            day: row.label,
+            Sales: Number(row.sales || 0),
+            Expenses: Number(row.expenses || 0),
+          })),
+        );
+        setPopularServices(
+          (dashData.top_services || []).map((row, index) => ({
+            name: row.name,
+            Bookings: row.quantity,
+            fill: CHART_COLORS[index % CHART_COLORS.length],
+          })),
+        );
+
+        setStaffList(
+          (val(staffRes) || []).map((profile) => ({
+            id: profile.id,
+            name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username,
+            username: profile.username,
+            address: '',
+            age: null,
+            gender: '',
+            role: profile.role_display || profile.role || 'STAFF',
+            status: profile.is_active ? 'Active' : 'Deactivated',
+            assignment: profile.branch_name || 'Unassigned',
+            email: profile.email || '',
+            phone: profile.phone_number || '',
+            startDate: profile.created_at || '',
+            history: [],
+            avatar: (profile.first_name?.[0] || profile.username?.[0] || '?').toUpperCase(),
+          })),
+        );
+
+        const items = val(itemRes) || [];
+        const levels = val(levelRes) || [];
+        const stockByItem = levels.reduce((acc, level) => {
+          acc[level.item] = (acc[level.item] || 0) + Number(level.stock_qty || 0);
+          return acc;
+        }, {});
+        setInventoryList(
+          items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            category: item.category_name || '',
+            quantity: stockByItem[item.id] || 0,
+            price: Number(item.selling_price || 0),
+            sku: item.sku || '',
+          })),
+        );
+        // Pie chart: real stock value grouped by category.
+        const byCategory = items.reduce((acc, item) => {
+          const key = item.category_name || 'Uncategorised';
+          acc[key] = (acc[key] || 0) + (stockByItem[item.id] || 0);
+          return acc;
+        }, {});
+        const total = Object.values(byCategory).reduce((sum, n) => sum + n, 0);
+        setProductDistribution(
+          Object.entries(byCategory)
+            .map(([name, value], index) => ({
+              name,
+              value,
+              color: CHART_COLORS[index % CHART_COLORS.length],
+              percentage: total ? `${Math.round((value / total) * 100)}%` : '0%',
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5),
+        );
+
+        setAuditLogs(
+          (val(auditRes) || []).map((log) => ({
+            id: log.id,
+            time: log.created_at,
+            type: log.action,
+            target: log.description || log.model_name,
+            // AuditLog has no money column; the request id is the traceable ref.
+            request: log.request_id || log.ip_address || '',
+            agent: log.user_name || 'system',
+          })),
+        );
+
+        const rooms = val(roomRes) || [];
+        setRoomsState(
+          rooms.map((room) => ({
+            id: room.id,
+            type: room.room_type || room.name,
+            customer: room.customer_name || '',
+            service: room.service_type || room.item_name || '',
+            timeLeft: room.time_remaining || 0,
+            startTime: room.start_time || null,
+            // Kept so the crew panel can match staff by the outlet they are
+            // assigned to; staff carry a branch name, not a "Room N" label.
+            branch: room.branch,
+            branchName: room.branch_name || '',
+          })),
+        );
+        // Sections follow the rooms that exist, grouped by their real type.
+        const zones = [];
+        rooms.forEach((room) => {
+          const title = room.room_type || room.name || 'Rooms';
+          const existing = zones.find((zone) => zone.title === title);
+          if (existing) existing.ids.push(room.id);
+          else zones.push({ title, ids: [room.id] });
+        });
+        setRoomZones(
+          zones.map((zone) => ({
+            title: zone.title,
+            ids: zone.ids,
+            min: Math.min(...zone.ids),
+            max: Math.max(...zone.ids),
+          })),
+        );
+      } catch (error) {
+        if (!cancelled) setLoginError(error?.response?.data?.detail || 'Unable to load dashboard data.');
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [isLoggedIn, storedBusiness]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -452,6 +663,7 @@ export default function App() {
       const response = await api.post('/auth/login/', loginForm);
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('authUser', JSON.stringify(response.data.user));
+      setCurrentUser(response.data.user || {});
       const granted = Array.isArray(response.data.businesses) ? response.data.businesses : [];
       const primarySlug = response.data.primary_business?.slug || granted[0]?.slug || '';
       rememberBusinesses(granted, primarySlug);
@@ -477,60 +689,192 @@ export default function App() {
     setLoginForm({ username: '', password: '' });
     setLoginError('');
     setIsPOSFullScreen(false);
+    // Clear the role too, or the header keeps showing the previous account's.
+    setCurrentUserRole('');
+    setCurrentUser({});
   };
+
+  // Which demo account the picker has highlighted. Deliberately *not*
+  // `currentUserRole`: that is the role the server reports after a successful
+  // login, which shares no values with these labels, so binding the select to
+  // it left the dropdown blank and out of sync.
+  const [demoSelection, setDemoSelection] = useState(() => Object.keys(DEMO_ACCOUNTS)[0] || '');
 
   const handleDemoRoleChange = (event) => {
     const role = event.target.value;
-    setCurrentUserRole(role);
-    setLoginForm(DEMO_ACCOUNTS[role]);
-    setLoginError('');
+    setDemoSelection(role);
+    const account = DEMO_ACCOUNTS[role];
+    if (account) {
+      setLoginForm(account);
+      setLoginError('');
+    }
   };
 
-  const handleSaveUser = (e) => {
+  // ---- reload helpers (shared by the data-loading effect and the write handlers,
+  // so a write can never leave the table showing a shape the API didn't return) ----
+  /** Unwrap a DRF list response (paginated or not) into an array. */
+  const apiList = (res) => {
+    const data = res?.data;
+    return Array.isArray(data) ? data : (data?.results ?? []);
+  };
+
+  const apiErrorMessage = (err, fallback = 'Something went wrong. Please try again.') => {
+    const data = err?.response?.data;
+    if (typeof data === 'string' && data) return data;
+    if (data && typeof data === 'object') {
+      const first = Object.values(data)[0];
+      if (typeof first === 'string') return first;
+      if (Array.isArray(first) && first[0]) return String(first[0]);
+    }
+    return fallback;
+  };
+
+  const mapProfiles = (profiles) => profiles.map((profile) => ({
+    id: profile.id,
+    name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username,
+    username: profile.username,
+    address: '',
+    age: null,
+    gender: '',
+    role: profile.role_display || profile.role || 'STAFF',
+    status: profile.is_active ? 'Active' : 'Deactivated',
+    assignment: profile.branch_name || 'Unassigned',
+    email: profile.email || '',
+    phone: profile.phone_number || '',
+    startDate: profile.created_at || '',
+    history: [],
+    // Needed by the forms: the room booking posts assigned_staff (a User id),
+    // and editing a user must show the outlet their grant already names.
+    userId: profile.user_id ?? profile.user ?? null,
+    branchId: profile.branch || '',
+    avatar: (profile.first_name?.[0] || profile.username?.[0] || '?').toUpperCase(),
+  }));
+
+  const reloadStaffList = async () => {
+    const res = await api.get('/user-profiles/');
+    return mapProfiles(apiList(res));
+  };
+
+  const reloadRooms = async () => {
+    const res = await api.get('/rooms/');
+    return (apiList(res)).map((room) => ({
+      id: room.id,
+      type: room.room_type || room.name,
+      customer: room.customer_name || '',
+      service: room.service_type || room.item_name || '',
+      timeLeft: room.time_remaining || 0,
+      startTime: room.start_time || null,
+      // Kept so the crew panel can match staff by the outlet they are
+      // assigned to; staff carry a branch name, not a "Room N" label.
+      branch: room.branch,
+      branchName: room.branch_name || '',
+    }));
+  };
+
+  const reloadCatalog = async () => {
+    const [itemRes, levelRes] = await Promise.all([
+      api.get('/catalog/items/?item_type=PRODUCT'),
+      api.get('/catalog/inventory/'),
+    ]);
+    const items = apiList(itemRes);
+    const stockByItem = (apiList(levelRes)).reduce((acc, level) => {
+      acc[level.item] = (acc[level.item] || 0) + Number(level.stock_qty || 0);
+      return acc;
+    }, {});
+    return items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category_name || '',
+      quantity: stockByItem[item.id] || 0,
+      price: Number(item.selling_price || 0),
+      sku: item.sku || '',
+    }));
+  };
+
+  const handleSaveUser = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      if (editingUser) {
-        setStaffList(staffList.map(s => s.id === editingUser.id ? { ...s, ...userForm, history: s.history || [] } : s));
-        triggerSweetAlert('success', 'User Updated', `Successfully updated the profile of ${userForm.name}`);
-        setEditingUser(null);
-      } else {
-        const newUser = {
-          id: Date.now(), ...userForm, status: 'Active', assignment: 'Unassigned',
-          history: [`Started employment on ${new Date(userForm.startDate).toLocaleDateString()}`],
-          avatar: userForm.name.split(' ').map(n => n[0]).join('')
-        };
-        setStaffList([...staffList, newUser]);
-        triggerSweetAlert('success', 'User Added', `${userForm.name} has been added to the system.`);
+    try {
+      // Persist to the server first. `UserProfileSerializer` already accepts this
+      // legacy SPA shape (name/role/branch) and turns it into a UserAccess grant,
+      // so the row survives a reload instead of vanishing with the tab.
+      const payload = {
+        name: userForm.name,
+        email: userForm.email,
+        phone_number: userForm.phone,
+        role: userForm.role,
+      };
+      // Outlet roles need a branch; company-wide roles must omit it entirely
+      // (the backend rejects a business id on those grants).
+      if (!isCompanyWideRole(userForm.role)) {
+        if (!userForm.branch) {
+          triggerSweetAlert('error', 'Outlet Required', 'Cashier and Staff accounts must be assigned to an outlet.');
+          setIsLoading(false);
+          return;
+        }
+        payload.branch = Number(userForm.branch);
       }
+      await (editingUser
+        ? api.patch(`/user-profiles/${editingUser.id}/`, payload)
+        : api.post('/user-profiles/', payload));
+      setStaffList(await reloadStaffList());
+      triggerSweetAlert('success', editingUser ? 'User Updated' : 'User Added',
+        editingUser
+          ? `Successfully updated the profile of ${userForm.name}`
+          : `${userForm.name} has been added to the system.`);
+      if (editingUser) setEditingUser(null);
       setShowUserModal(false);
-      setUserForm({ name: '', address: '', age: '', gender: 'Female', role: 'Cashier', email: '', phone: '', startDate: new Date().toISOString().split('T')[0] });
+      setUserForm({ name: '', address: '', age: '', gender: 'Female', role: 'Cashier', branch: '', email: '', phone: '', startDate: new Date().toISOString().split('T')[0] });
+    } catch (err) {
+      triggerSweetAlert('error', 'Could Not Save', apiErrorMessage(err, 'The profile was not saved.'));
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
-  const handleAddProduct = (e) => {
+  const handleAddProduct = async (e) => {
     e.preventDefault();
-    const newProduct = {
-      id: Date.now(), name: productForm.name, category: productForm.category,
-      quantity: parseInt(productForm.quantity) || 0, price: parseFloat(productForm.price) || 0,
-      sku: `${productForm.category.substring(0, 3)}-${String(Date.now()).slice(-4)}`
-    };
-    setInventoryList([...inventoryList, newProduct]);
-    setShowProductModal(false);
-    setProductForm({ name: '', category: 'Cosmetics', quantity: '', price: '' });
-    triggerSweetAlert('success', 'Product Added', 'The item has been added to the inventory.');
+    setIsSavingProduct(true);
+    try {
+      await api.post('/catalog/items/', {
+        item_type: 'PRODUCT',
+        name: productForm.name,
+        selling_price: productForm.price || '0',
+        tracks_stock: true,
+        is_active: true,
+        attributes: { quantity: parseInt(productForm.quantity) || 0 },
+      });
+      await reloadCatalog();
+      setShowProductModal(false);
+      setProductForm({ name: '', category: 'Cosmetics', quantity: '', price: '' });
+      triggerSweetAlert('success', 'Product Added', 'The item has been added to the inventory.');
+    } catch (err) {
+      triggerSweetAlert('error', 'Could Not Add Product', apiErrorMessage(err, 'The item was not added.'));
+    } finally {
+      setIsSavingProduct(false);
+    }
   };
 
-  const toggleUserStatus = (id, currentStatus) => {
+  const toggleUserStatus = async (id, currentStatus) => {
     const nextStatus = currentStatus === 'Active' ? 'Deactivated' : 'Active';
-    setStaffList(staffList.map(s => s.id === id ? { ...s, status: nextStatus } : s));
-    triggerSweetAlert('info', 'Status Changed', `User state has been set to ${nextStatus}.`);
+    const target = staffList.find((s) => s.id === id);
+    if (!target?.username) {
+      triggerSweetAlert('error', 'Not Available', 'This staff record has no account to update.');
+      return;
+    }
+    try {
+      // is_active lives on the Django user, not the profile.
+      await api.patch(`/user-profiles/${id}/`, { is_active: nextStatus === 'Active' });
+      setStaffList(staffList.map((s) => (s.id === id ? { ...s, status: nextStatus } : s)));
+      triggerSweetAlert('info', 'Status Changed', `User state has been set to ${nextStatus}.`);
+    } catch (err) {
+      triggerSweetAlert('error', 'Could Not Change Status', apiErrorMessage(err));
+    }
   };
 
   const initEditUser = (user) => {
     setEditingUser(user);
-    setUserForm({ name: user.name, address: user.address, age: user.age, gender: user.gender, role: user.role, email: user.email || '', phone: user.phone || '', startDate: user.startDate || new Date().toISOString().split('T')[0] });
+    setUserForm({ name: user.name, address: user.address, age: user.age, gender: user.gender, role: user.role, branch: user.branchId || '', email: user.email || '', phone: user.phone || '', startDate: user.startDate || new Date().toISOString().split('T')[0] });
     setShowUserModal(true);
   };
 
@@ -539,20 +883,46 @@ export default function App() {
     setShowProfileModal(true);
   };
 
-  const handleDeployRoomServices = (e) => {
+  const handleDeployRoomServices = async (e) => {
     e.preventDefault();
     if (!roomForm.staffId) return;
-    setStaffList(staffList.map(s => s.id === parseInt(roomForm.staffId) ? { ...s, assignment: `Room ${selectedRoomId}` } : s));
-    setRoomsState(roomsState.map(r => r.id === selectedRoomId ? { ...r, customer: roomForm.customerName, service: roomForm.serviceType, timeLeft: parseInt(roomForm.minutes), startTime: new Date().toISOString() } : r));
-    setShowRoomModal(false);
-    setRoomForm({ staffId: '', customerName: '', serviceType: 'Pedicure & Manicure', minutes: '30' });
-    triggerSweetAlert('success', 'Room Timer Started', `Room ${selectedRoomId} is now active.`);
+    try {
+      // Persist the booking; RoomTable carries is_occupied / start_time /
+      // duration_minutes / assigned_staff, which is what time_remaining is
+      // computed from. Ticking the timer in local state alone would reset on
+      // every reload and report the room as free while it is in use.
+      await api.patch(`/rooms/${selectedRoomId}/`, {
+        is_occupied: true,
+        customer_name: roomForm.customerName,
+        service_type: roomForm.serviceType,
+        duration_minutes: parseInt(roomForm.minutes, 10) || 0,
+        assigned_staff: staffList.find((s) => String(s.id) === String(roomForm.staffId))?.userId ?? null,
+        start_time: new Date().toISOString(),
+      });
+      setRoomsState(await reloadRooms());
+      setShowRoomModal(false);
+      setRoomForm({ staffId: '', customerName: '', serviceType: 'Pedicure & Manicure', minutes: '30' });
+      triggerSweetAlert('success', 'Room Timer Started', `Room ${selectedRoomId} is now active.`);
+    } catch (err) {
+      triggerSweetAlert('error', 'Could Not Start Timer', apiErrorMessage(err, 'The room was not updated.'));
+    }
   };
 
-  const handleEvacuateRoom = (roomId) => {
-    setStaffList(staffList.map(s => s.assignment === `Room ${roomId}` ? { ...s, assignment: 'Unassigned' } : s));
-    setRoomsState(roomsState.map(r => r.id === roomId ? { ...r, customer: '', service: '', timeLeft: 0, startTime: null } : r));
-    triggerSweetAlert('info', 'Room Cleared', `Room ${roomId} is now vacant and ready.`);
+  const handleEvacuateRoom = async (roomId) => {
+    try {
+      await api.patch(`/rooms/${roomId}/`, {
+        is_occupied: false,
+        customer_name: '',
+        service_type: '',
+        duration_minutes: 0,
+        assigned_staff: null,
+        start_time: null,
+      });
+      setRoomsState(await reloadRooms());
+      triggerSweetAlert('info', 'Room Cleared', `Room ${roomId} is now vacant and ready.`);
+    } catch (err) {
+      triggerSweetAlert('error', 'Could Not Clear Room', apiErrorMessage(err, 'The room was not updated.'));
+    }
   };
 
   const unassignedStaff = staffList.filter(s => s.assignment === 'Unassigned' && s.status === 'Active');
@@ -598,7 +968,10 @@ export default function App() {
   const totalProductPages = Math.ceil(filteredProducts.length / entriesPerPage) || 1;
   const paginatedProducts = filteredProducts.slice((productPage - 1) * entriesPerPage, productPage * entriesPerPage);
 
-  const filteredAudits = auditLogs.filter(a => a.target.toLowerCase().includes(auditSearch.toLowerCase()) || a.type.toLowerCase().includes(auditSearch.toLowerCase()));
+  const filteredAudits = auditLogs.filter(a => {
+    const haystack = `${a.target || ''} ${a.type || ''} ${a.agent || ''}`.toLowerCase();
+    return haystack.includes(auditSearch.toLowerCase());
+  });
   const totalAuditPages = Math.ceil(filteredAudits.length / entriesPerPage) || 1;
   const paginatedAudits = filteredAudits.slice((auditPage - 1) * entriesPerPage, auditPage * entriesPerPage);
 
@@ -622,12 +995,13 @@ export default function App() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-cyan-300 uppercase block">Select Demo Account</label>
-              <select value={currentUserRole} onChange={handleDemoRoleChange} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white font-medium">
-                <option value="Superadmin">Superadmin Node</option>
-                <option value="Owner">Owner</option>
-                <option value="Branch Admin">Branch Admin</option>
-                <option value="Cashier">Cashier Account</option>
-                <option value="Staff">Staff Account</option>
+              {/* Options come from DEMO_ACCOUNTS itself. This list used to be
+                  hand-written with the old role names, so changing a demo
+                  account silently left the picker pointing at missing keys. */}
+              <select value={demoSelection} onChange={handleDemoRoleChange} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white font-medium">
+                {Object.keys(DEMO_ACCOUNTS).map((label) => (
+                  <option key={label} value={label}>{label} Node</option>
+                ))}
               </select>
               <p className="text-[10px] text-slate-400">Demo credentials are filled automatically for local testing.</p>
             </div>
@@ -642,9 +1016,12 @@ export default function App() {
             <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-[10px] text-cyan-200">
               <p className="font-semibold uppercase tracking-wider mb-2">Available demo accounts</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {Object.entries(DEMO_ACCOUNTS).map(([role, account]) => (
-                  <button key={role} type="button" onClick={() => { setCurrentUserRole(role); setLoginForm(account); }} className="text-left hover:text-white">
-                    <span className="font-semibold">{role}:</span> {account.username}
+                {Object.entries(DEMO_ACCOUNTS).map(([label, account]) => (
+                  // Fill the form only. The role is whatever the server says it
+                  // is — pre-setting it from this button's label is what made the
+                  // header briefly show the wrong role before login completed.
+                  <button key={label} type="button" onClick={() => setLoginForm(account)} className="text-left hover:text-white">
+                    <span className="font-semibold">{label}:</span> {account.username}
                   </button>
                 ))}
               </div>
@@ -790,13 +1167,27 @@ export default function App() {
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>System Role Assigned</label>
+                  {/* Roles come from the API's ROLE_CHOICES, so a retired role
+                      (e.g. the old "Branch Admin") can never be offered again. */}
                   <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
-                    <option value="Cashier">Cashier</option>
-                    <option value="Owner">Owner</option>
-                    <option value="Branch Admin">Branch Admin</option>
-                    <option value="Staff">Staff</option>
+                    {(roleOptions.length ? roleOptions : FALLBACK_ROLE_OPTIONS).map((opt) => (
+                      <option key={opt.value || opt.code} value={opt.label}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
+                {/* Cashier/Staff grants must name an outlet; company-wide roles
+                    must not (backend check constraint). */}
+                {!isCompanyWideRole(userForm.role) && (
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Outlet (Branch)</label>
+                    <select value={userForm.branch} onChange={(e) => setUserForm({ ...userForm, branch: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
+                      <option value="">Select an outlet...</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
                   {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
                   {isLoading ? 'Saving...' : 'Save Account'}
@@ -884,7 +1275,10 @@ export default function App() {
                     <input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                 </div>
-                <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all">Confirm Stock Entry</button>
+                <button type="submit" disabled={isSavingProduct} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
+                  {isSavingProduct ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {isSavingProduct ? 'Saving...' : 'Confirm Stock Entry'}
+                </button>
               </form>
             </div>
           </div>
@@ -958,7 +1352,13 @@ export default function App() {
                 <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-slate-100 to-slate-50 border-slate-200'} border px-3 py-1 rounded-xl text-xs`}>
                   <UserCheck size={14} className="text-cyan-600" />
                   <span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Role:</span>
-                  <span className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{currentUserRole}</span>
+                  <span className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{currentUserRole || '—'}</span>
+                  {/* §6.3 split: SUPERADMIN is its own role again, distinct from
+                      OWNER. The badge keys off the role code, not the Django
+                      is_superuser flag, so the two can't be conflated. */}
+                  {currentUser?.role_code === 'SUPERADMIN' && (
+                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Superadmin</span>
+                  )}
                 </div>
 
                 <div className={`h-5 w-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
@@ -1334,7 +1734,12 @@ export default function App() {
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       {roomsState.filter(r => r.id >= zone.min && r.id <= zone.max).map((room) => {
-                        const assignedCrew = staffList.filter(s => s.assignment === `Room ${room.id}`);
+                        // Staff are assigned to an outlet, so match on the room's
+                        // branch. The old `Room ${id}` label came from the
+                        // hardcoded demo rows and never matched real data.
+                        const assignedCrew = room.branchName
+                          ? staffList.filter((s) => s.assignment === room.branchName)
+                          : [];
                         const isOccupied = room.customer !== '';
 
                         return (
@@ -1538,7 +1943,7 @@ export default function App() {
                         <th className="py-2.5 px-4">Timestamp</th>
                         <th className="py-2.5 px-4">Action</th>
                         <th className="py-2.5 px-4">Target</th>
-                        <th className="py-2.5 px-4">Value</th>
+                        <th className="py-2.5 px-4">Request</th>
                         <th className="py-2.5 px-4">Agent</th>
                       </tr>
                     </thead>
@@ -1552,7 +1957,13 @@ export default function App() {
                             </span>
                           </td>
                           <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{log.target}</td>
-                          <td className={`py-3 px-4 font-mono font-semibold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>₱{log.value.toFixed(2)}</td>
+                          {/* AuditLog carries no money field — the old "Value"
+                              column came from the hardcoded demo receipts and
+                              crashed on every real row (value is null). The
+                              request id is the useful trace for an audit trail. */}
+                          <td className={`py-3 px-4 font-mono text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {log.request || '—'}
+                          </td>
                           <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>{log.agent}</td>
                         </tr>
                       ))}
@@ -1591,18 +2002,16 @@ export default function App() {
               <DocumentationPage isDarkMode={isDarkMode} />
             )}
 
-            {/* PRODUCT MANAGEMENT ROUTES */}
+            {/* UNIFIED CATALOG ROUTES — one endpoint, filtered by item_type.
+                The old per-catalog pages (vss-services / vreal-products /
+                bb-products) pointed at routes retired in Phase 5. */}
             <Routes>
-              <Route path="/vss-services" element={canAccess(currentUserRole, 'catalog') ?
-                <CrudTable title="VSS Services" apiEndpoint="vss-services" columns={['Category', 'Description', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
+              <Route path="/catalog/services" element={canAccess(currentUserRole, 'catalog') ?
+                <CrudTable key="services" title="Services" apiEndpoint="catalog/items?item_type=SERVICE" columns={['Category', 'Description', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
                 : <AccessDenied />
               } />
-              <Route path="/vreal-products" element={canAccess(currentUserRole, 'catalog') ?
-                <CrudTable title="VREAL Products" apiEndpoint="vreal-products" columns={['Category', 'Product', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
-                : <AccessDenied />
-              } />
-              <Route path="/bb-products" element={canAccess(currentUserRole, 'catalog') ?
-                <CrudTable title="BB Products" apiEndpoint="bb-products" columns={['Product Name', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
+              <Route path="/catalog/products" element={canAccess(currentUserRole, 'catalog') ?
+                <CrudTable key="products" title="Products" apiEndpoint="catalog/items?item_type=PRODUCT" columns={['Category', 'Product', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />
                 : <AccessDenied />
               } />
             </Routes>

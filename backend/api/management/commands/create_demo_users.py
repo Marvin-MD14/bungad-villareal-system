@@ -3,12 +3,17 @@ from django.core.management.base import BaseCommand
 from api.models import Branch, UserProfile, UserAccess, Business
 
 
+        # Role codes come from UserAccess.ROLE_CHOICES (§6.3 renamed SUPERADMIN ->
+        # OWNER; the two are distinct roles again). So "superadmin" below names the
+        # account — a Django superuser / platform operator — whose capability role
+        # is SUPERADMIN. Every other account holds a distinct role so each login
+        # renders a different dashboard.
 DEMO_USERS = [
     {
         'username': 'demo_superadmin',
         'password': 'DemoSuperadmin!2026',
         'role': 'SUPERADMIN',
-        'access_role': 'OWNER',
+        'access_role': 'SUPERADMIN',
         'is_staff': True,
         'is_superuser': True,
     },
@@ -21,10 +26,34 @@ DEMO_USERS = [
         'is_superuser': False,
     },
     {
-        'username': 'demo_branch_admin',
-        'password': 'DemoBranchAdmin!2026',
-        'role': 'BRANCH_ADMIN',
+        'username': 'demo_company_admin',
+        'password': 'DemoCompanyAdmin!2026',
+        'role': 'COMPANY_ADMIN',
+        'access_role': 'COMPANY_ADMIN',
+        'is_staff': True,
+        'is_superuser': False,
+    },
+    {
+        'username': 'demo_accountant',
+        'password': 'DemoAccountant!2026',
+        'role': 'ACCOUNTANT',
+        'access_role': 'ACCOUNTANT',
+        'is_staff': True,
+        'is_superuser': False,
+    },
+    {
+        'username': 'demo_business_manager',
+        'password': 'DemoBusinessManager!2026',
+        'role': 'BUSINESS_MANAGER',
         'access_role': 'BUSINESS_MANAGER',
+        'is_staff': True,
+        'is_superuser': False,
+    },
+    {
+        'username': 'demo_supervisor',
+        'password': 'DemoSupervisor!2026',
+        'role': 'SUPERVISOR',
+        'access_role': 'SUPERVISOR',
         'is_staff': True,
         'is_superuser': False,
     },
@@ -79,10 +108,9 @@ class Command(BaseCommand):
             user.set_password(demo_user['password'])
             user.save()
             user.groups.set([group])
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.role = role
-            profile.branch = branch if role in {'BRANCH_ADMIN', 'CASHIER', 'STAFF'} else None
-            profile.save()
+            # §4.4: the profile keeps personal data only — role and branch are
+            # carried by the UserAccess grant created just below.
+            UserProfile.objects.get_or_create(user=user)
 
             # Ensure UserAccess grant
             is_company = access_role in UserAccess.COMPANY_ROLES

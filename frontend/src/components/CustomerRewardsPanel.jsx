@@ -1,15 +1,7 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { Gift, Loader2, TrendingUp, Sparkles } from 'lucide-react';
 import CustomerTierBadge from './CustomerTierBadge';
-import { applyBusinessHeader } from '../utils/session';
-
-const api = axios.create({ baseURL: 'http://127.0.0.1:8000/api' });
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) config.headers.Authorization = `Token ${token}`;
-  return applyBusinessHeader(config);
-});
+import { api } from '../utils/api';
 
 export default function CustomerRewardsPanel({
   customerId,

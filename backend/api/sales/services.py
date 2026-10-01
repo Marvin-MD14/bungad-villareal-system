@@ -1,7 +1,6 @@
 # backend/api/sales/services.py
 
-from decimal import Decimal
-from uuid import uuid4
+from decimal import Decimal, ROUND_DOWN
 from django.db import transaction as db_transaction
 from django.db.models import F
 from django.utils import timezone
@@ -12,17 +11,28 @@ from api.models import (
     CustomerReward, RewardClaim, Branch
 )
 from api.catalog.models import Item, BusinessItem, InventoryLevel, StockMovement
+from api.loyalty.models import LoyaltyProgram, LoyaltyTransaction
+from api.numbering import DocumentSequence
+from api.payments.models import CashierShift, Payment, PaymentMethod
 
 # Legacy per-catalog labels, kept on TransactionItem for receipts/reports.
-_CATALOG_BY_BUSINESS = {'vss': 'VSS', 'vreal': 'VREAL', 'bb': 'BB'}
-_CATALOG_BY_BRANCH_TYPE = {'VSS': 'VSS', 'VREAL': 'VREAL', 'BB': 'BB'}
-
+# The mapping itself lives on :attr:`api.models.Branch.branch_type`, which is the
+# single source of truth for "which legacy catalog does this outlet belong to".
+# It used to be duplicated here as an exact-match dict on the business slug, which
+# silently disagreed with ``Branch.branch_type`` (substring match over slug *and*
+# business type): a business slugged ``vss-spa`` or typed ``VREAL`` was labelled
+# VSS/VREAL on the branch but stamped GENERIC on its receipts.
 
 def catalog_source_for_branch(branch):
-    """Map a branch (or its business) to the legacy catalog_source enum."""
-    if branch.business_id and branch.business:
-        return _CATALOG_BY_BUSINESS.get(branch.business.slug, 'GENERIC')
-    return _CATALOG_BY_BRANCH_TYPE.get(getattr(branch, 'branch_type', ''), 'GENERIC')
+    """Map a branch's business to the legacy ``catalog_source`` enum.
+
+    Maps to GENERIC when the outlet is MIXED (no legacy catalog matched), since
+    GENERIC is the only non-VSS/VREAL/BB value the choice set allows.
+    """
+    branch_type = getattr(branch, 'branch_type', None)
+    return branch_type if branch_type in ('VSS', 'VREAL', 'BB') else 'GENERIC'
+
+
 
 
 @db_transaction.atomic
@@ -37,11 +47,23 @@ def checkout(
     reward_ids=(),
     apply_tier_discount=True,
     idempotency_key=None,
-    notes=''
+    notes='',
+    payments=None,
+    shift=None,
 ):
-    """Unified atomic checkout service across all businesses."""
+    """Unified atomic checkout service across all businesses.
+
+    ``payments`` is an optional list of tender specs
+    (``{'method': <id or code>, 'amount': ..., 'tendered': ..., 'reference': ...}``)
+    whose amounts must add up to the total; without it a single CASH tender of
+    ``amount_paid`` is recorded, so every receipt always decomposes into
+    ``Payment`` rows.  ``shift`` pins the sale (and its tenders) to a till
+    session; when omitted the cashier's open shift at this branch is attached.
+    """
     if idempotency_key:
-        existing = Transaction.objects.filter(idempotency_key=idempotency_key).first()
+        # all_objects: a retry must find the original receipt even if the till
+        # has since switched its active business.
+        existing = Transaction.all_objects.filter(idempotency_key=idempotency_key).first()
         if existing:
             return existing
 
@@ -122,12 +144,64 @@ def checkout(
     total_discount = discount + tier_discount_amount + reward_discount
     total = max(Decimal('0'), subtotal - total_discount)
 
-    if amount_paid < total:
+    # --- Payment plan ---------------------------------------------------
+    # Every sale decomposes into Payment rows. With an explicit `payments`
+    # list each tender must be positive, tender >= applied amount, and the
+    # applied amounts must add up to the receipt total. Without one, the
+    # legacy `amount_paid` becomes a single CASH tender so old clients keep
+    # working unchanged.
+    payment_specs = []
+    if payments:
+        for entry in payments:
+            try:
+                pay_amount = Decimal(str(entry.get('amount', '0')))
+                raw_tendered = entry.get('tendered', entry.get('amount', '0'))
+                pay_tendered = Decimal(str(raw_tendered if raw_tendered is not None else pay_amount))
+            except (TypeError, ValueError):
+                raise ValidationError('Payment amounts must be numbers.')
+            if pay_amount <= 0:
+                raise ValidationError('Each payment amount must be positive.')
+            if pay_tendered < pay_amount:
+                raise ValidationError('Tendered cannot be less than the payment amount.')
+            payment_specs.append({
+                'method': entry.get('method') or entry.get('method_code') or 'CASH',
+                'amount': pay_amount,
+                'tendered': pay_tendered,
+                'reference': str(entry.get('reference', '') or '')[:100],
+            })
+        if sum(spec['amount'] for spec in payment_specs) != total:
+            raise ValidationError('Payment amounts must add up to the transaction total.')
+        tendered_total = sum((spec['tendered'] for spec in payment_specs), Decimal('0'))
+    else:
+        if amount_paid > 0 and total > 0:
+            payment_specs = [{
+                'method': 'CASH', 'amount': total, 'tendered': amount_paid, 'reference': '',
+            }]
+        tendered_total = amount_paid
+    if tendered_total < total:
         raise ValidationError('Payment is less than the transaction total.')
+    change_total = tendered_total - total
 
-    points_earned = (total / Decimal('100')).quantize(Decimal('0.01')) if customer else Decimal('0')
+    # --- Loyalty earning rules (per-business config, not hardcoded) ------
+    program = LoyaltyProgram.for_business(branch.business)
+    loyalty_active = (
+        customer is not None
+        and branch.business.loyalty_enabled
+        and program.is_active
+        and program.earn_amount > 0
+    )
+    points_earned = (
+        (total / program.earn_amount).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        if loyalty_active else Decimal('0')
+    )
 
-    txn_number = f"TXN-{timezone.now():%Y%m%d}-{uuid4().hex[:8].upper()}"
+    # --- Numbering -------------------------------------------------------
+    # Counter-derived (TXN-YYYYMMDD-0042), locked per business: the old
+    # date + random hex scheme collided across concurrent tills.
+    txn_number = DocumentSequence.next_document_number(branch.business, prefix='TXN')
+    shift_obj = shift or CashierShift.objects.filter(
+        branch=branch, staff=cashier, status='OPEN',
+    ).first()
     txn = Transaction.objects.create(
         idempotency_key=idempotency_key,
         business=branch.business,
@@ -139,14 +213,36 @@ def checkout(
         subtotal=subtotal,
         discount=total_discount,
         total=total,
-        amount_paid=amount_paid,
-        change=amount_paid - total,
+        amount_paid=tendered_total,
+        change=change_total,
         status='PAID',
         notes=notes,
+        shift=shift_obj,
         customer_tier_at_purchase=tier_at_purchase,
         tier_discount_applied=tier_discount_amount,
         points_earned=points_earned,
     )
+
+    # --- Tenders ----------------------------------------------------------
+    if payment_specs:
+        PaymentMethod.ensure_defaults(branch.business)
+        for spec in payment_specs:
+            method = PaymentMethod.resolve(branch.business, spec['method'])
+            if method is None:
+                raise ValidationError(
+                    f'Unknown payment method: {spec["method"]}. '
+                    'Create it under /payment-methods/ first.'
+                )
+            Payment.objects.create(
+                business=branch.business,
+                transaction=txn,
+                shift=shift_obj,
+                method=method,
+                amount=spec['amount'],
+                tendered=spec['tendered'],
+                change=max(Decimal('0'), spec['tendered'] - spec['amount']),
+                reference=spec['reference'],
+            )
 
     for r in claimed_rewards:
         r.claimed_in_transaction = txn
@@ -163,11 +259,12 @@ def checkout(
         item_obj = pi['item']
         TransactionItem.objects.create(
             transaction=txn,
+            branch=branch,
             item=item_obj,
             item_type=item_obj.item_type,
             catalog_source=catalog_source_for_branch(branch),
             description=item_obj.name,
-            price=pi['price'],
+            unit_price=pi['price'],
             quantity=pi['quantity'],
             total=pi['total'],
         )
@@ -189,20 +286,47 @@ def checkout(
         branch=branch,
         date=timezone.localdate()
     )
-    daily_sales.total_sales = Decimal(str(daily_sales.total_sales or 0)) + total
-    daily_sales.transaction_count += 1
-    daily_sales.save(update_fields=['total_sales', 'transaction_count', 'updated_at'])
+    # F() expressions, not read-modify-write: two tills selling into the same
+    # daily row at the same time both land instead of the later read clobbering
+    # the earlier write.
+    DailySales.objects.filter(pk=daily_sales.pk).update(
+        total_sales=F('total_sales') + total,
+        transaction_count=F('transaction_count') + 1,
+        updated_at=timezone.now(),
+    )
 
     if customer:
         old_tier = customer.loyalty_tier
-        customer.total_spent = Decimal(str(customer.total_spent or 0)) + total
-        customer.loyalty_points = Decimal(str(customer.loyalty_points or 0)) + points_earned
-        free_items_earned = int(total // Decimal('5000'))
-        if free_items_earned > 0:
-            customer.free_items_available += free_items_earned
+        free_items_earned = (
+            int(total // program.free_item_threshold)
+            if loyalty_active and program.free_item_threshold > 0
+            else 0
+        )
+        # Same story as the daily row: balances move with guarded F() updates.
+        ClientProfile.objects.filter(pk=customer.pk).update(
+            total_spent=F('total_spent') + total,
+            loyalty_points=F('loyalty_points') + points_earned,
+            free_items_available=F('free_items_available') + free_items_earned,
+            updated_at=timezone.now(),
+        )
+        customer.refresh_from_db()
+        if points_earned:
+            # The ledger row is the source of truth; the cached column above is
+            # what this entry sums to. A balance can now always be replayed.
+            LoyaltyTransaction.objects.create(
+                business=branch.business,
+                customer=customer,
+                branch=branch,
+                transaction=txn,
+                entry_type='EARN',
+                points=points_earned,
+                balance_after=customer.loyalty_points,
+                reason=f'Earned on {txn_number}',
+                created_by=cashier,
+            )
 
         customer.recalculate_tier()
-        customer.save()
+        customer.save(update_fields=['loyalty_tier', 'updated_at'])
 
         if old_tier != customer.loyalty_tier:
             CustomerReward.objects.create(
@@ -244,16 +368,37 @@ def void_sale(*, transaction, staff, reason=''):
                 created_by=staff,
             )
 
-    # Daily ledger: move the amount from sales into voids for that day.
-    try:
-        daily = DailySales.objects.get(
-            branch=transaction.branch, date=transaction.created_at.date()
+    # Daily ledger: move the amount from sales into voids for that day,
+    # with F() so a concurrent sale hitting the same row is not clobbered.
+    DailySales.objects.filter(
+        branch=transaction.branch, date=transaction.created_at.date(),
+    ).update(
+        total_void=F('total_void') + transaction.total,
+        total_sales=F('total_sales') - transaction.total,
+        updated_at=timezone.now(),
+    )
+
+    # Reverse the points the sale earned — as a *new* ledger entry. The
+    # original EARN row stays, so the audit trail shows both sides.
+    customer = transaction.customer
+    if customer and transaction.points_earned:
+        reversal = -Decimal(str(transaction.points_earned))
+        ClientProfile.objects.filter(pk=customer.pk).update(
+            loyalty_points=F('loyalty_points') + reversal,
+            updated_at=timezone.now(),
         )
-        daily.total_void = Decimal(str(daily.total_void or 0)) + transaction.total
-        daily.total_sales = Decimal(str(daily.total_sales or 0)) - transaction.total
-        daily.save(update_fields=['total_void', 'total_sales', 'updated_at'])
-    except DailySales.DoesNotExist:
-        pass
+        customer.refresh_from_db()
+        LoyaltyTransaction.objects.create(
+            business=transaction.business,
+            customer=customer,
+            branch=transaction.branch,
+            transaction=transaction,
+            entry_type='ADJUST',
+            points=reversal,
+            balance_after=customer.loyalty_points,
+            reason=f'Void of {transaction.transaction_number}',
+            created_by=staff,
+        )
 
     return transaction
 
@@ -282,6 +427,65 @@ def receive_stock(*, branch, item, quantity, reference='', user=None):
         created_by=user,
     )
     return inv
+
+
+@db_transaction.atomic
+def transfer_stock(*, from_branch, to_branch, item, quantity, reference='', user=None):
+    """Move stock between two branches of the same business, atomically.
+
+    Both sides are written to the ledger (``TRANSFER_OUT`` then ``TRANSFER_IN``)
+    so the audit trail always balances out.  The source is decremented with a
+    guarded UPDATE, so two concurrent transfers can never oversell the same row.
+    """
+    if quantity <= 0:
+        raise ValidationError('Quantity must be positive.')
+    if from_branch.pk == to_branch.pk:
+        raise ValidationError('Source and destination branch must differ.')
+    if from_branch.business_id != to_branch.business_id:
+        raise ValidationError('Stock can only be transferred within one business.')
+
+    source = InventoryLevel.objects.filter(branch=from_branch, item=item).first()
+    if source is None or source.stock_qty < quantity:
+        raise ValidationError(
+            f'Insufficient stock for {item.name} at {from_branch.name} '
+            f'(have {source.stock_qty if source else 0}, need {quantity}).'
+        )
+
+    moved = InventoryLevel.objects.filter(
+        pk=source.pk, stock_qty__gte=quantity
+    ).update(stock_qty=F('stock_qty') - quantity)
+    if not moved:
+        raise ValidationError(f'Insufficient stock for {item.name} at {from_branch.name}.')
+    source.refresh_from_db()
+
+    reference = reference or f'TR-{from_branch.pk}to{to_branch.pk}'
+    StockMovement.objects.create(
+        branch=from_branch,
+        item=item,
+        quantity_delta=-quantity,
+        reason='TRANSFER_OUT',
+        reference=reference,
+        balance_after=source.stock_qty,
+        created_by=user,
+    )
+
+    destination, _ = InventoryLevel.objects.get_or_create(
+        branch=to_branch,
+        item=item,
+        defaults={'stock_qty': 0},
+    )
+    InventoryLevel.objects.filter(pk=destination.pk).update(stock_qty=F('stock_qty') + quantity)
+    destination.refresh_from_db()
+    StockMovement.objects.create(
+        branch=to_branch,
+        item=item,
+        quantity_delta=quantity,
+        reason='TRANSFER_IN',
+        reference=reference,
+        balance_after=destination.stock_qty,
+        created_by=user,
+    )
+    return destination
 
 
 @db_transaction.atomic

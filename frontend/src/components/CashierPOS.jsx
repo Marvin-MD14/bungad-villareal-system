@@ -1,23 +1,16 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import axios from 'axios';
 import Swal from 'sweetalert2';
 import {
   Search, Plus, Minus, Trash2, CreditCard, X,
   Scissors, Sparkles, ShoppingBag, Clock, Package,
-  Printer, Loader2, AlertCircle, User, Receipt,
-  ChevronDown, ChevronRight, Tag, Hash, UserPlus,
-  Mail, Phone, MapPin, Calendar, Gift, Star, Crown
+  Printer, Loader2, AlertCircle, User,
+  ChevronDown, ChevronRight, Tag, UserPlus,
+  Mail, Phone, MapPin, Calendar, Gift, Star
 } from 'lucide-react';
 import CustomerRewardsPanel from './CustomerRewardsPanel';
 import CustomerTierBadge from './CustomerTierBadge';
-import { applyBusinessHeader, newIdempotencyKey } from '../utils/session';
-
-const api = axios.create({ baseURL: 'http://127.0.0.1:8000/api' });
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) config.headers.Authorization = `Token ${token}`;
-  return applyBusinessHeader(config);
-});
+import { newIdempotencyKey } from '../utils/session';
+import { api } from '../utils/api';
 
 const records = (response) => response.data.results || response.data;
 
@@ -329,7 +322,8 @@ export default function CashierPOS({ isDarkMode = false }) {
 
   // Customer Info Modal States
   const [showCustomerInfoModal, setShowCustomerInfoModal] = useState(false);
-  const [pendingCustomerData, setPendingCustomerData] = useState(null);
+  // (was `pendingCustomerData` — written on save/close but never read; the
+  //  selected customer is carried by `customerId`.)
   const [showRewardNotification, setShowRewardNotification] = useState(false);
   const [notifiedCustomer, setNotifiedCustomer] = useState(null);
   const [notifiedRewards, setNotifiedRewards] = useState([]);
@@ -397,6 +391,11 @@ export default function CashierPOS({ isDarkMode = false }) {
   }, []);
 
   // ============ KEYBOARD SHORTCUTS (FIXED WITH DEPENDENCY ARRAY) ============
+  // The listener is registered once and reads the *current* `completeSale`
+  // through a ref. Calling it directly meant the handler closed over whichever
+  // render happened when the effect ran, so the sale it ran against could be
+  // stale (and ESLint rightly flags calling a later `const` before it exists).
+  const completeSaleRef = useRef(null);
   useEffect(() => {
     const handleKey = (e) => {
       // ✅ Huwag i-trigger ang shortcuts kapag bukas ang modal
@@ -405,7 +404,7 @@ export default function CashierPOS({ isDarkMode = false }) {
       if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); }
       if (e.key === 'F4') {
         e.preventDefault();
-        if (cart.length > 0) completeSale();
+        if (cart.length > 0) completeSaleRef.current?.();
       }
       if (e.key === 'Escape') {
         setSearch('');
@@ -610,7 +609,6 @@ export default function CashierPOS({ isDarkMode = false }) {
       setWalkinName('');
 
       setShowCustomerInfoModal(false);
-      setPendingCustomerData(null);
 
       await checkCustomerRewards(newCustomer.id);
       await processSale(newCustomer.id, fullName);
@@ -715,6 +713,12 @@ export default function CashierPOS({ isDarkMode = false }) {
     // Ipakita ang Customer Info Modal para sa bagong customer o walk-in
     setShowCustomerInfoModal(true);
   };
+  // Keep the F4 shortcut pointing at the newest `completeSale`. The ref is
+  // written in an effect (never during render) so the ref write is not a side
+  // effect of rendering; the handler then always calls current state.
+  useEffect(() => {
+    completeSaleRef.current = completeSale;
+  });
 
   // ============ RENDER ============
   if (loading) {
@@ -1183,7 +1187,6 @@ export default function CashierPOS({ isDarkMode = false }) {
         isOpen={showCustomerInfoModal}
         onClose={() => {
           setShowCustomerInfoModal(false);
-          setPendingCustomerData(null);
         }}
         onSubmit={handleSaveCustomerInfo}
         isDarkMode={isDarkMode}
