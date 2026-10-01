@@ -35,16 +35,16 @@ import {
 const API_BASE_URL = SHARED_API_BASE_URL;
 
 // One-click sign-in shortcuts. These mirror the demo accounts created by
-// `manage.py create_demo_users` — one per UserAccess role, so each login shows a
+// `manage.py create_demo_users` — one per seeded role, so each login shows a
 // different dashboard. SUPERADMIN (platform operator) and OWNER (company owner)
 // are separate roles: same wildcard, different denied actions.
+// 2026-10-01: the Company Admin, Accountant and Supervisor nodes were removed
+// together with their demo accounts. The roles stay in UserAccess.ROLE_CHOICES
+// and remain assignable in Administration; only the one-click nodes are gone.
 const DEMO_ACCOUNTS = {
   'Superadmin': { username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
   'Owner': { username: 'demo_owner', password: 'DemoOwner!2026' },
-  'Company Admin': { username: 'demo_company_admin', password: 'DemoCompanyAdmin!2026' },
-  'Accountant': { username: 'demo_accountant', password: 'DemoAccountant!2026' },
   'Business Manager': { username: 'demo_business_manager', password: 'DemoBusinessManager!2026' },
-  'Supervisor': { username: 'demo_supervisor', password: 'DemoSupervisor!2026' },
   'Cashier': { username: 'demo_cashier', password: 'DemoCashier!2026' },
   'Staff': { username: 'demo_staff', password: 'DemoStaff!2026' },
 };

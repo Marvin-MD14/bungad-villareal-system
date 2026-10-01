@@ -1191,10 +1191,10 @@ class DashboardStatsViewSet(viewsets.ViewSet):
             ).annotate(day=TruncDate('created_at')).values('day').annotate(total=Sum('total'))
         }
         expenses_by_day = {
-            row['day']: row['total']
+            row['expense_date']: row['total']
             for row in expenses.filter(
                 expense_date__gte=week_start
-            ).annotate(day=TruncDate('expense_date')).values('day').annotate(total=Sum('amount'))
+            ).values('expense_date').annotate(total=Sum('amount'))
         }
         revenue_trend = []
         for offset in range(7):

@@ -79,7 +79,8 @@ bungad-villareal-system/
 │       ├── catalog/               Category · Item · BusinessItem · InventoryLevel · StockMovement
 │       ├── sales/                 services.py (checkout / void / receive / adjust)
 │       ├── management/commands/   bootstrap_company · create_demo_users · setup_demo_data ·
-│       │                          import_vss_services · import_vreal_products · backup_db · erd
+│       │                          reseed_demo · import_vss_services · import_vreal_products ·
+│       │                          backup_db · erd
 │       ├── migrations/            0001…0007 legacy · 0008–0010 SaaS refactor · 0011–0017 follow-ups
 │       └── tests/                 8 modules, 90 tests (see §10)
 ├── frontend/
@@ -488,8 +489,9 @@ Run from `backend/`. Commands live in `api/management/commands/`.
 | Command | What it does |
 |---------|--------------|
 | `python manage.py bootstrap_company` | Creates the singleton `Company`, the default `BusinessType` rows, the initial six `Business`es, and the `OWNER` access grant. Idempotent |
-| `python manage.py create_demo_users` | Creates/updates one local demo account per role, each with the matching `UserAccess` grant(s) |
+| `python manage.py create_demo_users` | Creates/updates the five local demo accounts (Superadmin, Owner, Business Manager, Cashier, Staff), each with the matching `UserAccess` grant(s) — cashier/staff pinned to the VSS `Main` branch, the Business Manager business-wide; also purges the retired Company Admin / Accountant / Supervisor demo accounts (2026-10-01 — their roles stay assignable) |
 | `python manage.py setup_demo_data` | Convenience wrapper: migrate → import catalog seed files → create demo users |
+| `python manage.py reseed_demo` | **Full demo rebuild (2026-10-01).** Wipes businesses/branches/users/grants and all operational rows, then seeds: 6 Businesses (VSS ×2 branches, VReal ×2, BB/Panganan/Auto Spa ×1, KB with no branch), one Business Manager per business, **1 cashier + 2 staff per branch** (the branch-less KB staffs the business itself), payment methods, loyalty programs, per-branch inventory/rooms/clients, **14 days of paid sales** with tendered payments + shifts + loyalty ledger, DailySales roll-ups, attendance, expenses and feedback. Deterministic seed; writes `DEMO_LOGINS.md` with every username/password. Dev-only — never run in production |
 | `python manage.py import_vss_services <file>` | Reads a `DESCRIPTION<TAB>PRICE` file with `CATEGORY_KEY` header lines → `Category(kind=SERVICE)` + `Item(item_type=SERVICE)` + `BusinessItem(business='vss')` |
 | `python manage.py import_vreal_products <file>` | Same format, `item_type=PRODUCT`, business slug `vreal` |
 
@@ -504,6 +506,7 @@ copy .env.example .env            # then set a real SECRET_KEY
 python manage.py migrate
 python manage.py bootstrap_company
 python manage.py setup_demo_data  # or: import_vss_services/import_vreal_products + create_demo_users
+python manage.py reseed_demo      # optional: full org (6 businesses, 7 branches, 32 logins) + 14 days of demo ops
 python manage.py createsuperuser
 python manage.py runserver        # API on http://localhost:8000
 
@@ -592,7 +595,7 @@ Other fixed settings worth knowing:
 4. Run behind a WSGI/ASGI server (`gunicorn core.wsgi` or `uvicorn core.asgi:application`)
    behind nginx/Caddy with TLS; HSTS is already enabled.
 5. Nightly `dumpdata` (or `pg_dump`) backups; keep at least one off-site copy.
-6. Re-issue demo credentials — `create_demo_users` seeds known passwords and must never run in production.
+6. Re-issue demo credentials — `create_demo_users` seeds known passwords and must never run in production. Neither must `reseed_demo`, which wipes and repopulates all tenant data (see `DEMO_LOGINS.md` for its generated accounts).
 
 ### 11.2 Repository hygiene
 

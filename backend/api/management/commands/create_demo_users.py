@@ -1,5 +1,6 @@
 from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
+from django.db.models.deletion import ProtectedError
 from api.models import Branch, UserProfile, UserAccess, Business
 
 
@@ -26,34 +27,10 @@ DEMO_USERS = [
         'is_superuser': False,
     },
     {
-        'username': 'demo_company_admin',
-        'password': 'DemoCompanyAdmin!2026',
-        'role': 'COMPANY_ADMIN',
-        'access_role': 'COMPANY_ADMIN',
-        'is_staff': True,
-        'is_superuser': False,
-    },
-    {
-        'username': 'demo_accountant',
-        'password': 'DemoAccountant!2026',
-        'role': 'ACCOUNTANT',
-        'access_role': 'ACCOUNTANT',
-        'is_staff': True,
-        'is_superuser': False,
-    },
-    {
         'username': 'demo_business_manager',
         'password': 'DemoBusinessManager!2026',
         'role': 'BUSINESS_MANAGER',
         'access_role': 'BUSINESS_MANAGER',
-        'is_staff': True,
-        'is_superuser': False,
-    },
-    {
-        'username': 'demo_supervisor',
-        'password': 'DemoSupervisor!2026',
-        'role': 'SUPERVISOR',
-        'access_role': 'SUPERVISOR',
         'is_staff': True,
         'is_superuser': False,
     },
@@ -75,6 +52,13 @@ DEMO_USERS = [
     },
 ]
 
+# 2026-10-01: the Company Admin / Accountant / Supervisor one-click demo nodes
+# were removed from the login picker. The roles themselves remain in
+# UserAccess.ROLE_CHOICES and stay assignable in Administration — only the
+# seeded demo accounts are retired, and any rows left behind by an earlier run
+# of this command are purged below so a stale login can never succeed.
+LEGACY_DEMO_USERNAMES = ['demo_company_admin', 'demo_accountant', 'demo_supervisor']
+
 
 class Command(BaseCommand):
     help = 'Create or update local demo accounts for each application role with UserAccess grants.'
@@ -82,12 +66,28 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         primary_biz = Business.objects.filter(slug='vss').first()
         branch, _ = Branch.objects.get_or_create(
-            name='Demo Branch',
-            defaults={'business': primary_biz}
-        )
-        if branch.business is None and primary_biz:
-            branch.business = primary_biz
-            branch.save()
+            business=primary_biz, name='Main',
+            defaults={'code': 'MAIN'},
+        ) if primary_biz else (None, True)
+
+        # Purge the retired demo accounts (see LEGACY_DEMO_USERNAMES). Deleting
+        # a stale user cascades its profile and access grants; if a PROTECTed
+        # row (e.g. a stock movement it created) pins the account, deactivate
+        # it and revoke its grants so the login can never succeed again.
+        for stale in User.objects.filter(username__in=LEGACY_DEMO_USERNAMES):
+            try:
+                stale.delete()
+                self.stdout.write(self.style.SUCCESS(
+                    f'Removed retired demo account: {stale.username}'
+                ))
+            except ProtectedError:
+                stale.is_active = False
+                stale.save(update_fields=['is_active'])
+                stale.access_grants.update(is_active=False)
+                self.stdout.write(self.style.WARNING(
+                    f'Retired demo account {stale.username} is referenced by '
+                    'existing records - deactivated and grants revoked instead.'
+                ))
 
         for demo_user in DEMO_USERS:
             role = demo_user['role']
@@ -121,7 +121,9 @@ class Command(BaseCommand):
                 business=target_biz,
                 defaults={'is_primary': True, 'is_active': True}
             )
-            if not is_company and branch:
+            # Cashiers/Staff are pinned to the primary branch; a Business
+            # Manager stays business-wide (empty branch list = all branches).
+            if branch and access_role in ('CASHIER', 'STAFF'):
                 user_access.branches.add(branch)
 
             action = 'Created' if created else 'Updated'
