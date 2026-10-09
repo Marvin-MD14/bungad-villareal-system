@@ -380,6 +380,8 @@ class Transaction(BusinessScopedQuerySetModel):
     notes = models.TextField(blank=True, null=True)
     # The till session that rang this sale up, when one was open. Payments made
     # against a sale inherit it, which is what makes shift reconciliation work.
+    # NOTE: CashierShift lives in api/payments/models.py but is registered under
+    # the `api` app_label, so the reference here is 'api.CashierShift'.
     shift = models.ForeignKey(
         'api.CashierShift', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='transactions',

@@ -37,6 +37,10 @@ else:
 
 
 # Application definition
+# §4.4: the monolithic `api` app was split into focused sub-apps during the
+# multi-business refactor. Each sub-app owns one slice of the domain, and they
+# must all be listed here so Django can discover their models, migrations,
+# signals and admin registrations.
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -49,6 +53,13 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'api',
+    'api.access',      # users, roles, grants, device tokens, audit
+    'api.business',    # Business, BusinessType, outlets
+    'api.catalog',     # unified Category/Item/BusinessItem/Inventory
+    'api.company',     # the single Company row (superadmin owner)
+    'api.loyalty',     # loyalty programs + customer rewards
+    'api.payments',    # payments, cashier shifts, till reconciliation
+    'api.sales',       # sales services / checkout orchestration
 ]
 
 MIDDLEWARE = [
