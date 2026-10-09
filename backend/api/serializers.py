@@ -1,4 +1,3 @@
-
 import re
 
 from rest_framework import serializers
@@ -392,6 +391,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
     def get_total_transactions(self, obj):
+        # The related_name on Transaction.customer is the default `transaction_set`.
         return obj.transaction_set.count() if hasattr(obj, 'transaction_set') else 0
 
     def get_discount_rate(self, obj):
@@ -418,6 +418,10 @@ class CustomerRewardSerializer(serializers.ModelSerializer):
             'transaction', 'claimed_in_transaction',
             'reward_type_display', 'status_display', 'customer_name',
         ]
+        # `earned_at` is auto_now_add: it is set by the DB, never by the client.
+        # `status`/`claimed_at`/`claimed_in_transaction` change only through the
+        # /claim/ action so every claim leaves a RewardClaim audit row.
+        read_only_fields = ['earned_at', 'claimed_at', 'status', 'claimed_in_transaction']
 
 
 
@@ -433,6 +437,7 @@ class RewardClaimSerializer(serializers.ModelSerializer):
             'claimed_at', 'notes',
             'reward_title', 'customer_name', 'claimed_by_name',
         ]
+        read_only_fields = ['claimed_at', 'claimed_by']
 
 
 

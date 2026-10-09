@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from .models import (
-    AuditLog, Attendance, Branch, ClientProfile, DailySales, Expense, RoomTable,
-    Transaction, UserProfile,
+    AuditLog, Attendance, Branch, ClientProfile, CustomerReward, DailySales,
+    Expense, RewardClaim, RoomTable, Transaction, UserProfile,
 )
 from .company.models import Company
 from .business.models import Business, BusinessType
@@ -140,7 +140,21 @@ class StockMovementAdmin(admin.ModelAdmin):
         return False
 
 
-admin.site.register(ClientProfile)
+@admin.register(ClientProfile)
+class ClientProfileAdmin(ScopedModelAdmin):
+    """Loyalty balances are shown but not editable here: checkout owns them."""
+
+    list_display = (
+        'full_name', 'phone_number', 'business', 'loyalty_tier',
+        'loyalty_points', 'total_spent', 'is_active',
+    )
+    list_filter = ('business', 'loyalty_tier', 'is_active')
+    search_fields = ('first_name', 'last_name', 'phone_number', 'email')
+    readonly_fields = ('loyalty_points', 'total_spent', 'loyalty_tier', 'free_items_available')
+
+    @admin.display(description='name')
+    def full_name(self, obj):
+        return obj.full_name
 
 
 @admin.register(Transaction)
@@ -204,3 +218,54 @@ class UserProfileAdmin(admin.ModelAdmin):
     def role(self, obj):
         """Read-only view of the grants that replaced ``UserProfile.role`` (§4.4)."""
         return obj.role
+
+
+# ============================================================
+# CUSTOMER REWARD (Loyalty Program)
+# ============================================================
+
+@admin.register(CustomerReward)
+class CustomerRewardAdmin(ScopedModelAdmin):
+    """Rewards are created by checkout; the admin is for *investigating* them.
+
+    ``status``/``claimed_at``/``claimed_in_transaction`` are read-only here so a
+    reward can only ever be spent through the API's /claim/ action, which writes
+    the matching RewardClaim row in the same transaction.
+    """
+
+    list_display = (
+        'customer', 'title', 'reward_type', 'status', 'value',
+        'discount_percent', 'earned_at', 'expires_at',
+    )
+    list_filter = ('status', 'reward_type', 'customer__business')
+    search_fields = (
+        'title', 'customer__first_name', 'customer__last_name', 'customer__phone_number',
+    )
+    date_hierarchy = 'earned_at'
+    readonly_fields = ('status', 'claimed_at', 'claimed_in_transaction')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('customer')
+
+
+@admin.register(RewardClaim)
+class RewardClaimAdmin(ScopedModelAdmin):
+    """The audit trail of every reward that was ever spent."""
+
+    list_display = ('reward', 'customer_name', 'amount_applied', 'claimed_by', 'claimed_at')
+    list_filter = ('claimed_at',)
+    search_fields = (
+        'reward__title', 'reward__customer__first_name', 'reward__customer__last_name',
+    )
+    date_hierarchy = 'claimed_at'
+    readonly_fields = ('reward', 'transaction', 'claimed_by', 'amount_applied', 'claimed_at')
+
+    @admin.display(description='customer')
+    def customer_name(self, obj):
+        return obj.reward.customer.full_name
+
+    def has_add_permission(self, request):
+        # Claims are written by /customer-rewards/{id}/claim/ so they inherit
+        # the transaction they were applied in; adding one by hand would
+        # create a claim with no receipt behind it.
+        return False

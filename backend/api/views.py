@@ -947,7 +947,13 @@ class CustomerRewardViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelVi
 
     @action(detail=True, methods=['post'])
     def claim(self, request, pk=None):
-        """Claim a reward."""
+        """Claim a reward.
+
+        Flipping the status here is the *only* supported way a reward is spent:
+        every claim writes a RewardClaim audit row and stamps `claimed_at` /
+        `claimed_in_transaction` in the same atomic block, so the loyalty
+        history can never show a reward as both available and spent.
+        """
         reward = self.get_object()
         if reward.status != 'AVAILABLE':
             return Response(
@@ -958,17 +964,30 @@ class CustomerRewardViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelVi
         transaction_id = request.data.get('transaction_id')
         notes = request.data.get('notes', '')
 
+        # Resolve the transaction first: assigning the raw id to a FK field
+        # would silently write the wrong column if the transaction is in
+        # another business, and a bad id must fail before any writes happen.
+        transaction_obj = None
+        if transaction_id:
+            transaction_obj = auto_scope(
+                Transaction.objects.filter(pk=transaction_id), request
+            ).first()
+            if transaction_obj is None:
+                return Response(
+                    {'detail': 'Transaction not found in your scope.'}, status=400,
+                )
+
         try:
             with db_transaction.atomic():
                 reward.status = 'CLAIMED'
                 reward.claimed_at = timezone.now()
-                if transaction_id:
-                    reward.claimed_in_transaction_id = transaction_id
+                if transaction_obj is not None:
+                    reward.claimed_in_transaction = transaction_obj
                 reward.save()
 
                 RewardClaim.objects.create(
                     reward=reward,
-                    transaction_id=transaction_id if transaction_id else None,
+                    transaction=transaction_obj,
                     claimed_by=request.user,
                     amount_applied=reward.value,
                     notes=notes,
@@ -976,6 +995,11 @@ class CustomerRewardViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelVi
         except Exception as error:
             return Response({'detail': str(error)}, status=400)
 
+        self._log_action(
+            'UPDATE',
+            reward,
+            f"Claimed reward '{reward.title}' for {reward.customer.full_name}",
+        )
         return Response(self.get_serializer(reward).data)
 
     @action(detail=False, methods=['get'])
