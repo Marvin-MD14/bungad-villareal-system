@@ -1332,6 +1332,195 @@ class DashboardStatsViewSet(viewsets.ViewSet):
 
         return Response(results)
 
+    # ================================================================
+    # NEW DASHBOARD ENDPOINTS — Enhanced chart widgets
+    # ================================================================
+
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Sales by hour of day (last 7 days)',
+        tags=['Dashboard'],
+    )
+    @action(detail=False, methods=['get'], url_path='sales_by_hour')
+    def sales_by_hour(self, request):
+        """Hourly sales breakdown — shows peak hours for staffing decisions."""
+        from django.db.models.functions import ExtractHour
+
+        week_ago = timezone.localdate() - timedelta(days=7)
+        transactions = auto_scope(
+            Transaction.objects.filter(
+                transaction_type='SALE',
+                created_at__date__gte=week_ago,
+            ),
+            request,
+        )
+        rows = (
+            transactions
+            .annotate(hour=ExtractHour('created_at'))
+            .values('hour')
+            .annotate(total=Sum('total'), count=Count('id'))
+            .order_by('hour')
+        )
+        by_hour = {row['hour']: row for row in rows}
+        # Fill all 24 hours so the chart is continuous.
+        return Response([
+            {
+                'hour': h,
+                'label': f'{h:02d}:00',
+                'sales': float(by_hour.get(h, {}).get('total') or 0),
+                'transactions': by_hour.get(h, {}).get('count') or 0,
+            }
+            for h in range(24)
+        ])
+
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Top selling products (last 30 days)',
+        tags=['Dashboard'],
+    )
+    @action(detail=False, methods=['get'], url_path='top_products')
+    def top_products(self, request):
+        """Best-selling PRODUCT-type items by revenue."""
+        month_ago = timezone.localdate() - timedelta(days=30)
+        transactions = auto_scope(
+            Transaction.objects.filter(
+                transaction_type='SALE', created_at__date__gte=month_ago,
+            ),
+            request,
+        )
+        rows = (
+            TransactionItem.objects
+            .filter(
+                transaction__in=transactions,
+                item__isnull=False,
+                item__item_type='PRODUCT',
+            )
+            .values('item__name', 'item__category__name')
+            .annotate(quantity=Sum('quantity'), revenue=Sum('total'))
+            .order_by('-revenue')[:5]
+        )
+        return Response([
+            {
+                'name': row['item__name'],
+                'category': row['item__category__name'] or 'Uncategorized',
+                'quantity': row['quantity'],
+                'revenue': float(row['revenue'] or 0),
+            }
+            for row in rows
+        ])
+
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Payment method split (last 30 days)',
+        tags=['Dashboard'],
+    )
+    @action(detail=False, methods=['get'], url_path='payment_split')
+    def payment_split(self, request):
+        """How customers pay — Cash vs GCash vs Card."""
+        from api.payments.models import Payment
+
+        month_ago = timezone.localdate() - timedelta(days=30)
+        payments = auto_scope(
+            Payment.objects.filter(created_at__date__gte=month_ago),
+            request,
+        )
+        rows = (
+            payments
+            .values('method__code', 'method__name')
+            .annotate(total=Sum('amount'), count=Count('id'))
+            .order_by('-total')
+        )
+        return Response([
+            {
+                'code': row['method__code'],
+                'name': row['method__name'],
+                'amount': float(row['total'] or 0),
+                'count': row['count'],
+            }
+            for row in rows
+        ])
+
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Customer tier distribution',
+        tags=['Dashboard'],
+    )
+    @action(detail=False, methods=['get'], url_path='tier_distribution')
+    def tier_distribution(self, request):
+        """How many customers per loyalty tier."""
+        clients = auto_scope(ClientProfile.objects.all(), request)
+        rows = clients.values('loyalty_tier').annotate(count=Count('id'))
+        tier_map = {row['loyalty_tier']: row['count'] for row in rows}
+        return Response([
+            {'tier': tier, 'count': tier_map.get(tier, 0)}
+            for tier in ('BRONZE', 'SILVER', 'GOLD', 'PLATINUM')
+        ])
+
+    @extend_schema(
+        responses={200: drf_serializers.ListField(child=drf_serializers.DictField())},
+        summary='Branch sales comparison (last 30 days)',
+        tags=['Dashboard'],
+    )
+    @action(detail=False, methods=['get'], url_path='branch_sales')
+    def branch_sales(self, request):
+        """Compare sales across branches of the active business."""
+        month_ago = timezone.localdate() - timedelta(days=30)
+        transactions = auto_scope(
+            Transaction.objects.filter(
+                transaction_type='SALE', created_at__date__gte=month_ago,
+            ),
+            request,
+        )
+        rows = (
+            transactions
+            .values('branch__name', 'branch__id')
+            .annotate(total=Sum('total'), count=Count('id'))
+            .order_by('-total')
+        )
+        return Response([
+            {
+                'branch': row['branch__name'],
+                'branch_id': row['branch__id'],
+                'sales': float(row['total'] or 0),
+                'transactions': row['count'],
+            }
+            for row in rows
+        ])
+
+    @extend_schema(
+        responses={200: drf_serializers.DictField()},
+        summary='New vs returning customers (last 30 days)',
+        tags=['Dashboard'],
+    )
+    @action(detail=False, methods=['get'], url_path='customer_split')
+    def customer_split(self, request):
+        """Are we acquiring new customers or relying on regulars?"""
+        month_ago = timezone.localdate() - timedelta(days=30)
+        transactions = auto_scope(
+            Transaction.objects.filter(
+                transaction_type='SALE',
+                created_at__date__gte=month_ago,
+                customer__isnull=False,
+            ),
+            request,
+        )
+        customer_ids = list(
+            transactions.values_list('customer_id', flat=True).distinct()
+        )
+        returning = 0
+        new = 0
+        for cid in customer_ids:
+            count = transactions.filter(customer_id=cid).count()
+            if count > 1:
+                returning += 1
+            else:
+                new += 1
+        return Response({
+            'new': new,
+            'returning': returning,
+            'total': len(customer_ids),
+        })
+
 
 # ============================================================
 # BRANCH CATALOG VIEWSET (Para sa POS)
@@ -1498,6 +1687,8 @@ class CompanyViewSet(viewsets.ModelViewSet):
             {'detail': 'The company record cannot be deleted.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
+
+
 # ============================================================
 # CUSTOMER DETECTION VIEWSET (Auto-detect returning customers)
 # ============================================================
