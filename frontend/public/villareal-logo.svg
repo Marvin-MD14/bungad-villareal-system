@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
+  <!-- V shape (purple) -->
+  <path d="M 50 40 L 100 140 L 150 40" stroke="#5d2e6b" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Green accent top-left -->
+  <path d="M 50 40 L 75 32" stroke="#8bc34a" stroke-width="10" stroke-linecap="round"/>
+  <!-- Green accent top-right -->
+  <path d="M 125 32 L 150 40" stroke="#8bc34a" stroke-width="10" stroke-linecap="round"/>
+  <!-- Green accent bottom -->
+  <path d="M 70 145 L 130 145" stroke="#8bc34a" stroke-width="8" stroke-linecap="round"/>
+  <!-- Bottom accents (dark purple) -->
+  <path d="M 60 158 L 80 162" stroke="#3d1e47" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 120 162 L 140 158" stroke="#3d1e47" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- VILLAREAL text (purple) -->
+  <text x="180" y="95" font-family="Arial, sans-serif" font-size="52" font-weight="900" fill="#5d2e6b" letter-spacing="2">VILLAREAL</text>
+  <!-- SALON & SPA text (gray) -->
+  <text x="180" y="130" font-family="Arial, sans-serif" font-size="22" font-weight="300" fill="#888888" letter-spacing="4">SALON &amp; SPA</text>
+</svg>

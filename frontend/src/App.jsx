@@ -6,16 +6,18 @@ import AdministrationPage from './components/AdministrationPage';
 import CashierPOS from './components/CashierPOS';
 import CustomersRewardsPage from './components/CustomersRewardsPage';
 import DocumentationPage from './components/DocumentationPage';
+import LandingPage from './components/LandingPage';
 import {
   applyBusinessHeader, getActiveBusinessSlug, getGrantedBusinesses,
   rememberBusinesses, forgetBusinessContext, setActiveBusiness,
 } from './utils/session';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL as SHARED_API_BASE_URL } from './utils/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell, LineChart, Line
+  PieChart, Pie, Cell, LineChart, Line,
+  AreaChart, Area, ComposedChart,
 } from 'recharts';
 import {
   Users, DoorOpen, ShieldAlert, LogOut, Plus, Menu, X, UserPlus,
@@ -25,22 +27,24 @@ import {
   Mail, Phone, MapPin, Award, Target, ChevronLeft, ChevronRight,
   Download, Loader2, Sun, Moon, Settings,
   CreditCard, ShoppingBag, Scissors,
-  Crown, BookOpen, Building2
+  Crown, BookOpen, Building2,
+  Wallet, Users2, TrendingDown, Clock as ClockIcon, Activity as ActivityIcon,
+  Maximize2, Minimize2, Home, Sparkles,
 } from 'lucide-react';
 
+// ============ VILLAREAL BRAND COLORS (from logo) ============
+const BRAND = {
+  purple: '#5d2e6b',
+  purpleDark: '#3d1e47',
+  purpleLight: '#7d4a8b',
+  green: '#8bc34a',
+  greenDark: '#689f38',
+  greenLight: '#aed581',
+};
+
 // ============ API CONFIGURATION ============
-// Origin comes from VITE_API_BASE_URL (see utils/api.js); the fallback keeps a
-// fresh clone runnable. The old copy here used `localhost` while every other
-// page used `127.0.0.1` — the same backend, two very different hosts.
 const API_BASE_URL = SHARED_API_BASE_URL;
 
-// One-click sign-in shortcuts. These mirror the demo accounts created by
-// `manage.py create_demo_users` — one per seeded role, so each login shows a
-// different dashboard. SUPERADMIN (platform operator) and OWNER (company owner)
-// are separate roles: same wildcard, different denied actions.
-// 2026-10-01: the Company Admin, Accountant and Supervisor nodes were removed
-// together with their demo accounts. The roles stay in UserAccess.ROLE_CHOICES
-// and remain assignable in Administration; only the one-click nodes are gone.
 const DEMO_ACCOUNTS = {
   'Superadmin': { username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
   'Owner': { username: 'demo_owner', password: 'DemoOwner!2026' },
@@ -49,88 +53,10 @@ const DEMO_ACCOUNTS = {
   'Staff': { username: 'demo_staff', password: 'DemoStaff!2026' },
 };
 
-// Full demo-login roster as created by `manage.py reseed_demo` (mirrors
-// DEMO_LOGINS.md, one cashier + two staff per branch). The dropdown above
-// keeps the five role-picks; this directory feeds the browsable panel on the
-// login screen so every generated account is discoverable without the file.
-// Deterministic seeds — re-running reseed_demo reproduces the same names.
 const MGR_PW = 'DemoManager!2026';
 const CASHIER_PW = 'DemoCashier!2026';
 const STAFF_PW = 'DemoStaff!2026';
-const DEMO_DIRECTORY = [
-  {
-    group: 'Company',
-    accounts: [
-      { label: 'Owner · all businesses', username: 'demo_owner', password: 'DemoOwner!2026' },
-      { label: 'Superadmin · platform', username: 'demo_superadmin', password: 'DemoSuperadmin!2026' },
-    ],
-  },
-  {
-    group: 'Villareal Spa Services',
-    accounts: [
-      { label: 'Manager · all branches', username: 'demo_business_manager', password: 'DemoBusinessManager!2026' },
-      { label: 'Cashier · Main', username: 'demo_cashier', password: CASHIER_PW },
-      { label: 'Staff 1 · Main', username: 'demo_staff', password: STAFF_PW },
-      { label: 'Staff 2 · Main', username: 'staff_vss_main_2', password: STAFF_PW },
-      { label: 'Cashier · Diamond', username: 'cashier_vss_dia', password: CASHIER_PW },
-      { label: 'Staff 1 · Diamond', username: 'staff_vss_dia_1', password: STAFF_PW },
-      { label: 'Staff 2 · Diamond', username: 'staff_vss_dia_2', password: STAFF_PW },
-    ],
-  },
-  {
-    group: 'VReal Products',
-    accounts: [
-      { label: 'Manager · all branches', username: 'bm_vreal', password: MGR_PW },
-      { label: 'Cashier · Main', username: 'cashier_vreal_main', password: CASHIER_PW },
-      { label: 'Staff 1 · Main', username: 'staff_vreal_main_1', password: STAFF_PW },
-      { label: 'Staff 2 · Main', username: 'staff_vreal_main_2', password: STAFF_PW },
-      { label: 'Cashier · Ayala', username: 'cashier_vreal_ayl', password: CASHIER_PW },
-      { label: 'Staff 1 · Ayala', username: 'staff_vreal_ayl_1', password: STAFF_PW },
-      { label: 'Staff 2 · Ayala', username: 'staff_vreal_ayl_2', password: STAFF_PW },
-    ],
-  },
-  {
-    group: 'BB Retail',
-    accounts: [
-      { label: 'Manager · all branches', username: 'bm_bb', password: MGR_PW },
-      { label: 'Cashier · Main', username: 'cashier_bb_main', password: CASHIER_PW },
-      { label: 'Staff 1 · Main', username: 'staff_bb_main_1', password: STAFF_PW },
-      { label: 'Staff 2 · Main', username: 'staff_bb_main_2', password: STAFF_PW },
-    ],
-  },
-  {
-    group: 'Panganan Menu',
-    accounts: [
-      { label: 'Manager · all branches', username: 'bm_panganan', password: MGR_PW },
-      { label: 'Cashier · Main', username: 'cashier_panganan_main', password: CASHIER_PW },
-      { label: 'Staff 1 · Main', username: 'staff_panganan_main_1', password: STAFF_PW },
-      { label: 'Staff 2 · Main', username: 'staff_panganan_main_2', password: STAFF_PW },
-    ],
-  },
-  {
-    group: 'KB Items · no branch',
-    accounts: [
-      { label: 'Manager · business-wide', username: 'bm_kb', password: MGR_PW },
-      { label: 'Cashier · business-wide', username: 'cashier_kb', password: CASHIER_PW },
-      { label: 'Staff 1 · business-wide', username: 'staff_kb_1', password: STAFF_PW },
-      { label: 'Staff 2 · business-wide', username: 'staff_kb_2', password: STAFF_PW },
-    ],
-  },
-  {
-    group: 'Auto Spa Services',
-    accounts: [
-      { label: 'Manager · all branches', username: 'bm_autospa', password: MGR_PW },
-      { label: 'Cashier · Main', username: 'cashier_autospa_main', password: CASHIER_PW },
-      { label: 'Staff 1 · Main', username: 'staff_autospa_main_1', password: STAFF_PW },
-      { label: 'Staff 2 · Main', username: 'staff_autospa_main_2', password: STAFF_PW },
-    ],
-  },
-];
 
-// Which role code each demo node / directory row stands for. The quick-pick
-// map names it explicitly; the 32 directory rows carry labels that always
-// start with the role word ("Cashier · Main"), so their code is derived —
-// one statement of the mapping instead of thirty-two hand-copied ones.
 const DEMO_ACCOUNT_ROLES = {
   'Superadmin': 'SUPERADMIN',
   'Owner': 'OWNER',
@@ -145,21 +71,8 @@ const roleCodeFromLabel = (label) => {
   return Object.values(DEMO_ACCOUNT_ROLES).find((code) => code.toLowerCase() === first) || '';
 };
 
-// Capabilities and role list come from GET /auth/capabilities/, which derives
-// them from the live ROLE_ACTIONS matrix. This client used to carry its own
-// ROLE_CAPABILITIES copy, free to drift from the server's policy; now it holds
-// only what the caller is actually allowed, and falls back to "show nothing
-// privileged" until that request resolves.
 const ROLE_CAPABILITIES = {};
 
-/**
- * The nav entries, used only as a safety net.
- *
- * If /auth/capabilities/ cannot be reached we do NOT lock the operator out of a
- * blank shell: every action is still authorized server-side, so showing the nav
- * costs nothing security-wise and avoids a dead UI. Capability checks stay
- * "closed" while the real list is in flight.
- */
 const FALLBACK_CAPABILITIES = [
   'dashboard', 'sales', 'clients', 'client_manage', 'customer_rewards',
   'administration', 'users', 'user_manage', 'rooms', 'room_manage',
@@ -167,7 +80,6 @@ const FALLBACK_CAPABILITIES = [
   'documentation',
 ];
 
-/** Only used if /auth/capabilities/ is unreachable; the API has the real list. */
 const FALLBACK_ROLE_OPTIONS = [
   { code: 'CASHIER', label: 'Cashier' },
   { code: 'STAFF', label: 'Staff' },
@@ -175,21 +87,18 @@ const FALLBACK_ROLE_OPTIONS = [
   { code: 'BUSINESS_MANAGER', label: 'Business Manager' },
 ];
 
-/** Company-wide roles must NOT carry a branch (UserAccess check constraint). */
 const COMPANY_ROLE_CODES = new Set(['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT']);
 const isCompanyWideRole = (label) => COMPANY_ROLE_CODES.has(
   String(label || '').replace(/[\s_]+/g, '_').toUpperCase(),
 );
 
-/**
- * 'BUSINESS_MANAGER' -> 'Business Manager'.
- *
- * The login payload exposes roles as a display name (the backend does
- * `role.replace('_', ' ').title()`) while /auth/capabilities/ reports the
- * canonical code. Keys are stored under both so a lookup by either matches.
- */
 const displayRole = (role) =>
   String(role || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+const normalizeRoleCode = (role) =>
+  String(role || '').replace(/[\s_]+/g, '_').toUpperCase();
+
+const isCashierRole = (role) => normalizeRoleCode(role) === 'CASHIER';
 
 const canAccess = (role, capability) => {
   if (!role) return false;
@@ -197,8 +106,6 @@ const canAccess = (role, capability) => {
   return Array.isArray(caps) ? caps.includes(capability) : false;
 };
 
-// The shared client already attaches `Authorization` and `X-Business`; this
-// instance only adds a request timeout.
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -208,7 +115,6 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) config.headers.Authorization = `Token ${token}`;
-  // Scope every call to the business the user last picked (backend resolves it per request).
   return applyBusinessHeader(config);
 });
 
@@ -217,6 +123,215 @@ const AccessDenied = () => (
     You do not have permission to view this page.
   </div>
 );
+
+// ============ VILLAREAL "V" ICON (inline SVG, no image) ============
+function VillarealLogo({ size = 40 }) {
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} className="flex-shrink-0">
+      <path d="M 20 20 L 50 75 L 80 20" stroke="#8bc34a" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M 20 20 L 35 15" stroke="#8bc34a" strokeWidth="6" strokeLinecap="round"/>
+      <path d="M 65 15 L 80 20" stroke="#8bc34a" strokeWidth="6" strokeLinecap="round"/>
+      <path d="M 35 80 L 65 80" stroke="#8bc34a" strokeWidth="5" strokeLinecap="round"/>
+      <path d="M 28 88 L 40 90" stroke="#5d2e6b" strokeWidth="5" strokeLinecap="round"/>
+      <path d="M 60 90 L 72 88" stroke="#5d2e6b" strokeWidth="5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+// ============================================================
+// ============ FULLSCREEN HELPERS (BROWSER-LEVEL) ============
+// ============================================================
+const requestBrowserFullScreen = async (element) => {
+  const el = element || document.documentElement;
+  try {
+    if (el.requestFullscreen) {
+      await el.requestFullscreen();
+    } else if (el.webkitRequestFullscreen) {
+      await el.webkitRequestFullscreen();
+    } else if (el.msRequestFullscreen) {
+      await el.msRequestFullscreen();
+    }
+    return true;
+  } catch (err) {
+    console.warn('Fullscreen request denied:', err);
+    return false;
+  }
+};
+
+const exitBrowserFullScreen = async () => {
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen();
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('Exit fullscreen failed:', err);
+    return false;
+  }
+};
+
+const isBrowserFullScreen = () =>
+  Boolean(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+
+// ============================================================
+// ============ DASHBOARD CONSTANTS + HELPERS ============
+// ============================================================
+const PAYMENT_COLORS = ['#8bc34a', '#3b82f6', '#f97316', '#8b5cf6', '#ec4899'];
+const TIER_COLORS = {
+  BRONZE: '#b45309',
+  SILVER: '#94a3b8',
+  GOLD: '#eab308',
+  PLATINUM: '#06b6d4',
+};
+
+// ✅ ROOM TYPE OPTIONS (para sa New Room modal)
+const ROOM_TYPE_OPTIONS = [
+  { value: 'FOOT_SPA', label: 'Foot Spa' },
+  { value: 'MASSAGE', label: 'Massage' },
+  { value: 'FACIAL', label: 'Facial' },
+  { value: 'NAIL_CARE', label: 'Nail Care' },
+  { value: 'BODY_TREATMENT', label: 'Body Treatment' },
+  { value: 'VIP_SUITE', label: 'VIP Suite' },
+  { value: 'OTHER', label: 'Other' },
+];
+
+const tooltipStyle = (isDarkMode) => ({
+  backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+  borderRadius: '10px',
+  border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+  fontSize: '11px',
+  color: isDarkMode ? '#fff' : '#000',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+});
+
+function KpiCard({ title, value, icon, color, trend, subtitle, isDarkMode }) {
+  const colorMap = {
+    purple: { bg: 'from-purple-500/10 to-purple-700/10', icon: 'bg-purple-500/20 text-purple-600', border: 'border-purple-200/50' },
+    lime: { bg: 'from-lime-500/10 to-green-500/10', icon: 'bg-lime-500/20 text-lime-600', border: 'border-lime-200/50' },
+    orange: { bg: 'from-orange-500/10 to-amber-500/10', icon: 'bg-orange-500/20 text-orange-600', border: 'border-orange-200/50' },
+    red: { bg: 'from-red-500/10 to-rose-500/10', icon: 'bg-red-500/20 text-red-600', border: 'border-red-200/50' },
+    yellow: { bg: 'from-yellow-500/10 to-amber-500/10', icon: 'bg-yellow-500/20 text-yellow-600', border: 'border-yellow-200/50' },
+  };
+  const c = colorMap[color] || colorMap.purple;
+  return (
+    <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : `bg-gradient-to-br ${c.bg} bg-white ${c.border}`} border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200 group`}>
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          <p className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            {title}
+          </p>
+          <p className={`text-xl font-bold mt-1 truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+            {value}
+          </p>
+          {subtitle && (
+            <p className={`text-[10px] mt-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+              {subtitle}
+            </p>
+          )}
+        </div>
+        <div className={`p-2 rounded-xl shrink-0 ${c.icon} group-hover:scale-110 transition-transform`}>
+          {icon}
+        </div>
+      </div>
+      {trend && (
+        <div className={`mt-2 flex items-center gap-1 text-[10px] font-semibold ${
+          trend === 'up' ? 'text-lime-600' : 'text-red-500'
+        }`}>
+          {trend === 'up' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+          {trend === 'up' ? 'Above average' : 'Below average'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Card({ title, subtitle, icon, isDarkMode, children, className = '' }) {
+  return (
+    <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 ${className}`}>
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          {icon && <span className="text-purple-600">{icon}</span>}
+          <h4 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+            {title}
+          </h4>
+        </div>
+        {subtitle && (
+          <p className={`text-[11px] mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function StockBar({ label, count, total, color, isDarkMode }) {
+  const pct = total ? (count / total) * 100 : 0;
+  const colorMap = {
+    lime: 'from-lime-400 to-green-500',
+    orange: 'from-orange-400 to-amber-500',
+    red: 'from-red-400 to-rose-500',
+  };
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className={`font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{label}</span>
+        <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+          {count} <span className="text-slate-400 text-[10px]">({pct.toFixed(0)}%)</span>
+        </span>
+      </div>
+      <div className={`w-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'} rounded-full h-2 overflow-hidden`}>
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${colorMap[color]} transition-all duration-700`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RadialMetric({ label, value, display, color, isDarkMode }) {
+  const safe = Math.min(Math.max(value || 0, 0), 100);
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (safe / 100) * circumference;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative w-16 h-16">
+        <svg className="w-16 h-16 -rotate-90">
+          <circle
+            cx="32" cy="32" r={radius}
+            stroke={isDarkMode ? '#334155' : '#e2e8f0'}
+            strokeWidth="5" fill="none"
+          />
+          <circle
+            cx="32" cy="32" r={radius}
+            stroke={color} strokeWidth="5" fill="none"
+            strokeDasharray={circumference} strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+            {safe.toFixed(0)}%
+          </span>
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{label}</p>
+        <p className="text-[11px] text-slate-500">{display}</p>
+      </div>
+    </div>
+  );
+}
 
 // ============ SIDEBAR COMPONENT ============
 function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, isDarkMode, toggleDarkMode, onLogout }) {
@@ -233,8 +348,6 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
     { id: 'documentation', label: 'Documentation', icon: <BookOpen size={16} /> },
   ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id));
 
-  // The seven per-catalog pages collapsed into one unified catalog (Phase 3);
-  // these routes used to point at the retired /vss-services/ etc. shims.
   const productMenus = [
     { path: '/catalog/services', label: 'Services', icon: <Scissors size={14} /> },
     { path: '/catalog/products', label: 'Products', icon: <ShoppingBag size={14} /> },
@@ -242,28 +355,29 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
 
   return (
     <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} ${
-      isDarkMode ? 'bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950' : 'bg-gradient-to-b from-slate-800 via-slate-800 to-slate-900'
-    } text-slate-300 flex flex-col justify-between shadow-2xl transition-all duration-300 z-30 border-r ${
-      isDarkMode ? 'border-slate-700/30' : 'border-slate-700/50'
+      isDarkMode ? 'bg-gradient-to-b from-purple-950 via-purple-950 to-slate-950' : 'bg-gradient-to-b from-purple-900 via-purple-900 to-purple-950'
+    } text-purple-100 flex flex-col justify-between shadow-2xl transition-all duration-300 z-30 border-r ${
+      isDarkMode ? 'border-purple-800/30' : 'border-purple-700/50'
     }`}>
       <div className="overflow-hidden">
-        <div className={`p-5 border-b ${isDarkMode ? 'border-slate-700/30' : 'border-slate-700/50'} flex ${
-          sidebarCollapsed ? 'justify-center' : 'justify-between'
-        } items-center bg-gradient-to-r from-slate-800 to-slate-800/50`}>
+        <div className={`p-4 border-b ${isDarkMode ? 'border-purple-800/30' : 'border-purple-700/50'} bg-gradient-to-r from-purple-900 to-purple-900/50`}>
           {!sidebarCollapsed ? (
-            <div className="text-center w-full">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-600/30">
-                  <Zap size={18} className="text-white" />
-                </div>
-                <h1 className="text-base font-bold text-white tracking-tight">Bungad Villareal</h1>
+            <div className="flex items-center justify-center gap-2">
+              <VillarealLogo size={40} />
+              <div className="text-left">
+                <h1 className="text-base font-black tracking-widest text-white leading-none">VILLAREAL</h1>
+                <p className="text-[8px] tracking-[0.25em] text-lime-400 font-light mt-0.5">SALON & SPA</p>
               </div>
-              <p className="text-[10px] text-cyan-400 font-semibold uppercase tracking-wider">Management Workspace</p>
             </div>
           ) : (
-            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-cyan-600/30 mx-auto">
-              BV
+            <div className="flex justify-center">
+              <VillarealLogo size={36} />
             </div>
+          )}
+          {!sidebarCollapsed && (
+            <p className="text-[9px] text-purple-300 font-semibold uppercase tracking-wider text-center mt-3 pt-2 border-t border-purple-700/50">
+              Management Workspace
+            </p>
           )}
         </div>
 
@@ -274,8 +388,8 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'space-x-3'} px-4 py-2.5 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all duration-200 ${
                 activeTab === item.id
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/20'
-                  : `${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700/30' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-600/30'
+                  : `${isDarkMode ? 'text-purple-300 hover:text-white hover:bg-purple-800/30' : 'text-purple-300 hover:text-white hover:bg-purple-800/50'}`
               }`}
             >
               {item.icon}
@@ -283,47 +397,22 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
             </button>
           ))}
         </nav>
-
-        <div className="px-3 mt-4">
-          <details className="group">
-            <summary className={`cursor-pointer p-2.5 text-xs font-semibold uppercase tracking-wider ${
-              isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700/30' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            } rounded-xl transition-all duration-200 flex items-center`}>
-              <Box size={16} className="mr-3" />
-              {!sidebarCollapsed && <span>Product Management</span>}
-              {!sidebarCollapsed && <ChevronRight size={12} className="ml-auto transition-transform group-open:rotate-90" />}
-            </summary>
-            <div className="ml-6 mt-1 space-y-1">
-              {productMenus.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-2 p-2 text-xs ${
-                    isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700/30' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                  } rounded-lg transition-all`}
-                >
-                  {item.icon} {item.label}
-                </Link>
-              ))}
-            </div>
-          </details>
-        </div>
       </div>
 
-      <div className="p-3 border-t border-slate-700/50 mt-auto space-y-2">
+      <div className="p-3 border-t border-purple-800/40 mt-auto space-y-2">
         <button
           onClick={toggleDarkMode}
           className={`w-full ${
-            isDarkMode ? 'bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white' : 'bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white'
-          } font-semibold text-xs p-2.5 rounded-xl flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 transition-all duration-200 border border-slate-700/50`}
+            isDarkMode ? 'bg-purple-900/50 hover:bg-purple-800/50 text-purple-300 hover:text-white' : 'bg-purple-900/50 hover:bg-purple-800/50 text-purple-300 hover:text-white'
+          } font-semibold text-xs p-2.5 rounded-xl flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 transition-all duration-200 border border-purple-800/50`}
         >
           {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
           {!sidebarCollapsed && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
         </button>
 
         <button onClick={onLogout} className={`w-full ${
-          isDarkMode ? 'bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400' : 'bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400'
-        } font-semibold text-xs p-2.5 rounded-xl flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 transition-all duration-200 border border-slate-700/50 hover:border-red-500/30`}>
+          isDarkMode ? 'bg-purple-900/50 hover:bg-red-500/20 text-purple-300 hover:text-red-400' : 'bg-purple-900/50 hover:bg-red-500/20 text-purple-300 hover:text-red-400'
+        } font-semibold text-xs p-2.5 rounded-xl flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 transition-all duration-200 border border-purple-800/50 hover:border-red-500/30`}>
           <LogOut size={14} /> {!sidebarCollapsed && <span>Logout</span>}
         </button>
       </div>
@@ -333,7 +422,6 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
 
 // ============ MAIN APP COMPONENT ============
 export default function App() {
-  // --- DARK MODE ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
@@ -349,28 +437,16 @@ export default function App() {
   }, [isDarkMode]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
-
-  // --- FULL SCREEN POS MODE ---
   const [isPOSFullScreen, setIsPOSFullScreen] = useState(false);
-
-  // --- SYSTEM LOGIC & SESSION STATES ---
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(
     localStorage.getItem('authToken') && localStorage.getItem('authUser')
   ));
-  // Default to the first demo account. Deriving from the list (rather than
-  // naming a key) means renaming or reordering a demo account can never leave
-  // `loginForm` undefined and crash the login screen.
   const [loginForm, setLoginForm] = useState(
     () => Object.values(DEMO_ACCOUNTS)[0] || { username: '', password: '' }
   );
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Role comes from the signed-in account only. This used to fall back to a
-  // hardcoded 'Superadmin' when nothing was stored, which made the header show
-  // a role before the real one arrived and then flip. Empty until known, and
-  // canAccess() treats an empty role as "no capabilities", so nothing privileged
-  // is shown before the real role arrives.
   const [currentUserRole, setCurrentUserRole] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('authUser'))?.role || '';
@@ -378,8 +454,6 @@ export default function App() {
       return '';
     }
   });
-  // Kept for the header badge, which keys off `role_code` — the SUPERADMIN role
-  // is distinct from OWNER, and distinct again from Django's is_superuser flag.
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('authUser')) || {};
@@ -388,19 +462,13 @@ export default function App() {
     }
   });
 
-  // --- ACTIVE BUSINESS (what X-Business sends) ---
-  // The login payload lists every Business this account may open; the chosen slug is kept
-  // in localStorage so all seven axios instances attach it without prop drilling.
   const [grantedBusinesses, setGrantedBusinesses] = useState(getGrantedBusinesses);
   const [storedBusiness, setStoredBusiness] = useState(getActiveBusinessSlug);
 
-  // Derived instead of re-synced: if a grant was revoked between sessions, the render falls
-  // back to the first remaining business so an invalid slug is never sent to the backend.
   const activeBusiness = grantedBusinesses.length && !grantedBusinesses.some((b) => b.slug === storedBusiness)
     ? (grantedBusinesses[0].slug || '')
     : storedBusiness;
 
-  // Keeps localStorage aligned with the derived slug - writes only, no state update.
   useEffect(() => {
     setActiveBusiness(activeBusiness);
   }, [activeBusiness]);
@@ -417,33 +485,69 @@ export default function App() {
     }
   }, [activeTab, currentUserRole]);
 
-  // Auto-exit full screen when leaving Sales tab
+  // ============ FULLSCREEN STATE SYNC ============
+  useEffect(() => {
+    const onFsChange = () => {
+      const isFs = isBrowserFullScreen();
+      if (!isFs && isPOSFullScreen) {
+        setIsPOSFullScreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    document.addEventListener('msfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+      document.removeEventListener('msfullscreenchange', onFsChange);
+    };
+  }, [isPOSFullScreen]);
+
   useEffect(() => {
     if (activeTab !== 'sales' && isPOSFullScreen) {
       setIsPOSFullScreen(false);
+      exitBrowserFullScreen();
     }
-  }, [activeTab]);
+  }, [activeTab, isPOSFullScreen]);
 
-  // F11 keyboard shortcut for full screen POS (Cashier only)
+  // ============ F11 / ESC KEY HANDLERS ============
   useEffect(() => {
     const handleKey = (e) => {
-      if (e.key === 'F11' && (currentUserRole === 'Cashier' || currentUserRole === 'CASHIER')) {
+      const isCashier = isCashierRole(currentUserRole);
+      if (e.key === 'F11' && isCashier) {
         e.preventDefault();
-        setIsPOSFullScreen(prev => !prev);
+        togglePOSFullScreen();
+      }
+      if (e.key === 'Escape' && isPOSFullScreen) {
+        setIsPOSFullScreen(false);
+        exitBrowserFullScreen();
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [currentUserRole]);
+  }, [currentUserRole, isPOSFullScreen]);
 
-  const togglePOSFullScreen = () => setIsPOSFullScreen(prev => !prev);
+  const togglePOSFullScreen = useCallback(async () => {
+    const next = !isPOSFullScreen;
+    setIsPOSFullScreen(next);
+    if (next) {
+      await requestBrowserFullScreen();
+    } else {
+      await exitBrowserFullScreen();
+    }
+  }, [isPOSFullScreen]);
+
+  const exitPOSToDashboard = useCallback(async () => {
+    setIsPOSFullScreen(false);
+    await exitBrowserFullScreen();
+    setActiveTab('dashboard');
+  }, []);
 
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
 
-  // --- LIVE CLOCK ENGINE ---
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   useEffect(() => {
     const clockTimer = setInterval(() => {
@@ -459,16 +563,15 @@ export default function App() {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
   });
 
-  // --- MODALS & NOTIFICATION ALERTS ---
   const [showUserModal, setShowUserModal] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
+  const [showNewRoomModal, setShowNewRoomModal] = useState(false);   // ✅ BAGO
   const [showProductModal, setShowProductModal] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [sweetAlert, setSweetAlert] = useState({ show: false, type: 'success', title: '', message: '' });
 
-  // --- DATA FILTER CONTROLS ---
   const [userSearch, setUserSearch] = useState('');
   const [userGenderFilter, setUserGenderFilter] = useState('All');
   const [userStatusFilter, setUserStatusFilter] = useState('All');
@@ -480,13 +583,11 @@ export default function App() {
 
   const [auditSearch, setAuditSearch] = useState('');
 
-  // --- DATA PAGINATION SYSTEM ---
   const [userPage, setUserPage] = useState(1);
   const [productPage, setProductPage] = useState(1);
   const [auditPage, setAuditPage] = useState(1);
   const entriesPerPage = 5;
 
-  // --- INPUT FORM OBJECTS ---
   const [userForm, setUserForm] = useState({
     name: '', address: '', age: '', gender: 'Female', role: 'Cashier', branch: '',
     email: '', phone: '', startDate: new Date().toISOString().split('T')[0]
@@ -494,55 +595,50 @@ export default function App() {
   const [roomForm, setRoomForm] = useState({
     staffId: '', customerName: '', serviceType: 'Pedicure & Manicure', minutes: '30'
   });
-  // Outlets of the active business + the role list, both read from the API so the
-  // "add user" form can never offer a retired role or omit a required outlet.
+  // ✅ BAGO: Form para sa pag-add ng bagong room
+  const [newRoomForm, setNewRoomForm] = useState({
+    name: '',
+    room_type: 'FOOT_SPA',
+    branch: '',
+  });
   const [branches, setBranches] = useState([]);
   const [roleOptions, setRoleOptions] = useState([]);
   const [productForm, setProductForm] = useState({
     name: '', category: 'Cosmetics', quantity: '', price: ''
   });
 
-  // --- DEFAULT DATA REGISTRIES ---
-  // These were hardcoded demo rows (fake staff, fake products, fake receipts,
-  // fake rooms, fake charts). Every one now comes from the API via loadFromApi
-  // below, scoped by the active business, and starts empty so the UI can never
-  // show invented data.
   const [staffList, setStaffList] = useState([]);
-
   const [inventoryList, setInventoryList] = useState([]);
-
   const [auditLogs, setAuditLogs] = useState([]);
-
   const [roomsState, setRoomsState] = useState([]);
-  // Room sections are derived from the rooms that actually exist, grouped by
-  // their type — previously three hardcoded zones of five.
   const [roomZones, setRoomZones] = useState([]);
 
-  // --- CHART DATA ---
-  // Populated from /dashboard/summary/ (the caller's own scoped sales) and
-  // /catalog/items/ (category names), not from a hardcoded series.
   const [revenueTrend, setRevenueTrend] = useState([]);
   const [popularServices, setPopularServices] = useState([]);
 
-  const CHART_COLORS = ['#0ea5e9', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6'];
+  const CHART_COLORS = ['#5d2e6b', '#8bc34a', '#7d4a8b', '#aed581', '#3d1e47'];
   const [productDistribution, setProductDistribution] = useState([]);
   const [dashboard, setDashboard] = useState({});
   const [, setCapabilitiesTick] = useState(0);
 
+  const [salesByHour, setSalesByHour] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [paymentSplit, setPaymentSplit] = useState([]);
+  const [tierDistribution, setTierDistribution] = useState([]);
+  const [branchSales, setBranchSales] = useState([]);
+  const [customerSplit, setCustomerSplit] = useState({ new: 0, returning: 0 });
+
   const activeCount = staffList.filter(s => s.status === 'Active').length;
   const deactivatedCount = staffList.filter(s => s.status === 'Deactivated').length;
-  // staffList is populated from the API, so it starts empty: guard the
-  // percentage or the chart legend reads "NaN%".
   const pct = (count) => (staffList.length ? `${Math.round((count / staffList.length) * 100)}%` : '0%');
 
   const userStatusDistribution = [
-    { name: 'Active Users', value: activeCount, color: '#06b6d4', percentage: pct(activeCount) },
-    { name: 'Deactivated', value: deactivatedCount, color: '#f43f5e', percentage: pct(deactivatedCount) }
+    { name: 'Active Users', value: activeCount, color: '#8bc34a', percentage: pct(activeCount) },
+    { name: 'Deactivated', value: deactivatedCount, color: '#ef4444', percentage: pct(deactivatedCount) }
   ];
 
   const lowStockItemsCount = inventoryList.filter(item => item.quantity <= 5).length;
-  const occupiedRoomsCount = roomsState.filter(r => r.customer !== '').length;
-  // Real figure from the dashboard summary, not a typed-in constant.
+  const occupiedRoomsCount = roomsState.filter(r => r.isOccupied).length;   // ✅ BAGO
   const totalSales = Number(dashboard.month_sales || 0);
 
   const systemNotifications = [
@@ -551,37 +647,85 @@ export default function App() {
     { id: 'notif-3', text: '✅ Database sync status: Operational.', type: 'success' }
   ];
 
-  // --- TIMER MECHANICS ---
+  // ============ ✅ LIVE ROOM TIMER — compute base sa start_time + duration_minutes ============
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRoomsState(prevRooms =>
-        prevRooms.map(room => {
-          if (room.timeLeft > 0) return { ...room, timeLeft: room.timeLeft - 1 };
-          else if (room.timeLeft === 0 && room.customer !== '') return { ...room, customer: '', service: '', timeLeft: 0, startTime: null };
+    const tick = () => {
+      setRoomsState(prevRooms => {
+        let changed = false;
+        const updated = prevRooms.map(room => {
+          if (!room.isOccupied || !room.startTime || !room.durationMinutes) {
+            return room;
+          }
+          const startMs = new Date(room.startTime).getTime();
+          const endMs = startMs + room.durationMinutes * 60 * 1000;
+          const nowMs = Date.now();
+          const remainingMs = endMs - nowMs;
+
+          if (remainingMs <= 0) {
+            changed = true;
+            return {
+              ...room,
+              isOccupied: false,
+              customer: '',
+              service: '',
+              timeLeft: 0,
+              startTime: null,
+              durationMinutes: 0,
+              assignedStaffId: null,
+            };
+          }
+
+          const newTimeLeft = Math.ceil(remainingMs / 60000);
+          if (newTimeLeft !== room.timeLeft) {
+            changed = true;
+            return { ...room, timeLeft: newTimeLeft };
+          }
           return room;
-        })
-      );
-    }, 60000);
+        });
+        return changed ? updated : prevRooms;
+      });
+    };
+
+    tick();
+    const interval = setInterval(tick, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // --- ALERT HANDLERS ---
   const triggerSweetAlert = (type, title, message) => {
     setSweetAlert({ show: true, type, title, message });
   };
 
-  // --- API DATA LOADER ---
-  // Every page in this shell reads from the API. Previously these lists were
-  // hardcoded demo rows, so the dashboard, users, inventory, rooms and audit
-  // tabs all rendered invented data that never touched the database. Each
-  // response is mapped into the shape the existing render code expects, so the
-  // UI is unchanged — only the source is now real and business-scoped.
+  const loadDashboardExtras = async () => {
+    try {
+      const [hourRes, prodRes, payRes, tierRes, branchRes, custRes] = await Promise.allSettled([
+        api.get('/dashboard/sales_by_hour/'),
+        api.get('/dashboard/top_products/'),
+        api.get('/dashboard/payment_split/'),
+        api.get('/dashboard/tier_distribution/'),
+        api.get('/dashboard/branch_sales/'),
+        api.get('/dashboard/customer_split/'),
+      ]);
+      const pick = (res) => (res.status === 'fulfilled' ? res.value.data : []);
+      setSalesByHour(pick(hourRes) || []);
+      setTopProducts(pick(prodRes) || []);
+      setPaymentSplit(pick(payRes) || []);
+      setTierDistribution(pick(tierRes) || []);
+      setBranchSales(pick(branchRes) || []);
+      const cs = pick(custRes);
+      if (cs && typeof cs === 'object' && !Array.isArray(cs)) {
+        setCustomerSplit({ new: cs.new || 0, returning: cs.returning || 0 });
+      } else {
+        setCustomerSplit({ new: 0, returning: 0 });
+      }
+    } catch (e) {
+      console.warn('Dashboard extras failed:', e);
+    }
+  };
+
   useEffect(() => {
     if (!isLoggedIn) return undefined;
     let cancelled = false;
 
-    // Accepts a settled promise and returns its unwrapped list ([] on failure),
-    // so one failing endpoint cannot blank out the whole shell.
     const val = (settled) => {
       if (settled.status !== 'fulfilled') return null;
       const data = settled.value?.data;
@@ -604,23 +748,17 @@ export default function App() {
         const dashData = (dash.status === 'fulfilled' && dash.value?.data) || {};
         setDashboard(dashData);
 
-        // The nav is gated by whatever the server says this role may do.
         if (capsRes.status === 'fulfilled' && capsRes.value?.data) {
           const { role, capabilities } = capsRes.value.data;
           Object.keys(ROLE_CAPABILITIES).forEach((key) => delete ROLE_CAPABILITIES[key]);
-          // Key under the canonical code *and* the display name, because the
-          // shell's nav checks the latter (it comes from the login payload).
           ROLE_CAPABILITIES[role] = capabilities;
           ROLE_CAPABILITIES[displayRole(role)] = capabilities;
         } else {
-          // Capabilities unreachable — show the nav rather than a dead shell.
-          // The API still authorizes every request, so this hides nothing.
           Object.keys(ROLE_CAPABILITIES).forEach((key) => delete ROLE_CAPABILITIES[key]);
           ROLE_CAPABILITIES[currentUserRole] = FALLBACK_CAPABILITIES;
         }
-        setCapabilitiesTick((tick) => tick + 1); // re-render the gated nav
+        setCapabilitiesTick((tick) => tick + 1);
 
-        // Outlets + the role vocabulary for the "add user" form.
         const [branchRes, rolesRes] = await Promise.allSettled([
           api.get('/branches/'),
           api.get('/auth/capabilities/'),
@@ -648,6 +786,7 @@ export default function App() {
         setStaffList(
           (val(staffRes) || []).map((profile) => ({
             id: profile.id,
+            userId: profile.user_id ?? profile.user ?? null,  // ✅
             name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username,
             username: profile.username,
             address: '',
@@ -660,6 +799,7 @@ export default function App() {
             phone: profile.phone_number || '',
             startDate: profile.created_at || '',
             history: [],
+            branchId: profile.branch || '',
             avatar: (profile.first_name?.[0] || profile.username?.[0] || '?').toUpperCase(),
           })),
         );
@@ -680,7 +820,6 @@ export default function App() {
             sku: item.sku || '',
           })),
         );
-        // Pie chart: real stock value grouped by category.
         const byCategory = items.reduce((acc, item) => {
           const key = item.category_name || 'Uncategorised';
           acc[key] = (acc[key] || 0) + (stockByItem[item.id] || 0);
@@ -705,31 +844,35 @@ export default function App() {
             time: log.created_at,
             type: log.action,
             target: log.description || log.model_name,
-            // AuditLog has no money column; the request id is the traceable ref.
             request: log.request_id || log.ip_address || '',
             agent: log.user_name || 'system',
           })),
         );
 
+        // ✅ UPDATED: roomsState with all needed fields
         const rooms = val(roomRes) || [];
         setRoomsState(
           rooms.map((room) => ({
             id: room.id,
+            name: room.name || `Room Suite ${room.id}`,
             type: room.room_type || room.name,
+            typeDisplay: room.room_type_display || room.room_type || 'Rooms',
             customer: room.customer_name || '',
             service: room.service_type || room.item_name || '',
             timeLeft: room.time_remaining || 0,
             startTime: room.start_time || null,
-            // Kept so the crew panel can match staff by the outlet they are
-            // assigned to; staff carry a branch name, not a "Room N" label.
+            durationMinutes: room.duration_minutes || 0,
+            isOccupied: room.is_occupied || false,
+            assignedStaffId: room.assigned_staff || null,
             branch: room.branch,
             branchName: room.branch_name || '',
           })),
         );
-        // Sections follow the rooms that exist, grouped by their real type.
+
+        // ✅ Room zones — group by typeDisplay
         const zones = [];
         rooms.forEach((room) => {
-          const title = room.room_type || room.name || 'Rooms';
+          const title = room.room_type_display || room.room_type || room.name || 'Rooms';
           const existing = zones.find((zone) => zone.title === title);
           if (existing) existing.ids.push(room.id);
           else zones.push({ title, ids: [room.id] });
@@ -742,6 +885,8 @@ export default function App() {
             max: Math.max(...zone.ids),
           })),
         );
+
+        await loadDashboardExtras();
       } catch (error) {
         if (!cancelled) setLoginError(error?.response?.data?.detail || 'Unable to load dashboard data.');
       }
@@ -751,6 +896,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [isLoggedIn, storedBusiness]);
 
+  // ============ LOGIN HANDLER ============
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -767,6 +913,18 @@ export default function App() {
       setStoredBusiness(primarySlug);
       setIsLoggedIn(true);
       setCurrentUserRole(response.data.user.role);
+
+      const roleCode = normalizeRoleCode(
+        response.data.user.role_code || response.data.user.role || ''
+      );
+      if (roleCode === 'CASHIER') {
+        setActiveTab('sales');
+        setIsPOSFullScreen(true);
+        requestBrowserFullScreen();
+      } else {
+        setActiveTab('dashboard');
+      }
+
       triggerSweetAlert('success', 'Welcome Back!', `Successfully logged in as ${response.data.user.username}.`);
     } catch (error) {
       setLoginError(error.response?.data?.detail || 'Unable to connect to the authentication server.');
@@ -775,7 +933,32 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLandingLoginSuccess = (data) => {
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('authUser', JSON.stringify(data.user));
+    setCurrentUser(data.user || {});
+    const granted = Array.isArray(data.businesses) ? data.businesses : [];
+    const primarySlug = data.primary_business?.slug || granted[0]?.slug || '';
+    rememberBusinesses(granted, primarySlug);
+    setGrantedBusinesses(granted);
+    setStoredBusiness(primarySlug);
+    setIsLoggedIn(true);
+    setCurrentUserRole(data.user.role);
+
+    const roleCode = normalizeRoleCode(data.user.role_code || data.user.role || '');
+    if (roleCode === 'CASHIER') {
+      setActiveTab('sales');
+      setIsPOSFullScreen(true);
+      requestBrowserFullScreen();
+    } else {
+      setActiveTab('dashboard');
+    }
+
+    triggerSweetAlert('success', 'Welcome Back!', `Successfully logged in as ${data.user.username}.`);
+  };
+
+  const handleLogout = async () => {
+    await exitBrowserFullScreen();
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
     forgetBusinessContext();
@@ -785,21 +968,12 @@ export default function App() {
     setLoginForm({ username: '', password: '' });
     setLoginError('');
     setIsPOSFullScreen(false);
-    // Clear the role too, or the header keeps showing the previous account's.
     setCurrentUserRole('');
     setCurrentUser({});
   };
 
-  // Which demo account the picker has highlighted. Deliberately *not*
-  // `currentUserRole`: that is the role the server reports after a successful
-  // login, which shares no values with these labels, so binding the select to
-  // it left the dropdown blank and out of sync.
   const [demoSelection, setDemoSelection] = useState(() => Object.keys(DEMO_ACCOUNTS)[0] || '');
 
-  // Role guide (GET /auth/role-guide/, derived server-side from the live
-  // ROLE_ACTIONS matrix). The login screen previews the selected demo role
-  // with it, and the dashboard shows the signed-in account its own panel —
-  // both read the same payload, so neither restates role policy locally.
   const [roleGuides, setRoleGuides] = useState({});
   const [previewRole, setPreviewRole] = useState(
     () => DEMO_ACCOUNT_ROLES[Object.keys(DEMO_ACCOUNTS)[0]] || '',
@@ -811,16 +985,13 @@ export default function App() {
     api.get('/auth/role-guide/')
       .then((response) => {
         if (cancelled) return;
-        // Keyed by role code — the shape the endpoint declares; an array of
-        // guides is still tolerated so a rollback of either side can't
-        // silently blank the card/panel.
         const guides = response.data?.guides;
         const list = Array.isArray(guides) ? guides : Object.values(guides ?? {});
         const map = {};
         list.forEach((guide) => { map[guide.role] = guide; });
         setRoleGuides(map);
       })
-      .catch(() => { /* guide is a convenience; it stays hidden if unreachable */ });
+      .catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -835,9 +1006,6 @@ export default function App() {
     }
   };
 
-  // ---- reload helpers (shared by the data-loading effect and the write handlers,
-  // so a write can never leave the table showing a shape the API didn't return) ----
-  /** Unwrap a DRF list response (paginated or not) into an array. */
   const apiList = (res) => {
     const data = res?.data;
     return Array.isArray(data) ? data : (data?.results ?? []);
@@ -856,6 +1024,7 @@ export default function App() {
 
   const mapProfiles = (profiles) => profiles.map((profile) => ({
     id: profile.id,
+    userId: profile.user_id ?? profile.user ?? null,
     name: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username,
     username: profile.username,
     address: '',
@@ -868,9 +1037,6 @@ export default function App() {
     phone: profile.phone_number || '',
     startDate: profile.created_at || '',
     history: [],
-    // Needed by the forms: the room booking posts assigned_staff (a User id),
-    // and editing a user must show the outlet their grant already names.
-    userId: profile.user_id ?? profile.user ?? null,
     branchId: profile.branch || '',
     avatar: (profile.first_name?.[0] || profile.username?.[0] || '?').toUpperCase(),
   }));
@@ -884,13 +1050,16 @@ export default function App() {
     const res = await api.get('/rooms/');
     return (apiList(res)).map((room) => ({
       id: room.id,
+      name: room.name || `Room Suite ${room.id}`,
       type: room.room_type || room.name,
+      typeDisplay: room.room_type_display || room.room_type || 'Rooms',
       customer: room.customer_name || '',
       service: room.service_type || room.item_name || '',
       timeLeft: room.time_remaining || 0,
       startTime: room.start_time || null,
-      // Kept so the crew panel can match staff by the outlet they are
-      // assigned to; staff carry a branch name, not a "Room N" label.
+      durationMinutes: room.duration_minutes || 0,
+      isOccupied: room.is_occupied || false,
+      assignedStaffId: room.assigned_staff || null,
       branch: room.branch,
       branchName: room.branch_name || '',
     }));
@@ -920,17 +1089,12 @@ export default function App() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      // Persist to the server first. `UserProfileSerializer` already accepts this
-      // legacy SPA shape (name/role/branch) and turns it into a UserAccess grant,
-      // so the row survives a reload instead of vanishing with the tab.
       const payload = {
         name: userForm.name,
         email: userForm.email,
         phone_number: userForm.phone,
         role: userForm.role,
       };
-      // Outlet roles need a branch; company-wide roles must omit it entirely
-      // (the backend rejects a business id on those grants).
       if (!isCompanyWideRole(userForm.role)) {
         if (!userForm.branch) {
           triggerSweetAlert('error', 'Outlet Required', 'Cashier and Staff accounts must be assigned to an outlet.');
@@ -980,6 +1144,54 @@ export default function App() {
     }
   };
 
+  // ============ ✅ NEW: ADD ROOM HANDLER ============
+  const handleCreateRoom = async (e) => {
+    e.preventDefault();
+    if (!newRoomForm.name.trim()) {
+      triggerSweetAlert('error', 'Room Name Required', 'Please enter a name for the new room.');
+      return;
+    }
+    if (!newRoomForm.branch) {
+      triggerSweetAlert('error', 'Branch Required', 'Please select a branch for the new room.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await api.post('/rooms/', {
+        name: newRoomForm.name.trim(),
+        room_type: newRoomForm.room_type,
+        branch: Number(newRoomForm.branch),
+        is_occupied: false,
+      });
+      setRoomsState(await reloadRooms());
+      // ✅ Refresh room zones
+      const res = await api.get('/rooms/');
+      const rooms = apiList(res);
+      const zones = [];
+      rooms.forEach((room) => {
+        const title = room.room_type_display || room.room_type || room.name || 'Rooms';
+        const existing = zones.find((zone) => zone.title === title);
+        if (existing) existing.ids.push(room.id);
+        else zones.push({ title, ids: [room.id] });
+      });
+      setRoomZones(
+        zones.map((zone) => ({
+          title: zone.title,
+          ids: zone.ids,
+          min: Math.min(...zone.ids),
+          max: Math.max(...zone.ids),
+        })),
+      );
+      setShowNewRoomModal(false);
+      setNewRoomForm({ name: '', room_type: 'FOOT_SPA', branch: '' });
+      triggerSweetAlert('success', 'Room Added', `Room "${newRoomForm.name}" has been created.`);
+    } catch (err) {
+      triggerSweetAlert('error', 'Could Not Add Room', apiErrorMessage(err, 'The room was not created.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const toggleUserStatus = async (id, currentStatus) => {
     const nextStatus = currentStatus === 'Active' ? 'Deactivated' : 'Active';
     const target = staffList.find((s) => s.id === id);
@@ -988,7 +1200,6 @@ export default function App() {
       return;
     }
     try {
-      // is_active lives on the Django user, not the profile.
       await api.patch(`/user-profiles/${id}/`, { is_active: nextStatus === 'Active' });
       setStaffList(staffList.map((s) => (s.id === id ? { ...s, status: nextStatus } : s)));
       triggerSweetAlert('info', 'Status Changed', `User state has been set to ${nextStatus}.`);
@@ -1012,16 +1223,15 @@ export default function App() {
     e.preventDefault();
     if (!roomForm.staffId) return;
     try {
-      // Persist the booking; RoomTable carries is_occupied / start_time /
-      // duration_minutes / assigned_staff, which is what time_remaining is
-      // computed from. Ticking the timer in local state alone would reset on
-      // every reload and report the room as free while it is in use.
+      const selected = staffList.find((s) => String(s.id) === String(roomForm.staffId));
+      const assignedUserId = selected?.userId ?? null;
+
       await api.patch(`/rooms/${selectedRoomId}/`, {
         is_occupied: true,
         customer_name: roomForm.customerName,
         service_type: roomForm.serviceType,
         duration_minutes: parseInt(roomForm.minutes, 10) || 0,
-        assigned_staff: staffList.find((s) => String(s.id) === String(roomForm.staffId))?.userId ?? null,
+        assigned_staff: assignedUserId,
         start_time: new Date().toISOString(),
       });
       setRoomsState(await reloadRooms());
@@ -1071,7 +1281,6 @@ export default function App() {
     triggerSweetAlert('success', 'Export Complete', `File ${filename} has been exported.`);
   };
 
-  // --- FILTERS LOGIC ---
   const filteredUsers = staffList.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(userSearch.toLowerCase()) || s.address.toLowerCase().includes(userSearch.toLowerCase());
     const matchesGender = userGenderFilter === 'All' || s.gender === userGenderFilter;
@@ -1100,152 +1309,59 @@ export default function App() {
   const totalAuditPages = Math.ceil(filteredAudits.length / entriesPerPage) || 1;
   const paginatedAudits = filteredAudits.slice((auditPage - 1) * entriesPerPage, auditPage * entriesPerPage);
 
-  // --- LOGIN SCREEN ---
   if (!isLoggedIn) {
-    const activeGuide = roleGuides[previewRole] || null;
-    return (
-      <div className={`min-h-screen ${
-        isDarkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
-      } font-sans flex items-center justify-center p-4`}>
-        <div className={`${
-          isDarkMode ? 'bg-slate-800/50 border-slate-700/30' : 'bg-white/10'
-        } backdrop-blur-xl border border-white/20 w-full max-w-md rounded-2xl p-8 shadow-2xl space-y-6`}>
-          <div className="text-center">
-            <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-600/30">
-              <Zap size={24} className="text-white" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-white">BUNGAD VILLAREAL</h1>
-            <p className="text-[11px] text-cyan-300 font-semibold uppercase tracking-wider mt-1">Management Login Portal</p>
-          </div>
-          {loginError && <p className="text-xs text-red-300 text-center font-medium bg-red-500/20 p-2 rounded-lg border border-red-500/30">{loginError}</p>}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-cyan-300 uppercase block">Select Demo Account</label>
-              {/* Options come from DEMO_ACCOUNTS itself. This list used to be
-                  hand-written with the old role names, so changing a demo
-                  account silently left the picker pointing at missing keys. */}
-              <select value={demoSelection} onChange={handleDemoRoleChange} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white font-medium">
-                {Object.keys(DEMO_ACCOUNTS).map((label) => (
-                  <option key={label} value={label}>{label} Node</option>
-                ))}
-              </select>
-              <p className="text-[10px] text-slate-400">Demo credentials are filled automatically for local testing.</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-cyan-300 uppercase block">Username</label>
-              <input type="text" required value={loginForm.username} onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-cyan-300 uppercase block">Password</label>
-              <input type="password" required value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} className="w-full bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-sm focus:bg-slate-800 focus:border-cyan-500 outline-none transition-all text-white" />
-            </div>
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-[10px] text-cyan-200">
-              <p className="font-semibold uppercase tracking-wider mb-2">All demo accounts · seeded by reseed_demo</p>
-              {/* Full roster (mirrors DEMO_LOGINS.md). Clicking fills the form
-                  only — the role is whatever the server says it is;
-                  pre-setting it from a button's label is what once made the
-                  header briefly show the wrong role before login completed. */}
-              <div className="max-h-44 overflow-y-auto pr-1 space-y-2">
-                {DEMO_DIRECTORY.map(({ group, accounts }) => (
-                  <div key={group}>
-                    <p className="font-semibold text-cyan-300/90 uppercase tracking-wider text-[9px] mb-0.5">{group}</p>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                      {accounts.map((account) => (
-                        <button
-                          key={account.username}
-                          type="button"
-                          title={`Password: ${account.password}`}
-                          onClick={() => {
-                            setLoginForm({ username: account.username, password: account.password });
-                            setPreviewRole(roleCodeFromLabel(account.label));
-                            setLoginError('');
-                          }}
-                          className="text-left hover:text-white py-0.5"
-                        >
-                          <span className="font-semibold">{account.label}:</span> {account.username}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-slate-400">Hover a row for its password — demo credentials are for local development only.</p>
-            </div>
-            {/* What this role can see / do and where it belongs, from
-                GET /auth/role-guide/ — hidden until (or unless) that call
-                resolves; the form works without it. */}
-            {activeGuide && (
-              <div role="status" className="rounded-xl border border-slate-600/40 bg-slate-800/60 p-3 text-[10px] text-slate-300 space-y-1">
-                <p className="font-semibold uppercase tracking-wider text-cyan-300">{activeGuide.label} — what you get</p>
-                <p><span className="text-slate-500">Can see:</span> {activeGuide.sees.join(' · ') || '—'}</p>
-                <p><span className="text-slate-500">Can do:</span> {activeGuide.does.join('; ') || '—'}</p>
-                <p>
-                  <span className="text-slate-500">Where you should be:</span>{' '}
-                  <span className="font-semibold text-white">{activeGuide.lands_on_label}</span>
-                  {' '}— this role covers {activeGuide.scope}
-                </p>
-              </div>
-            )}
-            <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-sm py-3 rounded-xl transition-all shadow-lg shadow-cyan-600/20">Access Dashboard</button>
-          </form>
-        </div>
-      </div>
-    );
+    return <LandingPage onLoginSuccess={handleLandingLoginSuccess} />;
   }
 
-  // --- MAIN APP RENDER ---
-  // The signed-in account's own guide: role_code from the login payload, or
-  // the header display role turned back into a code ('Business Manager' ->
-  // 'BUSINESS_MANAGER') for sessions stored before role_code existed.
   const myRoleCode = String(
     currentUser.role_code || String(currentUserRole || '').replace(/\s+/g, '_').toUpperCase(),
   );
   const myGuide = roleGuides[myRoleCode] || null;
+  const isCashier = isCashierRole(currentUser.role_code || currentUserRole);
+
   return (
     <BrowserRouter>
-      <div className={`flex h-screen ${
-        isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-gradient-to-br from-slate-50 to-slate-100 text-slate-700'
+      <div className={`flex h-screen w-screen ${
+        isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-gradient-to-br from-purple-50 to-purple-100 text-slate-700'
       } font-sans overflow-hidden`}>
 
-        {/* SWEETALERT */}
         {sweetAlert.show && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4`}>
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-md">
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4`}>
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-purple-700 to-purple-900 shadow-md">
                 {sweetAlert.type === 'success' ? <CheckCircle size={28} className="text-white" /> : <Info size={28} className="text-white" />}
               </div>
               <div>
                 <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{sweetAlert.title}</h3>
                 <p className={`text-xs font-medium mt-1 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{sweetAlert.message}</p>
               </div>
-              <button onClick={() => setSweetAlert({ ...sweetAlert, show: false })} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl uppercase tracking-wider transition-all">Okay</button>
+              <button onClick={() => setSweetAlert({ ...sweetAlert, show: false })} className="w-full bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs py-2 rounded-xl uppercase tracking-wider transition-all">Okay</button>
             </div>
           </div>
         )}
 
-        {/* PROFILE MODAL */}
         {showProfileModal && selectedProfileUser && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white'} rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl border`}>
-              <div className={`sticky top-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-b p-4 flex justify-between items-center`}>
+              <div className={`sticky top-0 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-100'} border-b p-4 flex justify-between items-center`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-700 to-purple-900 rounded-xl flex items-center justify-center">
                     <UserCog size={20} className="text-white" />
                   </div>
                   <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Staff Profile Details</h3>
                 </div>
-                <button onClick={() => setShowProfileModal(false)} className={`p-2 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} rounded-xl transition-all`}><X size={18} /></button>
+                <button onClick={() => setShowProfileModal(false)} className={`p-2 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-purple-50'} rounded-xl transition-all`}><X size={18} /></button>
               </div>
               <div className="p-6 space-y-6">
-                <div className={`flex items-center gap-4 pb-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                  <div className={`w-20 h-20 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-cyan-100 to-blue-100'} rounded-2xl flex items-center justify-center`}>
-                    <Users size={36} className="text-cyan-600" />
+                <div className={`flex items-center gap-4 pb-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-purple-100'}`}>
+                  <div className={`w-20 h-20 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-purple-100 to-purple-200'} rounded-2xl flex items-center justify-center`}>
+                    <Users size={36} className="text-purple-700" />
                   </div>
                   <div>
                     <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{selectedProfileUser.name}</h2>
-                    <p className="text-sm text-cyan-600 font-medium">{selectedProfileUser.role}</p>
+                    <p className="text-sm text-purple-700 font-medium">{selectedProfileUser.role}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedProfileUser.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedProfileUser.status === 'Active' ? 'bg-lime-100 text-lime-700' : 'bg-red-100 text-red-700'}`}>
                         {selectedProfileUser.status}
                       </span>
                       <span className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>ID: {selectedProfileUser.id}</span>
@@ -1268,9 +1384,9 @@ export default function App() {
                   <div className="space-y-2">
                     {selectedProfileUser.history && selectedProfileUser.history.length > 0 ? (
                       selectedProfileUser.history.map((item, idx) => (
-                        <div key={idx} className={`flex items-start gap-3 p-3 ${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-slate-50 border-slate-100'} rounded-xl border`}>
-                          <div className="w-5 h-5 bg-cyan-100 rounded-full flex items-center justify-center mt-0.5">
-                            <Award size={10} className="text-cyan-600" />
+                        <div key={idx} className={`flex items-start gap-3 p-3 ${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-purple-50 border-purple-100'} rounded-xl border`}>
+                          <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center mt-0.5">
+                            <Award size={10} className="text-purple-700" />
                           </div>
                           <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{item}</p>
                         </div>
@@ -1280,19 +1396,18 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-3 pt-4 border-t border-slate-100">
-                  {canAccess(currentUserRole, 'user_manage') && <button onClick={() => { setShowProfileModal(false); initEditUser(selectedProfileUser); }} className={`flex-1 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1`}><Edit3 size={12} /> Edit Profile</button>}
-                  <button onClick={() => setShowProfileModal(false)} className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1">Close</button>
+                <div className="flex gap-3 pt-4 border-t border-purple-100">
+                  {canAccess(currentUserRole, 'user_manage') && <button onClick={() => { setShowProfileModal(false); initEditUser(selectedProfileUser); }} className={`flex-1 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-purple-100 hover:bg-purple-200 text-purple-800'} font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1`}><Edit3 size={12} /> Edit Profile</button>}
+                  <button onClick={() => setShowProfileModal(false)} className="flex-1 bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1">Close</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* USER MODAL */}
         {showUserModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
-            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4`}>
               <div className="flex justify-between items-center border-b pb-2">
                 <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{editingUser ? 'Edit User Profile' : 'Register New User'}</h3>
                 <button onClick={() => { setShowUserModal(false); setEditingUser(null); }} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
@@ -1300,28 +1415,28 @@ export default function App() {
               <form onSubmit={handleSaveUser} className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Full Name</label>
-                  <input type="text" required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Email Address</label>
-                  <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Phone Number</label>
-                  <input type="text" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="text" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Address</label>
-                  <input type="text" required value={userForm.address} onChange={(e) => setUserForm({ ...userForm, address: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={userForm.address} onChange={(e) => setUserForm({ ...userForm, address: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Age</label>
-                    <input type="number" required value={userForm.age} onChange={(e) => setUserForm({ ...userForm, age: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                    <input type="number" required value={userForm.age} onChange={(e) => setUserForm({ ...userForm, age: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Gender</label>
-                    <select value={userForm.gender} onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
+                    <select value={userForm.gender} onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}>
                       <option value="Female">Female</option>
                       <option value="Male">Male</option>
                     </select>
@@ -1329,24 +1444,20 @@ export default function App() {
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Start Date</label>
-                  <input type="date" required value={userForm.startDate} onChange={(e) => setUserForm({ ...userForm, startDate: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="date" required value={userForm.startDate} onChange={(e) => setUserForm({ ...userForm, startDate: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>System Role Assigned</label>
-                  {/* Roles come from the API's ROLE_CHOICES, so a retired role
-                      (e.g. the old "Branch Admin") can never be offered again. */}
-                  <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
+                  <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}>
                     {(roleOptions.length ? roleOptions : FALLBACK_ROLE_OPTIONS).map((opt) => (
                       <option key={opt.value || opt.code} value={opt.label}>{opt.label}</option>
                     ))}
                   </select>
                 </div>
-                {/* Cashier/Staff grants must name an outlet; company-wide roles
-                    must not (backend check constraint). */}
                 {!isCompanyWideRole(userForm.role) && (
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Outlet (Branch)</label>
-                    <select value={userForm.branch} onChange={(e) => setUserForm({ ...userForm, branch: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
+                    <select value={userForm.branch} onChange={(e) => setUserForm({ ...userForm, branch: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}>
                       <option value="">Select an outlet...</option>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>{b.name}</option>
@@ -1354,7 +1465,7 @@ export default function App() {
                     </select>
                   </div>
                 )}
-                <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
+                <button type="submit" disabled={isLoading} className="w-full bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
                   {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
                   {isLoading ? 'Saving...' : 'Save Account'}
                 </button>
@@ -1363,10 +1474,89 @@ export default function App() {
           </div>
         )}
 
-        {/* ROOM MODAL */}
+        {/* ============================================================
+            ============ ✅ NEW ROOM MODAL ============
+            ============================================================ */}
+        {showNewRoomModal && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
+              <div className="flex justify-between items-center border-b pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center">
+                    <Plus size={16} className="text-white" />
+                  </div>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    Add New Room
+                  </h3>
+                </div>
+                <button onClick={() => setShowNewRoomModal(false)} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleCreateRoom} className="space-y-3">
+                <div>
+                  <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Room Name / Number
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newRoomForm.name}
+                    onChange={(e) => setNewRoomForm({ ...newRoomForm, name: e.target.value })}
+                    placeholder="e.g. Room Suite 16, VIP Room A"
+                    className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Room Type
+                  </label>
+                  <select
+                    value={newRoomForm.room_type}
+                    onChange={(e) => setNewRoomForm({ ...newRoomForm, room_type: e.target.value })}
+                    className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}
+                  >
+                    {ROOM_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Branch
+                  </label>
+                  <select
+                    required
+                    value={newRoomForm.branch}
+                    onChange={(e) => setNewRoomForm({ ...newRoomForm, branch: e.target.value })}
+                    className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}
+                  >
+                    <option value="">-- Select Branch --</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={`rounded-lg p-2 ${isDarkMode ? 'bg-purple-900/30 border border-purple-700/50' : 'bg-purple-50 border border-purple-200'}`}>
+                  <p className={`text-[10px] ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>
+                    <Sparkles size={10} className="inline mr-1" />
+                    Ang bagong room ay lalabas agad sa Room Status. Pwede itong i-check-in ng staff.
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                  {isLoading ? 'Creating...' : 'Create Room'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
         {showRoomModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
-            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
               <div className="flex justify-between items-center border-b pb-2">
                 <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Assign Room {selectedRoomId}</h3>
                 <button onClick={() => setShowRoomModal(false)} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
@@ -1374,21 +1564,21 @@ export default function App() {
               <form onSubmit={handleDeployRoomServices} className="space-y-3">
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Assign Available Specialist</label>
-                  <select required value={roomForm.staffId} onChange={(e) => setRoomForm({ ...roomForm, staffId: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
+                  <select required value={roomForm.staffId} onChange={(e) => setRoomForm({ ...roomForm, staffId: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}>
                     <option value="">-- Select Available Specialist --</option>
-                    {unassignedStaff.map(s => (
+                    {staffList.filter(s => s.status === 'Active').map(s => (
                       <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Customer Name</label>
-                  <input type="text" required value={roomForm.customerName} onChange={(e) => setRoomForm({ ...roomForm, customerName: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={roomForm.customerName} onChange={(e) => setRoomForm({ ...roomForm, customerName: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Service Type</label>
-                    <select value={roomForm.serviceType} onChange={(e) => setRoomForm({ ...roomForm, serviceType: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-xs rounded-xl font-medium`}>
+                    <select value={roomForm.serviceType} onChange={(e) => setRoomForm({ ...roomForm, serviceType: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-xs rounded-xl font-medium`}>
                       <option value="Pedicure & Manicure">Pedicure & Manicure</option>
                       <option value="Foot Spa Therapy">Foot Spa Therapy</option>
                       <option value="Therapeutic Massage">Therapeutic Massage</option>
@@ -1396,7 +1586,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Duration</label>
-                    <select value={roomForm.minutes} onChange={(e) => setRoomForm({ ...roomForm, minutes: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-xs rounded-xl font-medium`}>
+                    <select value={roomForm.minutes} onChange={(e) => setRoomForm({ ...roomForm, minutes: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-xs rounded-xl font-medium`}>
                       <option value="1">1 Minute (Test)</option>
                       <option value="30">30 Minutes</option>
                       <option value="60">60 Minutes (1 Hour)</option>
@@ -1404,16 +1594,15 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                <button type="submit" className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all">Deploy Timer</button>
+                <button type="submit" className="w-full bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all">Deploy Timer</button>
               </form>
             </div>
           </div>
         )}
 
-        {/* PRODUCT MODAL */}
         {showProductModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40">
-            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
+            <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4`}>
               <div className="flex justify-between items-center border-b pb-2">
                 <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Add New Product</h3>
                 <button onClick={() => setShowProductModal(false)} className="text-slate-400 hover:text-slate-900"><X size={16} /></button>
@@ -1421,11 +1610,11 @@ export default function App() {
               <form onSubmit={handleAddProduct} className="space-y-3">
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Product Name</label>
-                  <input type="text" required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                  <input type="text" required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Category</label>
-                  <select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl font-medium`}>
+                  <select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}>
                     <option value="Cosmetics">Cosmetics</option>
                     <option value="Supplies">Supplies</option>
                     <option value="Equipment">Equipment</option>
@@ -1434,14 +1623,14 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Quantity</label>
-                    <input type="number" required value={productForm.quantity} onChange={(e) => setProductForm({ ...productForm, quantity: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                    <input type="number" required value={productForm.quantity} onChange={(e) => setProductForm({ ...productForm, quantity: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Price (₱)</label>
-                    <input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border p-2 text-sm rounded-xl`} />
+                    <input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl`} />
                   </div>
                 </div>
-                <button type="submit" disabled={isSavingProduct} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
+                <button type="submit" disabled={isSavingProduct} className="w-full bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs py-2.5 rounded-xl uppercase tracking-wider transition-all disabled:opacity-70 flex items-center justify-center gap-2">
                   {isSavingProduct ? <Loader2 size={16} className="animate-spin" /> : null}
                   {isSavingProduct ? 'Saving...' : 'Confirm Stock Entry'}
                 </button>
@@ -1450,7 +1639,6 @@ export default function App() {
           </div>
         )}
 
-        {/* SIDEBAR - Hidden in full screen mode */}
         {!isPOSFullScreen && (
           <Sidebar
             sidebarCollapsed={sidebarCollapsed}
@@ -1463,20 +1651,18 @@ export default function App() {
           />
         )}
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {/* HEADER - Hidden in full screen mode */}
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
           {!isPOSFullScreen && (
             <header className={`${
-              isDarkMode ? 'bg-slate-900/80 border-slate-700/30' : 'bg-white/80 border-slate-200'
-            } backdrop-blur-sm border-b px-6 py-3 flex justify-between items-center shadow-sm z-20`}>
+              isDarkMode ? 'bg-slate-900/80 border-purple-800/30' : 'bg-white/80 border-purple-200'
+            } backdrop-blur-sm border-b px-6 py-3 flex justify-between items-center shadow-sm z-20 shrink-0`}>
               <div className="flex items-center space-x-3">
-                <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className={`p-2 border ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'} rounded-xl transition-all`}>
+                <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className={`p-2 border ${isDarkMode ? 'border-purple-800 hover:bg-purple-900/40 text-purple-300' : 'border-purple-200 hover:bg-purple-50 text-purple-700'} rounded-xl transition-all`}>
                   <Menu size={15} />
                 </button>
-                <h2 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent'}`}>
+                <h2 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'bg-gradient-to-r from-purple-900 to-purple-700 bg-clip-text text-transparent'}`}>
                   {activeTab === 'dashboard' && "System Performance Insights"}
-                  {activeTab === 'sales' && (currentUserRole === 'Cashier' ? "Cashier Point of Sale" : "Sales & Point of Sale")}
+                  {activeTab === 'sales' && (isCashier ? "Cashier Point of Sale" : "Sales & Point of Sale")}
                   {activeTab === 'clients' && "Client Directory"}
                   {activeTab === 'customer_rewards' && "Customer Loyalty & Rewards"}
                   {activeTab === 'administration' && "System Administration"}
@@ -1490,8 +1676,8 @@ export default function App() {
 
               <div className="flex items-center space-x-4">
                 {grantedBusinesses.length > 1 && (
-                  <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border px-3 py-1.5 rounded-xl text-xs`}>
-                    <Building2 size={14} className="text-cyan-600 shrink-0" />
+                  <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-purple-800' : 'bg-white border-purple-200'} border px-3 py-1.5 rounded-xl text-xs`}>
+                    <Building2 size={14} className="text-purple-700 shrink-0" />
                     <label htmlFor="business-switch" className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                       Business:
                     </label>
@@ -1499,7 +1685,7 @@ export default function App() {
                       id="business-switch"
                       value={activeBusiness}
                       onChange={(event) => chooseBusiness(event.target.value)}
-                      className={`bg-transparent font-bold cursor-pointer focus:outline-none ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}
+                      className={`bg-transparent font-bold cursor-pointer focus:outline-none ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}
                     >
                       {grantedBusinesses.map((b) => (
                         <option key={b.slug} value={b.slug} className={`${isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'}`}>
@@ -1510,40 +1696,37 @@ export default function App() {
                   </div>
                 )}
 
-                <div className={`text-right font-mono text-xs ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'} border px-3 py-1.5 rounded-xl`}>
+                <div className={`text-right font-mono text-xs ${isDarkMode ? 'bg-slate-800 border-purple-800' : 'bg-purple-50 border-purple-200'} border px-3 py-1.5 rounded-xl`}>
                   <span className="text-slate-400 mr-1.5">{formattedDate}</span>
-                  <span className="text-cyan-600 font-semibold">{formattedTime}</span>
+                  <span className="text-purple-700 font-semibold">{formattedTime}</span>
                 </div>
 
-                <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-slate-100 to-slate-50 border-slate-200'} border px-3 py-1 rounded-xl text-xs`}>
-                  <UserCheck size={14} className="text-cyan-600" />
+                <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-purple-800' : 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200'} border px-3 py-1 rounded-xl text-xs`}>
+                  <UserCheck size={14} className="text-purple-700" />
                   <span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Role:</span>
-                  <span className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{currentUserRole || '—'}</span>
-                  {/* §6.3 split: SUPERADMIN is its own role again, distinct from
-                      OWNER. The badge keys off the role code, not the Django
-                      is_superuser flag, so the two can't be conflated. */}
+                  <span className={`font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}>{currentUserRole || '—'}</span>
                   {currentUser?.role_code === 'SUPERADMIN' && (
-                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Superadmin</span>
+                    <span className="rounded-full bg-lime-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-700 dark:text-lime-400">Superadmin</span>
                   )}
                 </div>
 
-                <div className={`h-5 w-px ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                <div className={`h-5 w-px ${isDarkMode ? 'bg-purple-800' : 'bg-purple-200'}`}></div>
 
                 <div className="relative">
-                  <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} className={`p-2 border ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} rounded-xl relative transition-all`}>
+                  <button onClick={() => setShowNotifDropdown(!showNotifDropdown)} className={`p-2 border ${isDarkMode ? 'border-purple-800 hover:bg-purple-900/40 text-purple-300' : 'border-purple-200 hover:bg-purple-50 text-purple-700'} rounded-xl relative transition-all`}>
                     <Bell size={15} />
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-[8px] w-4 h-4 flex items-center justify-center rounded-full shadow-md">{systemNotifications.length}</span>
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-purple-700 to-purple-900 text-white font-bold text-[8px] w-4 h-4 flex items-center justify-center rounded-full shadow-md">{systemNotifications.length}</span>
                   </button>
 
                   {showNotifDropdown && (
-                    <div className={`absolute right-0 mt-2 w-72 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-xl shadow-xl p-2 z-50 space-y-1`}>
-                      <div className={`px-2 py-1 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex justify-between items-center`}>
+                    <div className={`absolute right-0 mt-2 w-72 ${isDarkMode ? 'bg-slate-800 border-purple-800' : 'bg-white border-purple-200'} border rounded-xl shadow-xl p-2 z-50 space-y-1`}>
+                      <div className={`px-2 py-1 border-b ${isDarkMode ? 'border-purple-800' : 'border-purple-100'} flex justify-between items-center`}>
                         <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-400'} uppercase`}>Notifications</span>
-                        <button onClick={() => setShowNotifDropdown(false)} className="text-[10px] text-cyan-600">Dismiss</button>
+                        <button onClick={() => setShowNotifDropdown(false)} className="text-[10px] text-purple-700">Dismiss</button>
                       </div>
                       {systemNotifications.map(n => (
-                        <div key={n.id} className={`p-2 rounded-lg text-xs flex items-start gap-2 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}>
-                          <span className={`w-1.5 h-1.5 mt-1.5 rounded-full shrink-0 ${n.type === 'alert' ? 'bg-orange-500' : n.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
+                        <div key={n.id} className={`p-2 rounded-lg text-xs flex items-start gap-2 ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-purple-50'}`}>
+                          <span className={`w-1.5 h-1.5 mt-1.5 rounded-full shrink-0 ${n.type === 'alert' ? 'bg-orange-500' : n.type === 'success' ? 'bg-lime-500' : 'bg-purple-500'}`}></span>
                           <p className={`font-medium leading-snug ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{n.text}</p>
                         </div>
                       ))}
@@ -1554,25 +1737,37 @@ export default function App() {
             </header>
           )}
 
-          {/* WORKSPACE CONTENT - Adjusted padding in full screen */}
-          {/* Remount on business switch so every page refetches under the new scope */}
+          {isPOSFullScreen && (
+            <button
+              onClick={exitPOSToDashboard}
+              className="fixed top-3 right-3 z-[100] bg-slate-900/90 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
+              title="Exit full-screen POS and go to Dashboard"
+            >
+              <X size={14} /> Exit POS
+            </button>
+          )}
+
           <div
             key={activeBusiness || 'default'}
-            className={`flex-1 overflow-y-auto space-y-6 ${
-              isPOSFullScreen ? 'p-2' : 'p-6'
+            className={`flex-1 min-h-0 ${
+              isPOSFullScreen
+                ? 'overflow-hidden p-0 flex'
+                : 'overflow-y-auto space-y-6 p-6'
             } ${
-              isDarkMode ? 'bg-slate-950/50' : 'bg-slate-50/30'
+              isDarkMode ? 'bg-slate-950/50' : 'bg-purple-50/30'
             }`}
           >
 
-            {/* SALES TAB */}
             {activeTab === 'sales' && canAccess(currentUserRole, 'sales') && (
-              (currentUserRole === 'Cashier' || currentUserRole === 'CASHIER') ? (
-                <CashierPOS
-                  isDarkMode={isDarkMode}
-                  onToggleFullScreen={togglePOSFullScreen}
-                  isFullScreen={isPOSFullScreen}
-                />
+              isCashier ? (
+                <div className="w-full h-full flex flex-col overflow-hidden">
+                  <CashierPOS
+                    isDarkMode={isDarkMode}
+                    isFullScreen={isPOSFullScreen}
+                    onToggleFullScreen={togglePOSFullScreen}
+                    onExitPOS={exitPOSToDashboard}
+                  />
+                </div>
               ) : (
                 <SalesPage isDarkMode={isDarkMode} readOnly={currentUserRole === 'Owner'} />
               )
@@ -1582,7 +1777,6 @@ export default function App() {
               <ClientsPage isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'client_manage')} />
             )}
 
-            {/* CUSTOMER REWARDS TAB */}
             {activeTab === 'customer_rewards' && canAccess(currentUserRole, 'customer_rewards') && (
               <CustomersRewardsPage isDarkMode={isDarkMode} />
             )}
@@ -1591,33 +1785,29 @@ export default function App() {
               <AdministrationPage isDarkMode={isDarkMode} />
             )}
 
-            {/* DASHBOARD */}
+            {/* ============================================================
+                ============ DASHBOARD (ENHANCED) ============
+                ============================================================ */}
             {activeTab === 'dashboard' && (
               <>
-                {/* My access: what this role sees, does, and where it belongs,
-                    from the same /auth/role-guide/ payload as the login
-                    preview — plus the scope the account actually resolved to. */}
                 {myGuide && (
-                  <div className={`${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-white border-slate-200'} border rounded-xl p-4 shadow-sm space-y-2`}>
+                  <div className={`${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-white border-purple-200'} border rounded-xl p-4 shadow-sm space-y-2`}>
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                      <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>
                         My access — {myGuide.label}
                       </h3>
                       <div className="flex items-center gap-2">
-                        {/* Harmless even if the role could not open the tab: the
-                            tab guard at the top of this component bounces
-                            unauthorized tabs back to the dashboard. */}
                         <button
                           type="button"
                           onClick={() => setActiveTab(myGuide.lands_on)}
-                          className="text-[11px] font-semibold px-3 py-1 rounded-lg text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all"
+                          className="text-[11px] font-semibold px-3 py-1 rounded-lg text-white bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 transition-all"
                         >
                           Go to {myGuide.lands_on_label}
                         </button>
                         <button
                           type="button"
                           onClick={() => setMyAccessOpen((open) => !open)}
-                          className={`text-[11px] font-semibold px-3 py-1 rounded-lg border ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                          className={`text-[11px] font-semibold px-3 py-1 rounded-lg border ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-purple-200 text-purple-700 hover:bg-purple-50'}`}
                         >
                           {myAccessOpen ? 'Hide' : 'Show'}
                         </button>
@@ -1644,176 +1834,529 @@ export default function App() {
                     )}
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
-                    <div>
-                      <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Active Rooms</span>
-                      <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{occupiedRoomsCount} / 15</h3>
-                    </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-cyan-100 to-blue-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}><Layers size={20} /></div>
-                  </div>
 
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
-                    <div>
-                      <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Available Staff</span>
-                      <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{unassignedStaff.length} Standby</h3>
-                    </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-emerald-100 to-teal-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}><Briefcase size={20} /></div>
-                  </div>
-
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
-                    <div>
-                      <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Stock Warnings</span>
-                      <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>{lowStockItemsCount} Alerts</h3>
-                    </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-amber-100 to-orange-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-amber-400' : 'text-orange-600'}`}><AlertTriangle size={20} /></div>
-                  </div>
-
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'} border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between group`}>
-                    <div>
-                      <span className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>Today's Sales</span>
-                      <h3 className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>₱{totalSales.toLocaleString()}</h3>
-                    </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-slate-700' : 'bg-gradient-to-br from-blue-100 to-indigo-100'} rounded-xl group-hover:scale-110 transition-transform duration-200 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}><DollarSign size={20} /></div>
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                  <KpiCard
+                    title="Today's Sales"
+                    value={`₱${Number(dashboard.today_sales || 0).toLocaleString()}`}
+                    icon={<DollarSign size={18} />}
+                    color="purple"
+                    subtitle={`vs ₱${(Number(dashboard.month_sales || 0) / 30).toFixed(0)}/day avg`}
+                    isDarkMode={isDarkMode}
+                  />
+                  <KpiCard
+                    title="Month Sales"
+                    value={`₱${Number(dashboard.month_sales || 0).toLocaleString()}`}
+                    icon={<TrendingUp size={18} />}
+                    color="lime"
+                    subtitle="Last 30 days"
+                    isDarkMode={isDarkMode}
+                  />
+                  <KpiCard
+                    title="Net Profit"
+                    value={`₱${Number(dashboard.net_profit || 0).toLocaleString()}`}
+                    icon={<Wallet size={18} />}
+                    color={Number(dashboard.net_profit || 0) >= 0 ? 'lime' : 'red'}
+                    subtitle={`Expenses ₱${Number(dashboard.month_expenses || 0).toLocaleString()}`}
+                    isDarkMode={isDarkMode}
+                  />
+                  <KpiCard
+                    title="Occupied Rooms"
+                    value={`${occupiedRoomsCount} / ${roomsState.length}`}
+                    icon={<DoorOpen size={18} />}
+                    color="purple"
+                    subtitle={`${roomsState.length ? ((occupiedRoomsCount / roomsState.length) * 100).toFixed(0) : 0}% utilization`}
+                    isDarkMode={isDarkMode}
+                  />
+                  <KpiCard
+                    title="Low Stock"
+                    value={lowStockItemsCount}
+                    icon={<AlertTriangle size={18} />}
+                    color={lowStockItemsCount > 10 ? 'red' : 'orange'}
+                    subtitle="Needs restock"
+                    isDarkMode={isDarkMode}
+                  />
+                  <KpiCard
+                    title="Avg Rating"
+                    value={`${Number(dashboard.average_rating || 0).toFixed(1)} ★`}
+                    icon={<Star size={18} />}
+                    color="yellow"
+                    subtitle="Customer feedback"
+                    isDarkMode={isDarkMode}
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 lg:col-span-2`}>
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp size={16} className="text-cyan-600" />
-                        <h4 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Weekly Store Sales Overview</h4>
-                      </div>
-                      <p className={`text-[11px] font-medium mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Tracks total currency sales turnover across weekly channels</p>
-                    </div>
-                    <div className="h-64 w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <Card
+                    title="Revenue vs Expenses"
+                    subtitle="Last 7 days comparison"
+                    icon={<ActivityIcon size={16} />}
+                    isDarkMode={isDarkMode}
+                    className="lg:col-span-2"
+                  >
+                    <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={revenueTrend}>
+                        <ComposedChart data={revenueTrend}>
+                          <defs>
+                            <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                           <XAxis dataKey="day" fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
                           <YAxis fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
-                          <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : 'white', borderRadius: '8px', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', fontSize: '11px', color: isDarkMode ? 'white' : 'black' }} />
-                          <Legend wrapperStyle={{ fontSize: '11px', pt: '10px', color: isDarkMode ? 'white' : 'black' }} />
-                          <Line type="monotone" dataKey="Sales" stroke="#0284c7" strokeWidth={2.5} activeDot={{ r: 5 }} dot={{ fill: '#0284c7', strokeWidth: 2 }} />
-                        </LineChart>
+                          <Tooltip contentStyle={tooltipStyle(isDarkMode)} />
+                          <Legend wrapperStyle={{ fontSize: '11px' }} />
+                          <Area type="monotone" dataKey="Sales" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#salesGrad)" />
+                          <Area type="monotone" dataKey="Expenses" stroke="#f97316" strokeWidth={2} fill="url(#expGrad)" />
+                        </ComposedChart>
                       </ResponsiveContainer>
                     </div>
-                  </div>
+                  </Card>
 
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200`}>
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2">
-                        <Archive size={16} className="text-cyan-600" />
-                        <h4 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Product Stock Share</h4>
-                      </div>
-                      <p className={`text-[11px] font-medium mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Volumetric share metrics by distribution types</p>
-                    </div>
-                    <div className="h-52 w-full flex items-center justify-center relative">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={productDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={true}>
-                            {productDistribution.map((entry, idx) => <Cell key={idx} fill={entry.color} stroke="#fff" strokeWidth={2} />)}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : 'white', borderRadius: '8px', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', fontSize: '11px', color: isDarkMode ? 'white' : 'black' }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute text-center">
-                        <span className={`text-sm font-bold block ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>₱284.9K</span>
-                        <span className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Total</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-[10px] font-semibold pt-3 border-t mt-2">
-                      {productDistribution.map((pt, i) => (
-                        <div key={i} className={`flex items-center gap-1.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: pt.color }}></span>
-                          <span>{pt.name} ({pt.percentage})</span>
+                  <Card
+                    title="Payment Methods"
+                    subtitle="Last 30 days"
+                    icon={<CreditCard size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    {paymentSplit.length === 0 ? (
+                      <p className="text-xs text-center text-slate-400 py-12 italic">No payment data yet.</p>
+                    ) : (
+                      <>
+                        <div className="h-52">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={paymentSplit}
+                                cx="50%" cy="50%"
+                                innerRadius={50} outerRadius={80}
+                                paddingAngle={3}
+                                dataKey="amount"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                labelLine={false}
+                              >
+                                {paymentSplit.map((entry, i) => (
+                                  <Cell key={i} fill={PAYMENT_COLORS[i % PAYMENT_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={tooltipStyle(isDarkMode)}
+                                formatter={(value) => `₱${Number(value).toLocaleString()}`}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                        <div className="space-y-1.5 mt-2">
+                          {paymentSplit.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PAYMENT_COLORS[i % PAYMENT_COLORS.length] }} />
+                                <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>{p.name}</span>
+                              </div>
+                              <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                ₱{Number(p.amount).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </Card>
+                </div>
 
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 lg:col-span-2`}>
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2">
-                        <Star size={16} className="text-cyan-600" />
-                        <h4 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Most Booked Services</h4>
-                      </div>
-                      <p className={`text-[11px] font-medium mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Distinctly mapped colors assigned per service for instant identification</p>
-                    </div>
-                    <div className="h-64 w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <Card
+                    title="Top Services"
+                    subtitle="Best sellers by bookings"
+                    icon={<Star size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={popularServices}>
+                        <BarChart data={popularServices} layout="vertical" margin={{ left: 100 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
-                          <XAxis dataKey="name" fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
-                          <YAxis fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
-                          <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : 'white', borderRadius: '8px', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', fontSize: '11px', color: isDarkMode ? 'white' : 'black' }} />
-                          <Bar dataKey="Bookings" radius={[4, 4, 0, 0]}>
-                            {popularServices.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                          <XAxis type="number" fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            fontSize={10}
+                            stroke={isDarkMode ? '#64748b' : '#94a3b8'}
+                            width={100}
+                          />
+                          <Tooltip contentStyle={tooltipStyle(isDarkMode)} />
+                          <Bar dataKey="Bookings" radius={[0, 6, 6, 0]}>
+                            {popularServices.map((entry, i) => (
+                              <Cell key={i} fill={entry.fill || CHART_COLORS[i % CHART_COLORS.length]} />
+                            ))}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                  </div>
+                  </Card>
 
-                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200`}>
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2">
-                        <Users size={16} className="text-cyan-600" />
-                        <h4 className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>User Account Status</h4>
+                  <Card
+                    title="Top Products"
+                    subtitle="Best sellers by revenue"
+                    icon={<ShoppingBag size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    {topProducts.length === 0 ? (
+                      <p className="text-xs text-center text-slate-400 py-24 italic">No product sales yet.</p>
+                    ) : (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={topProducts} layout="vertical" margin={{ left: 100 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
+                            <XAxis type="number" fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
+                            <YAxis
+                              type="category" dataKey="name" fontSize={10}
+                              stroke={isDarkMode ? '#64748b' : '#94a3b8'} width={100}
+                            />
+                            <Tooltip
+                              contentStyle={tooltipStyle(isDarkMode)}
+                              formatter={(value) => `₱${Number(value).toLocaleString()}`}
+                            />
+                            <Bar dataKey="revenue" radius={[0, 6, 6, 0]}>
+                              {topProducts.map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[(i + 2) % CHART_COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
-                      <p className={`text-[11px] font-medium mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>Active Users vs Deactivated Accounts</p>
+                    )}
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <Card
+                    title="Sales by Hour"
+                    subtitle="Peak hours (last 7 days)"
+                    icon={<ClockIcon size={16} />}
+                    isDarkMode={isDarkMode}
+                    className="lg:col-span-2"
+                  >
+                    {salesByHour.length === 0 ? (
+                      <p className="text-xs text-center text-slate-400 py-24 italic">No hourly data yet.</p>
+                    ) : (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={salesByHour}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
+                            <XAxis dataKey="label" fontSize={10} stroke={isDarkMode ? '#64748b' : '#94a3b8'} interval={1} />
+                            <YAxis fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
+                            <Tooltip
+                              contentStyle={tooltipStyle(isDarkMode)}
+                              formatter={(value) => `₱${Number(value).toLocaleString()}`}
+                            />
+                            <Bar dataKey="sales" radius={[6, 6, 0, 0]}>
+                              {salesByHour.map((entry, i) => (
+                                <Cell
+                                  key={i}
+                                  fill={entry.sales > 0 ? '#8b5cf6' : (isDarkMode ? '#334155' : '#e2e8f0')}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card
+                    title="Top Staff"
+                    subtitle="Last 30 days"
+                    icon={<UserCheck size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="space-y-3">
+                      {(dashboard.top_staff || []).map((staff, i) => {
+                        const maxSales = Math.max(...(dashboard.top_staff || []).map(s => Number(s.total_sales || 0)), 1);
+                        const pctVal = (Number(staff.total_sales || 0) / maxSales) * 100;
+                        const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+                        return (
+                          <div key={i} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base">{medals[i] || '•'}</span>
+                                <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                  {staff.staff__username}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <p className={`font-bold ${isDarkMode ? 'text-lime-400' : 'text-lime-700'}`}>
+                                  ₱{Number(staff.total_sales).toLocaleString()}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {staff.transaction_count} transactions
+                                </p>
+                              </div>
+                            </div>
+                            <div className={`w-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-100'} rounded-full h-2 overflow-hidden`}>
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-purple-700 transition-all duration-500"
+                                style={{ width: `${pctVal}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {(!dashboard.top_staff || dashboard.top_staff.length === 0) && (
+                        <p className="text-xs italic text-slate-400 text-center py-8">
+                          No staff sales data yet.
+                        </p>
+                      )}
                     </div>
-                    <div className="h-52 w-full flex items-center justify-center">
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <Card
+                    title="Branch Performance"
+                    subtitle="Sales by outlet (30 days)"
+                    icon={<Building2 size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    {branchSales.length === 0 ? (
+                      <p className="text-xs text-center text-slate-400 py-20 italic">No branch data yet.</p>
+                    ) : (
+                      <div className="h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={branchSales}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
+                            <XAxis dataKey="branch" fontSize={10} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
+                            <YAxis fontSize={11} stroke={isDarkMode ? '#64748b' : '#94a3b8'} />
+                            <Tooltip
+                              contentStyle={tooltipStyle(isDarkMode)}
+                              formatter={(value) => `₱${Number(value).toLocaleString()}`}
+                            />
+                            <Bar dataKey="sales" radius={[6, 6, 0, 0]}>
+                              {branchSales.map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card
+                    title="Customer Tiers"
+                    subtitle="Loyalty distribution"
+                    icon={<Crown size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={userStatusDistribution} cx="50%" cy="50%" outerRadius={70} dataKey="value" stroke="#fff" strokeWidth={2} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={true}>
-                            {userStatusDistribution.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
+                          <Pie
+                            data={tierDistribution}
+                            cx="50%" cy="50%"
+                            innerRadius={45} outerRadius={75}
+                            paddingAngle={3}
+                            dataKey="count"
+                            label={({ tier, count }) => `${tier} ${count}`}
+                            labelLine={false}
+                          >
+                            {tierDistribution.map((entry, i) => (
+                              <Cell key={i} fill={TIER_COLORS[entry.tier] || '#94a3b8'} />
+                            ))}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1e293b' : 'white', borderRadius: '8px', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0', fontSize: '11px', color: isDarkMode ? 'white' : 'black' }} />
+                          <Tooltip contentStyle={tooltipStyle(isDarkMode)} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className={`flex justify-center gap-4 text-[10px] font-semibold pt-3 border-t mt-2 ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
-                      {userStatusDistribution.map((cc, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: cc.color }}></span>
-                          <span>{cc.name} ({cc.percentage})</span>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {tierDistribution.map((t, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: TIER_COLORS[t.tier] }} />
+                          <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
+                            {t.tier}: <strong>{t.count}</strong>
+                          </span>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </Card>
+
+                  <Card
+                    title="Stock Health"
+                    subtitle="Inventory status overview"
+                    icon={<Package size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="space-y-4 py-2">
+                      <StockBar
+                        label="Healthy (>5)"
+                        count={inventoryList.filter(i => i.quantity > 5).length}
+                        total={inventoryList.length}
+                        color="lime"
+                        isDarkMode={isDarkMode}
+                      />
+                      <StockBar
+                        label="Low (≤5)"
+                        count={inventoryList.filter(i => i.quantity > 0 && i.quantity <= 5).length}
+                        total={inventoryList.length}
+                        color="orange"
+                        isDarkMode={isDarkMode}
+                      />
+                      <StockBar
+                        label="Out of Stock"
+                        count={inventoryList.filter(i => i.quantity <= 0).length}
+                        total={inventoryList.length}
+                        color="red"
+                        isDarkMode={isDarkMode}
+                      />
+                    </div>
+                    <div className={`mt-3 pt-3 border-t ${isDarkMode ? 'border-slate-700' : 'border-purple-100'} text-center`}>
+                      <p className="text-[10px] uppercase text-slate-500">Total Items</p>
+                      <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                        {inventoryList.length}
+                      </p>
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <Card
+                    title="Customer Split"
+                    subtitle="New vs returning (30 days)"
+                    icon={<Users2 size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'New', value: customerSplit.new || 0, color: '#3b82f6' },
+                              { name: 'Returning', value: customerSplit.returning || 0, color: '#8b5cf6' },
+                            ]}
+                            cx="50%" cy="50%"
+                            innerRadius={40} outerRadius={70}
+                            dataKey="value"
+                          >
+                            <Cell fill="#3b82f6" />
+                            <Cell fill="#8b5cf6" />
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle(isDarkMode)} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex justify-around text-xs">
+                      <div className="text-center">
+                        <p className="text-blue-500 font-bold text-lg">{customerSplit.new || 0}</p>
+                        <p className="text-slate-500 text-[10px] uppercase">New</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-purple-500 font-bold text-lg">{customerSplit.returning || 0}</p>
+                        <p className="text-slate-500 text-[10px] uppercase">Returning</p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card
+                    title="Product Categories"
+                    subtitle="Stock distribution"
+                    icon={<Archive size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={productDistribution}
+                            cx="50%" cy="50%"
+                            innerRadius={40} outerRadius={70}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {productDistribution.map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle(isDarkMode)} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px] mt-1">
+                      {productDistribution.slice(0, 4).map((p, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
+                          <span className={`truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {p.name} ({p.percentage})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  <Card
+                    title="Overall Health"
+                    subtitle="Key metrics at a glance"
+                    icon={<ActivityIcon size={16} />}
+                    isDarkMode={isDarkMode}
+                  >
+                    <div className="space-y-4">
+                      <RadialMetric
+                        label="Room Utilization"
+                        value={roomsState.length ? (occupiedRoomsCount / roomsState.length) * 100 : 0}
+                        display={`${occupiedRoomsCount}/${roomsState.length}`}
+                        color="#8b5cf6"
+                        isDarkMode={isDarkMode}
+                      />
+                      <RadialMetric
+                        label="Stock Health"
+                        value={(inventoryList.filter(i => i.quantity > 5).length / Math.max(inventoryList.length, 1)) * 100}
+                        display={`${inventoryList.filter(i => i.quantity > 5).length}/${inventoryList.length}`}
+                        color="#8bc34a"
+                        isDarkMode={isDarkMode}
+                      />
+                      <RadialMetric
+                        label="Staff Assigned"
+                        value={(staffList.filter(s => s.assignment !== 'Unassigned').length / Math.max(staffList.length, 1)) * 100}
+                        display={`${staffList.filter(s => s.assignment !== 'Unassigned').length}/${staffList.length}`}
+                        color="#f97316"
+                        isDarkMode={isDarkMode}
+                      />
+                    </div>
+                  </Card>
                 </div>
               </>
             )}
 
-            {/* USERS TAB */}
             {canAccess(currentUserRole, 'users') && activeTab === 'users' && (
-              <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
+              <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-3">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>User Management Directory</h3>
                     <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{staffList.length} total users · {staffList.filter(s => s.status === 'Active').length} active</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => exportToCSV(staffList, 'users')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
+                    <button onClick={() => exportToCSV(staffList, 'users')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-purple-200 hover:bg-purple-50 text-purple-700'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
                       <Download size={14} /> Export
                     </button>
-                    {canAccess(currentUserRole, 'user_manage') && <button onClick={() => setShowUserModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
+                    {canAccess(currentUserRole, 'user_manage') && <button onClick={() => setShowUserModal(true)} className="bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
                       <UserPlus size={14} /> Add User
                     </button>}
                   </div>
                 </div>
 
-                <div className={`${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-200'} border p-3 rounded-xl flex flex-col md:flex-row items-center gap-3 text-xs font-semibold`}>
+                <div className={`${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-gradient-to-r from-purple-50 to-purple-100/50 border-purple-200'} border p-3 rounded-xl flex flex-col md:flex-row items-center gap-3 text-xs font-semibold`}>
                   <div className="flex items-center gap-1 text-slate-600"><Filter size={13} /> <span>Filters:</span></div>
                   <div className="w-full md:w-44 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Search</span>
-                    <input type="text" placeholder="Type name or address..." value={userSearch} onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all`} />
+                    <input type="text" placeholder="Type name or address..." value={userSearch} onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all`} />
                   </div>
                   <div className="w-full md:w-40 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Role</span>
-                    <select value={userRoleFilter} onChange={(e) => { setUserRoleFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
+                    <select value={userRoleFilter} onChange={(e) => { setUserRoleFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-purple-500`}>
                       <option value="All">All Roles</option>
                       <option value="Cashier">Cashier</option>
                       <option value="Owner">Owner</option>
@@ -1823,7 +2366,7 @@ export default function App() {
                   </div>
                   <div className="w-full md:w-36 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Gender</span>
-                    <select value={userGenderFilter} onChange={(e) => { setUserGenderFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
+                    <select value={userGenderFilter} onChange={(e) => { setUserGenderFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-purple-500`}>
                       <option value="All">All Genders</option>
                       <option value="Female">Female</option>
                       <option value="Male">Male</option>
@@ -1831,7 +2374,7 @@ export default function App() {
                   </div>
                   <div className="w-full md:w-36 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Status</span>
-                    <select value={userStatusFilter} onChange={(e) => { setUserStatusFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
+                    <select value={userStatusFilter} onChange={(e) => { setUserStatusFilter(e.target.value); setUserPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-purple-500`}>
                       <option value="All">All Statuses</option>
                       <option value="Active">Active</option>
                       <option value="Deactivated">Deactivated</option>
@@ -1842,7 +2385,7 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className={`border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'} text-xs font-semibold uppercase ${isDarkMode ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
+                      <tr className={`border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-purple-200 text-slate-400'} text-xs font-semibold uppercase ${isDarkMode ? 'bg-slate-700/50' : 'bg-gradient-to-r from-purple-50 to-purple-100'}`}>
                         <th className="py-2.5 px-4">User</th>
                         <th className="py-2.5 px-4">Role</th>
                         <th className="py-2.5 px-4">Assignment</th>
@@ -1850,12 +2393,12 @@ export default function App() {
                         <th className="py-2.5 px-4 text-center">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-slate-100'}`}>
+                    <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-purple-100'}`}>
                       {paginatedUsers.map((staff) => (
-                        <tr key={staff.id} className={`${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'} transition-colors ${staff.status === 'Deactivated' ? 'opacity-60' : ''}`}>
+                        <tr key={staff.id} className={`${isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-purple-50/30'} transition-colors ${staff.status === 'Deactivated' ? 'opacity-60' : ''}`}>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 ${isDarkMode ? 'bg-slate-700 text-cyan-400' : 'bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-600'} rounded-full flex items-center justify-center font-bold text-xs`}>
+                              <div className={`w-8 h-8 ${isDarkMode ? 'bg-slate-700 text-purple-300' : 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700'} rounded-full flex items-center justify-center font-bold text-xs`}>
                                 {staff.avatar || staff.name.split(' ').map(n => n[0]).join('')}
                               </div>
                               <div>
@@ -1865,30 +2408,30 @@ export default function App() {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${staff.role === 'Admin' ? 'bg-purple-100 text-purple-700' : staff.role === 'Cashier' ? 'bg-cyan-100 text-cyan-700' : staff.role === 'Spa Therapist' ? 'bg-pink-100 text-pink-700' : 'bg-slate-100 text-slate-700'}`}>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${staff.role === 'Admin' ? 'bg-purple-100 text-purple-700' : staff.role === 'Cashier' ? 'bg-lime-100 text-lime-700' : staff.role === 'Spa Therapist' ? 'bg-pink-100 text-pink-700' : 'bg-slate-100 text-slate-700'}`}>
                               {staff.role}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                              {staff.assignment === 'Unassigned' ? <span className="text-amber-600">🔄 Unassigned</span> : <span className="text-cyan-600">📍 {staff.assignment}</span>}
+                              {staff.assignment === 'Unassigned' ? <span className="text-orange-600">🔄 Unassigned</span> : <span className="text-purple-700">📍 {staff.assignment}</span>}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${staff.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${staff.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full ${staff.status === 'Active' ? 'bg-lime-50 text-lime-700 border border-lime-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${staff.status === 'Active' ? 'bg-lime-500' : 'bg-red-500'}`} />
                               {staff.status.toUpperCase()}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center justify-center gap-1.5">
-                              <button onClick={() => viewUserProfile(staff)} className={`p-1.5 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-cyan-400 hover:bg-slate-600' : 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100'} border rounded-lg transition-all hover:scale-110`} title="View Profile">
+                              <button onClick={() => viewUserProfile(staff)} className={`p-1.5 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-purple-300 hover:bg-slate-600' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'} border rounded-lg transition-all hover:scale-110`} title="View Profile">
                                 <Eye size={13} />
                               </button>
-                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => initEditUser(staff)} className={`p-1.5 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'} border rounded-lg transition-all hover:scale-110`} title="Edit">
+                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => initEditUser(staff)} className={`p-1.5 ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-400 hover:text-white hover:bg-slate-600' : 'bg-white border-purple-200 text-slate-500 hover:text-purple-800 hover:border-purple-300'} border rounded-lg transition-all hover:scale-110`} title="Edit">
                                 <Edit3 size={13} />
                               </button>}
-                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => toggleUserStatus(staff.id, staff.status)} className={`p-1.5 border rounded-lg transition-all hover:scale-110 ${staff.status === 'Active' ? 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100' : 'bg-emerald-50 border-emerald-100 text-emerald-500 hover:bg-emerald-100'}`} title={staff.status === 'Active' ? 'Deactivate' : 'Activate'}>
+                              {canAccess(currentUserRole, 'user_manage') && <button onClick={() => toggleUserStatus(staff.id, staff.status)} className={`p-1.5 border rounded-lg transition-all hover:scale-110 ${staff.status === 'Active' ? 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100' : 'bg-lime-50 border-lime-100 text-lime-600 hover:bg-lime-100'}`} title={staff.status === 'Active' ? 'Deactivate' : 'Activate'}>
                                 {staff.status === 'Active' ? <EyeOff size={13} /> : <Check size={13} />}
                               </button>}
                             </div>
@@ -1902,22 +2445,22 @@ export default function App() {
                   </table>
                 </div>
 
-                <div className={`flex justify-between items-center border-t pt-3 text-xs font-semibold ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-400 border-slate-100'}`}>
+                <div className={`flex justify-between items-center border-t pt-3 text-xs font-semibold ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-400 border-purple-100'}`}>
                   <div>Showing {paginatedUsers.length} of {filteredUsers.length} users</div>
                   <div className="flex items-center gap-1">
-                    <button disabled={userPage === 1} onClick={() => setUserPage(userPage - 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
+                    <button disabled={userPage === 1} onClick={() => setUserPage(userPage - 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-purple-200 bg-white hover:bg-purple-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
                       <ChevronLeft size={12} /> Prev
                     </button>
                     {Array.from({ length: Math.min(totalUserPages, 5) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
-                        <button key={pageNum} onClick={() => setUserPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${userPage === pageNum ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                        <button key={pageNum} onClick={() => setUserPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${userPage === pageNum ? 'bg-gradient-to-r from-purple-700 to-purple-900 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-purple-200 text-slate-500 hover:bg-purple-50'}`}>
                           {pageNum}
                         </button>
                       );
                     })}
                     {totalUserPages > 5 && <span className="text-slate-400">...</span>}
-                    <button disabled={userPage === totalUserPages} onClick={() => setUserPage(userPage + 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
+                    <button disabled={userPage === totalUserPages} onClick={() => setUserPage(userPage + 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-purple-200 bg-white hover:bg-purple-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
                       Next <ChevronRight size={12} />
                     </button>
                   </div>
@@ -1925,124 +2468,233 @@ export default function App() {
               </div>
             )}
 
-            {/* ROOMS TAB */}
+            {/* ============================================================
+                ============ ROOM STATUS (DYNAMIC + ADD ROOM) ============
+                ============================================================ */}
             {canAccess(currentUserRole, 'rooms') && activeTab === 'rooms' && (
               <div className="space-y-6">
-                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-blue-50 via-cyan-50 to-sky-50 border-cyan-100'} p-5 border rounded-xl shadow-sm`}>
-                  <div className="text-center md:border-r border-cyan-100">
+                {/* ============ SUMMARY CARDS ============ */}
+                <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-purple-50 via-purple-100 to-purple-50 border-purple-200'} p-5 border rounded-xl shadow-sm`}>
+                  <div className="text-center md:border-r border-purple-200">
                     <span className={`text-xs block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Occupied Rooms</span>
-                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{roomsState.filter(r => r.customer !== '').length} Active</div>
+                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>
+                      {roomsState.filter(r => r.isOccupied).length} Active
+                    </div>
                   </div>
-                  <div className="text-center md:border-r border-cyan-100">
+                  <div className="text-center md:border-r border-purple-200">
                     <span className={`text-xs block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Vacant Rooms</span>
-                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{roomsState.filter(r => r.customer === '').length} Ready</div>
+                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {roomsState.filter(r => !r.isOccupied).length} Ready
+                    </div>
+                  </div>
+                  <div className="text-center md:border-r border-purple-200">
+                    <span className={`text-xs block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Total Rooms</span>
+                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                      {roomsState.length}
+                    </div>
                   </div>
                   <div className="text-center">
                     <span className={`text-xs block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Available Staff</span>
-                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{unassignedStaff.length} Standby</div>
+                    <div className={`text-2xl font-bold mt-1 ${isDarkMode ? 'text-lime-400' : 'text-lime-700'}`}>
+                      {staffList.filter(s => s.status === 'Active').length} On-duty
+                    </div>
                   </div>
                 </div>
 
-                {roomZones.map((zone, idx) => (
-                  <div key={idx} className="space-y-3">
-                    <h4 className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-slate-400 bg-slate-800 border-slate-700' : 'text-slate-500 bg-slate-100 border-slate-200'} border px-3 py-1.5 rounded-lg w-fit tracking-wide`}>
-                      {zone.icon} {zone.title}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      {roomsState.filter(r => r.id >= zone.min && r.id <= zone.max).map((room) => {
-                        // Staff are assigned to an outlet, so match on the room's
-                        // branch. The old `Room ${id}` label came from the
-                        // hardcoded demo rows and never matched real data.
-                        const assignedCrew = room.branchName
-                          ? staffList.filter((s) => s.assignment === room.branchName)
-                          : [];
-                        const isOccupied = room.customer !== '';
+                {/* ============ HEADER WITH ADD ROOM BUTTON ============ */}
+                <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-xl p-4 flex items-center justify-between shadow-sm`}>
+                  <div>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                      Live Service Room Tracking
+                    </h3>
+                    <p className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Real-time monitoring ng rooms, staff assignments, at service timers.
+                    </p>
+                  </div>
+                  {canAccess(currentUserRole, 'room_manage') && (
+                    <button
+                      onClick={() => setShowNewRoomModal(true)}
+                      className="bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md"
+                    >
+                      <Plus size={14} /> Add New Room
+                    </button>
+                  )}
+                </div>
 
-                        return (
-                          <div key={room.id} className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border rounded-xl p-4 shadow-sm flex flex-col justify-between transition-all duration-200 hover:shadow-md ${isOccupied ? 'border-cyan-500' : 'hover:border-slate-300'}`}>
-                            <div className="flex justify-between items-center border-b pb-2">
-                              <span className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Room Suite {room.id}</span>
-                              <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${isOccupied ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
-                                {isOccupied ? 'RUNNING' : 'VACANT'}
-                              </span>
-                            </div>
+                {/* ============ ROOM ZONES (DYNAMIC) ============ */}
+                {roomZones.length === 0 ? (
+                  <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-xl p-12 text-center`}>
+                    <DoorOpen size={48} className={`mx-auto mb-3 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                    <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>No rooms yet.</p>
+                    {canAccess(currentUserRole, 'room_manage') && (
+                      <button
+                        onClick={() => setShowNewRoomModal(true)}
+                        className="mt-3 bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-semibold text-xs px-4 py-2 rounded-xl inline-flex items-center gap-1.5 transition-all"
+                      >
+                        <Plus size={14} /> Add First Room
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  roomZones.map((zone, idx) => (
+                    <div key={idx} className="space-y-3">
+                      <h4 className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-slate-400 bg-slate-800 border-slate-700' : 'text-slate-500 bg-purple-100 border-purple-200'} border px-3 py-1.5 rounded-lg w-fit tracking-wide flex items-center gap-2`}>
+                        <DoorOpen size={12} />
+                        {zone.title} ({zone.ids.length} rooms)
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {roomsState
+                          .filter(r => r.id >= zone.min && r.id <= zone.max)
+                          .map((room) => {
+                            const isOccupied = room.isOccupied;
+                            // ✅ DYNAMIC: Kunin lang ang specific na staff na naka-assign sa room na ito
+                            const assignedStaffMember = room.assignedStaffId
+                              ? staffList.find((s) => String(s.userId) === String(room.assignedStaffId) || String(s.id) === String(room.assignedStaffId))
+                              : null;
 
-                            <div className="mt-3 space-y-2 text-xs font-medium">
-                              {isOccupied ? (
-                                <div className={`${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-lg p-2 space-y-1 text-[11px]`}>
-                                  <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Guest: <span className="underline">{room.customer}</span></p>
-                                  <p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>Type: {room.service}</p>
-                                  <div className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} font-bold pt-1 mt-1 border-t border-dashed ${isDarkMode ? 'border-slate-600' : 'border-slate-200'} flex items-center gap-1`}>
-                                    <Clock size={10} /> Time Left: {room.timeLeft} mins
+                            // ✅ Live timer compute
+                            let liveTimeLeft = room.timeLeft;
+                            if (isOccupied && room.startTime && room.durationMinutes) {
+                              const startMs = new Date(room.startTime).getTime();
+                              const endMs = startMs + room.durationMinutes * 60 * 1000;
+                              const nowMs = Date.now();
+                              liveTimeLeft = Math.max(0, Math.ceil((endMs - nowMs) / 60000));
+                            }
+
+                            return (
+                              <div
+                                key={room.id}
+                                className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border rounded-xl p-4 shadow-sm flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
+                                  isOccupied ? 'border-purple-500 ring-1 ring-purple-500/20' : 'hover:border-purple-300'
+                                }`}
+                              >
+                                <div className="flex justify-between items-center border-b pb-2">
+                                  <span className={`font-bold text-sm truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`} title={room.name}>
+                                    {room.name || `Room Suite ${room.id}`}
+                                  </span>
+                                  <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 ${
+                                    isOccupied
+                                      ? 'bg-gradient-to-r from-purple-700 to-purple-900 text-white shadow-sm'
+                                      : 'bg-purple-100 text-slate-400'
+                                  }`}>
+                                    {isOccupied ? 'RUNNING' : 'VACANT'}
+                                  </span>
+                                </div>
+
+                                <div className="mt-3 space-y-2 text-xs font-medium">
+                                  {isOccupied ? (
+                                    <div className={`${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-purple-50 border-purple-200'} border rounded-lg p-2 space-y-1 text-[11px]`}>
+                                      <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                        Guest: <span className="underline">{room.customer}</span>
+                                      </p>
+                                      <p className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
+                                        Type: {room.service}
+                                      </p>
+                                      <div className={`${
+                                        liveTimeLeft === 0
+                                          ? 'text-red-500'
+                                          : liveTimeLeft <= 5
+                                            ? 'text-orange-500'
+                                            : (isDarkMode ? 'text-purple-300' : 'text-purple-700')
+                                      } font-bold pt-1 mt-1 border-t border-dashed ${isDarkMode ? 'border-slate-600' : 'border-purple-200'} flex items-center gap-1`}>
+                                        <Clock size={10} />
+                                        {liveTimeLeft === 0 ? 'Time is up!' : `Time Left: ${liveTimeLeft} mins`}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className={`${isDarkMode ? 'text-slate-500' : 'text-slate-400'} italic text-[11px] py-2`}>
+                                      Ready for check-in
+                                    </p>
+                                  )}
+
+                                  {/* ✅ DYNAMIC ASSIGNED STAFF */}
+                                  <div className="pt-2 border-t text-[10px]">
+                                    <span className={`${isDarkMode ? 'text-slate-400' : 'text-slate-400'} block uppercase font-semibold mb-1`}>
+                                      Assigned Staff:
+                                    </span>
+                                    {isOccupied ? (
+                                      assignedStaffMember ? (
+                                        <div className={`font-semibold flex items-center gap-1.5 text-[11px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                          <span className="w-1.5 h-1.5 bg-lime-500 rounded-full"></span>
+                                          {assignedStaffMember.name}
+                                          <span className="text-[9px] text-slate-500">({assignedStaffMember.role})</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[9px] font-semibold text-slate-400 italic">
+                                          No staff assigned
+                                        </span>
+                                      )
+                                    ) : (
+                                      <span className={`text-[9px] italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>—</span>
+                                    )}
                                   </div>
                                 </div>
-                              ) : (
-                                <p className={`${isDarkMode ? 'text-slate-500' : 'text-slate-400'} italic text-[11px] py-2`}>Ready for check-in</p>
-                              )}
 
-                              <div className="pt-2 border-t text-[10px]">
-                                <span className={`${isDarkMode ? 'text-slate-400' : 'text-slate-400'} block uppercase font-semibold mb-1`}>Assigned Staff:</span>
-                                {assignedCrew.length > 0 ? (
-                                  assignedCrew.map((c, cIdx) => (
-                                    <div key={cIdx} className={`font-semibold flex items-center gap-1.5 text-[11px] ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> {c.name} ({c.role})
-                                    </div>
-                                  ))
-                                ) : (
-                                  <span className="text-[9px] font-semibold text-red-500 bg-red-50 rounded px-1.5 py-0.5 inline-block">Unstaffed</span>
-                                )}
+                                <div className="mt-4 pt-2 border-t">
+                                  {isOccupied && canAccess(currentUserRole, 'room_manage') ? (
+                                    <button
+                                      onClick={() => handleEvacuateRoom(room.id)}
+                                      className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-[11px] py-1.5 rounded-lg transition-all"
+                                    >
+                                      Release Room
+                                    </button>
+                                  ) : !isOccupied && canAccess(currentUserRole, 'room_manage') ? (
+                                    <button
+                                      disabled={staffList.filter(s => s.status === 'Active').length === 0}
+                                      onClick={() => {
+                                        setSelectedRoomId(room.id);
+                                        setShowRoomModal(true);
+                                      }}
+                                      className={`w-full ${
+                                        staffList.filter(s => s.status === 'Active').length === 0
+                                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                          : 'bg-purple-50 hover:bg-gradient-to-r hover:from-purple-700 hover:to-purple-900 hover:text-white border border-purple-200'
+                                      } font-semibold text-[11px] py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all`}
+                                    >
+                                      <Plus size={12} /> <span>Check-In</span>
+                                    </button>
+                                  ) : (
+                                    <span className="block text-center text-[10px] italic text-slate-400">
+                                      Read-only view
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-
-                            <div className="mt-4 pt-2 border-t">
-                              {isOccupied && canAccess(currentUserRole, 'room_manage') ? (
-                                <button onClick={() => handleEvacuateRoom(room.id)} className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-[11px] py-1.5 rounded-lg transition-all">
-                                  Release Room
-                                </button>
-                              ) : !isOccupied && canAccess(currentUserRole, 'room_manage') ? (
-                                <button disabled={unassignedStaff.length === 0} onClick={() => { setSelectedRoomId(room.id); setShowRoomModal(true); }} className={`w-full ${unassignedStaff.length === 0 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50 hover:bg-gradient-to-r hover:from-cyan-600 hover:to-blue-600 hover:text-white border border-slate-200'} font-semibold text-[11px] py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all`}>
-                                  <Plus size={12} /> <span>Check-In</span>
-                                </button>
-                              ) : (
-                                <span className="block text-center text-[10px] italic text-slate-400">Read-only view</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
 
-            {/* INVENTORY TAB */}
             {canAccess(currentUserRole, 'inventory') && activeTab === 'inventory' && (
-              <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
+              <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
                 <div className="flex justify-between items-center border-b pb-3">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Product Warehouse Stock Registry</h3>
                     <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{inventoryList.length} total items · {inventoryList.filter(i => i.quantity <= 5).length} low stock</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => exportToCSV(inventoryList, 'inventory')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
+                    <button onClick={() => exportToCSV(inventoryList, 'inventory')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-purple-200 hover:bg-purple-50 text-purple-700'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
                       <Download size={14} /> Export
                     </button>
-                    {canAccess(currentUserRole, 'inventory_manage') && <button onClick={() => setShowProductModal(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
+                    {canAccess(currentUserRole, 'inventory_manage') && <button onClick={() => setShowProductModal(true)} className="bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-600 hover:to-purple-800 text-white font-medium text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
                       <Plus size={14} /> Add Product
                     </button>}
                   </div>
                 </div>
 
-                <div className={`${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-200'} border p-3 rounded-xl flex flex-col md:flex-row items-center gap-3 text-xs font-semibold`}>
+                <div className={`${isDarkMode ? 'bg-slate-700/50 border-slate-700' : 'bg-gradient-to-r from-purple-50 to-purple-100/50 border-purple-200'} border p-3 rounded-xl flex flex-col md:flex-row items-center gap-3 text-xs font-semibold`}>
                   <div className="flex items-center gap-1 text-slate-600"><Filter size={13} /> <span>Filters:</span></div>
                   <div className="w-full md:w-44 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Search</span>
-                    <input type="text" placeholder="Search product..." value={productSearch} onChange={(e) => { setProductSearch(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all`} />
+                    <input type="text" placeholder="Search product..." value={productSearch} onChange={(e) => { setProductSearch(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all`} />
                   </div>
                   <div className="w-full md:w-40 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Category</span>
-                    <select value={productCategoryFilter} onChange={(e) => { setProductCategoryFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
+                    <select value={productCategoryFilter} onChange={(e) => { setProductCategoryFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-purple-500`}>
                       <option value="All">All Categories</option>
                       <option value="Cosmetics">Cosmetics</option>
                       <option value="Supplies">Supplies</option>
@@ -2051,7 +2703,7 @@ export default function App() {
                   </div>
                   <div className="w-full md:w-40 space-y-0.5">
                     <span className="text-[10px] text-slate-400 block uppercase">Stock Level</span>
-                    <select value={productStockFilter} onChange={(e) => { setProductStockFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-slate-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-cyan-500`}>
+                    <select value={productStockFilter} onChange={(e) => { setProductStockFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-purple-500`}>
                       <option value="All">All Items</option>
                       <option value="Stable">Stable (&gt; 5)</option>
                       <option value="Low">Low Stock (&le; 5)</option>
@@ -2062,7 +2714,7 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className={`border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'} text-xs font-semibold uppercase ${isDarkMode ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
+                      <tr className={`border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-purple-200 text-slate-400'} text-xs font-semibold uppercase ${isDarkMode ? 'bg-slate-700/50' : 'bg-gradient-to-r from-purple-50 to-purple-100'}`}>
                         <th className="py-2.5 px-4">Product</th>
                         <th className="py-2.5 px-4">Category</th>
                         <th className="py-2.5 px-4">Quantity</th>
@@ -2070,32 +2722,32 @@ export default function App() {
                         <th className="py-2.5 px-4 text-center">Status</th>
                       </tr>
                     </thead>
-                    <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-slate-100'}`}>
+                    <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-purple-100'}`}>
                       {paginatedProducts.map((item) => {
                         const stockLevel = item.quantity <= 0 ? 'out' : item.quantity <= 5 ? 'low' : 'high';
                         const stockColors = {
                           out: 'bg-red-100 text-red-700 border-red-200',
                           low: 'bg-orange-100 text-orange-700 border-orange-200',
-                          high: 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          high: 'bg-lime-100 text-lime-700 border-lime-200'
                         };
 
                         return (
-                          <tr key={item.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'} transition-colors>
+                          <tr key={item.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-purple-50/30'} transition-colors>
                             <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.name}</td>
                             <td className="py-3 px-4">
-                              <span className={`text-xs ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'} px-2 py-1 rounded-full`}>{item.category}</span>
+                              <span className={`text-xs ${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-purple-100 text-purple-700'} px-2 py-1 rounded-full`}>{item.category}</span>
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
                                 <span className={`font-mono font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.quantity}</span>
                                 <div className="flex-1 min-w-[40px]">
-                                  <div className={`w-full ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'} rounded-full h-1.5`}>
-                                    <div className={`h-1.5 rounded-full transition-all duration-500 ${stockLevel === 'low' ? 'bg-orange-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min((item.quantity / 50) * 100, 100)}%` }} />
+                                  <div className={`w-full ${isDarkMode ? 'bg-slate-700' : 'bg-purple-100'} rounded-full h-1.5`}>
+                                    <div className={`h-1.5 rounded-full transition-all duration-500 ${stockLevel === 'low' ? 'bg-orange-500' : 'bg-lime-500'}`} style={{ width: `${Math.min((item.quantity / 50) * 100, 100)}%` }} />
                                   </div>
                                 </div>
                               </div>
                             </td>
-                            <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>₱{item.price.toFixed(2)}</td>
+                            <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>₱{item.price.toFixed(2)}</td>
                             <td className="py-3 px-4 text-center">
                               <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full border ${stockColors[stockLevel]}`}>
                                 {stockLevel === 'out' ? '🚫 OUT' : stockLevel === 'low' ? '🔴 LOW' : '🟢 STABLE'}
@@ -2111,22 +2763,22 @@ export default function App() {
                   </table>
                 </div>
 
-                <div className={`flex justify-between items-center border-t pt-3 text-xs font-semibold ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-400 border-slate-100'}`}>
+                <div className={`flex justify-between items-center border-t pt-3 text-xs font-semibold ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-400 border-purple-100'}`}>
                   <div>Showing {paginatedProducts.length} of {filteredProducts.length} items</div>
                   <div className="flex items-center gap-1">
-                    <button disabled={productPage === 1} onClick={() => setProductPage(productPage - 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
+                    <button disabled={productPage === 1} onClick={() => setProductPage(productPage - 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-purple-200 bg-white hover:bg-purple-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
                       <ChevronLeft size={12} /> Prev
                     </button>
                     {Array.from({ length: Math.min(totalProductPages, 5) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
-                        <button key={pageNum} onClick={() => setProductPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${productPage === pageNum ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                        <button key={pageNum} onClick={() => setProductPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${productPage === pageNum ? 'bg-gradient-to-r from-purple-700 to-purple-900 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-purple-200 text-slate-500 hover:bg-purple-50'}`}>
                           {pageNum}
                         </button>
                       );
                     })}
                     {totalProductPages > 5 && <span className="text-slate-400">...</span>}
-                    <button disabled={productPage === totalProductPages} onClick={() => setProductPage(productPage + 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
+                    <button disabled={productPage === totalProductPages} onClick={() => setProductPage(productPage + 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-purple-200 bg-white hover:bg-purple-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
                       Next <ChevronRight size={12} />
                     </button>
                   </div>
@@ -2134,28 +2786,27 @@ export default function App() {
               </div>
             )}
 
-            {/* AUDIT LOGS TAB */}
             {canAccess(currentUserRole, 'audit') && activeTab === 'audit_controls' && (
-              <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
+              <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Security Audit Log Records</h3>
                     <p className={`text-xs font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>System tracking log mapping security updates and modifications.</p>
                   </div>
-                  <button onClick={() => exportToCSV(auditLogs, 'audit_logs')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 hover:bg-slate-50 text-slate-600'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
+                  <button onClick={() => exportToCSV(auditLogs, 'audit_logs')} className={`border ${isDarkMode ? 'border-slate-700 hover:bg-slate-700 text-slate-400 hover:text-white' : 'border-purple-200 hover:bg-purple-50 text-purple-700'} font-medium text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all`}>
                     <Download size={14} /> Export
                   </button>
                 </div>
 
                 <div className="relative w-full max-w-sm">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400"><Search size={13} /></span>
-                  <input type="text" placeholder="Search logs..." value={auditSearch} onChange={(e) => { setAuditSearch(e.target.value); setAuditPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200'} border pl-8 pr-3 py-1.5 text-xs rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-medium`} />
+                  <input type="text" placeholder="Search logs..." value={auditSearch} onChange={(e) => { setAuditSearch(e.target.value); setAuditPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border pl-8 pr-3 py-1.5 text-xs rounded-lg outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all font-medium`} />
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className={`border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'} text-xs font-semibold uppercase ${isDarkMode ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
+                      <tr className={`border-b ${isDarkMode ? 'border-slate-700 text-slate-400' : 'border-purple-200 text-slate-400'} text-xs font-semibold uppercase ${isDarkMode ? 'bg-slate-700/50' : 'bg-gradient-to-r from-purple-50 to-purple-100'}`}>
                         <th className="py-2.5 px-4">Timestamp</th>
                         <th className="py-2.5 px-4">Action</th>
                         <th className="py-2.5 px-4">Target</th>
@@ -2163,20 +2814,16 @@ export default function App() {
                         <th className="py-2.5 px-4">Agent</th>
                       </tr>
                     </thead>
-                    <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-slate-100'}`}>
+                    <tbody className={`divide-y ${isDarkMode ? 'divide-slate-700' : 'divide-purple-100'}`}>
                       {paginatedAudits.map((log) => (
-                        <tr key={log.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50/30'} transition-colors>
+                        <tr key={log.id} className={isDarkMode ? 'hover:bg-slate-700/50' : 'hover:bg-purple-50/30'} transition-colors>
                           <td className={`py-3 px-4 font-mono ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{log.time}</td>
                           <td className="py-3 px-4">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'VOID' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'VOID' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-purple-50 text-purple-700 border border-purple-100'}`}>
                               {log.type}
                             </span>
                           </td>
                           <td className={`py-3 px-4 font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{log.target}</td>
-                          {/* AuditLog carries no money field — the old "Value"
-                              column came from the hardcoded demo receipts and
-                              crashed on every real row (value is null). The
-                              request id is the useful trace for an audit trail. */}
                           <td className={`py-3 px-4 font-mono text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             {log.request || '—'}
                           </td>
@@ -2190,22 +2837,22 @@ export default function App() {
                   </table>
                 </div>
 
-                <div className={`flex justify-between items-center border-t pt-3 text-xs font-semibold ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-400 border-slate-100'}`}>
+                <div className={`flex justify-between items-center border-t pt-3 text-xs font-semibold ${isDarkMode ? 'text-slate-400 border-slate-700' : 'text-slate-400 border-purple-100'}`}>
                   <div>Showing {paginatedAudits.length} of {filteredAudits.length} events</div>
                   <div className="flex items-center gap-1">
-                    <button disabled={auditPage === 1} onClick={() => setAuditPage(auditPage - 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
+                    <button disabled={auditPage === 1} onClick={() => setAuditPage(auditPage - 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-purple-200 bg-white hover:bg-purple-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
                       <ChevronLeft size={12} /> Prev
                     </button>
                     {Array.from({ length: Math.min(totalAuditPages, 5) }, (_, i) => {
                       const pageNum = i + 1;
                       return (
-                        <button key={pageNum} onClick={() => setAuditPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${auditPage === pageNum ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                        <button key={pageNum} onClick={() => setAuditPage(pageNum)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${auditPage === pageNum ? 'bg-gradient-to-r from-purple-700 to-purple-900 text-white shadow-sm' : isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border border-purple-200 text-slate-500 hover:bg-purple-50'}`}>
                           {pageNum}
                         </button>
                       );
                     })}
                     {totalAuditPages > 5 && <span className="text-slate-400">...</span>}
-                    <button disabled={auditPage === totalAuditPages} onClick={() => setAuditPage(auditPage + 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
+                    <button disabled={auditPage === totalAuditPages} onClick={() => setAuditPage(auditPage + 1)} className={`px-3 py-1 border rounded-lg ${isDarkMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-purple-200 bg-white hover:bg-purple-50'} disabled:opacity-40 text-xs transition-all flex items-center gap-1`}>
                       Next <ChevronRight size={12} />
                     </button>
                   </div>
@@ -2213,14 +2860,10 @@ export default function App() {
               </div>
             )}
 
-            {/* DOCUMENTATION HANDBOOK */}
             {canAccess(currentUserRole, 'documentation') && activeTab === 'documentation' && (
               <DocumentationPage isDarkMode={isDarkMode} />
             )}
 
-            {/* UNIFIED CATALOG ROUTES — one endpoint, filtered by item_type.
-                The old per-catalog pages (vss-services / vreal-products /
-                bb-products) pointed at routes retired in Phase 5. */}
             <Routes>
               <Route path="/catalog/services" element={canAccess(currentUserRole, 'catalog') ?
                 <CrudTable key="services" title="Services" apiEndpoint="catalog/items?item_type=SERVICE" columns={['Category', 'Description', 'Price']} isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'catalog_manage')} />

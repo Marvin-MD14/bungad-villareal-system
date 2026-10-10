@@ -5,7 +5,8 @@ import {
   Scissors, Sparkles, ShoppingBag, Clock, Package,
   Printer, Loader2, AlertCircle, User,
   ChevronDown, ChevronRight, Tag, UserPlus,
-  Mail, Phone, MapPin, Calendar, Gift, Star
+  Mail, Phone, MapPin, Calendar, Gift, Star,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 import CustomerRewardsPanel from './CustomerRewardsPanel';
 import CustomerTierBadge from './CustomerTierBadge';
@@ -293,7 +294,12 @@ function RewardNotificationModal({ isOpen, onClose, customer, rewards, isDarkMod
 
 
 // ============ MAIN POS COMPONENT ============
-export default function CashierPOS({ isDarkMode = false }) {
+export default function CashierPOS({
+  isDarkMode = false,
+  isFullScreen = false,
+  onToggleFullScreen,
+  onExitPOS,
+}) {
   // ============ STATE ============
   const [branch, setBranch] = useState(null);
   const [catalog, setCatalog] = useState({ vss_services: [], vreal_products: [], bb_products: [] });
@@ -390,11 +396,7 @@ export default function CashierPOS({ isDarkMode = false }) {
     load();
   }, []);
 
-  // ============ KEYBOARD SHORTCUTS (FIXED WITH DEPENDENCY ARRAY) ============
-  // The listener is registered once and reads the *current* `completeSale`
-  // through a ref. Calling it directly meant the handler closed over whichever
-  // render happened when the effect ran, so the sale it ran against could be
-  // stale (and ESLint rightly flags calling a later `const` before it exists).
+  // ============ KEYBOARD SHORTCUTS ============
   const completeSaleRef = useRef(null);
   useEffect(() => {
     const handleKey = (e) => {
@@ -406,14 +408,16 @@ export default function CashierPOS({ isDarkMode = false }) {
         e.preventDefault();
         if (cart.length > 0) completeSaleRef.current?.();
       }
-      if (e.key === 'Escape') {
+      // ✅ ESC — huwag i-trigger kapag full-screen para hindi mag-conflict
+      //    sa App.jsx na nag-e-exit ng full-screen.
+      if (e.key === 'Escape' && !isFullScreen) {
         setSearch('');
         setSelectedCategory('ALL');
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [cart.length, showCustomerInfoModal, showRewardNotification, showReceipt]);
+  }, [cart.length, showCustomerInfoModal, showRewardNotification, showReceipt, isFullScreen]);
 
   // ============ COMPUTED VALUES ============
   const currentItems = useMemo(() => {
@@ -760,10 +764,58 @@ export default function CashierPOS({ isDarkMode = false }) {
 
   const selectedCustomer = customers.find((c) => String(c.id) === String(customerId));
 
+  // ============================================================
+  // ============ DYNAMIC ROOT WRAPPER ============
+  // FULL-SCREEN: h-screen w-screen, no padding overflow
+  // NORMAL: fixed height para sa App.jsx layout
+  // ============================================================
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col gap-4">
+    <div className={`flex flex-col gap-3 overflow-hidden ${
+      isFullScreen
+        ? 'h-screen w-screen p-3 bg-slate-100 dark:bg-slate-950'
+        : 'h-[calc(100vh-140px)]'
+    }`}>
+
+      {/* ============ FLOATING FULL-SCREEN CONTROLS ============ */}
+      <div className="fixed top-3 right-3 z-[100] flex items-center gap-2">
+        {isFullScreen ? (
+          <>
+            {/* Exit Full-Screen (bumalik sa normal view, hindi lumalabas sa POS) */}
+            <button
+              type="button"
+              onClick={() => onToggleFullScreen?.()}
+              className="bg-slate-900/90 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
+              title="Exit full-screen (ESC)"
+            >
+              <Minimize2 size={14} /> Exit Full-Screen
+            </button>
+
+            {/* Exit POS → Dashboard (kung binigay ang onExitPOS prop) */}
+            {onExitPOS && (
+              <button
+                type="button"
+                onClick={() => onExitPOS?.()}
+                className="bg-red-600/90 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
+                title="Close POS and go to Dashboard"
+              >
+                <X size={14} /> Exit POS
+              </button>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onToggleFullScreen?.()}
+            className="bg-cyan-600/90 hover:bg-cyan-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
+            title="Full-screen (F11)"
+          >
+            <Maximize2 size={14} /> Full-Screen
+          </button>
+        )}
+      </div>
+
       {/* HEADER */}
-      <div className={`${panel} border rounded-xl p-3 flex items-center justify-between`}>
+      <div className={`${panel} border rounded-xl p-3 flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
             <CreditCard size={20} className="text-white" />
@@ -800,10 +852,10 @@ export default function CashierPOS({ isDarkMode = false }) {
       </div>
 
       {/* MAIN GRID: CATALOG + CART */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 overflow-hidden min-h-0">
         {/* LEFT: CATALOG */}
-        <div className={`${panel} border rounded-xl p-4 lg:col-span-2 flex flex-col overflow-hidden`}>
-          <div className="flex gap-2 mb-3 border-b pb-2">
+        <div className={`${panel} border rounded-xl p-4 lg:col-span-2 flex flex-col overflow-hidden min-h-0`}>
+          <div className="flex gap-2 mb-3 border-b pb-2 shrink-0">
             {availableTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -821,7 +873,7 @@ export default function CashierPOS({ isDarkMode = false }) {
             ))}
           </div>
 
-          <div className="flex flex-col md:flex-row gap-2 mb-3">
+          <div className="flex flex-col md:flex-row gap-2 mb-3 shrink-0">
             <div className="relative flex-1">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -845,7 +897,7 @@ export default function CashierPOS({ isDarkMode = false }) {
             </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 min-h-0">
             {Object.keys(filteredGroups).length === 0 ? (
               <div className="text-center py-16 text-slate-400">
                 <Package size={48} className="mx-auto mb-3 opacity-30" />
@@ -909,9 +961,9 @@ export default function CashierPOS({ isDarkMode = false }) {
         </div>
 
         {/* RIGHT: CART & PAYMENT */}
-        <div className={`${panel} border rounded-xl p-4 flex flex-col overflow-hidden`}>
+        <div className={`${panel} border rounded-xl p-4 flex flex-col overflow-hidden min-h-0`}>
           {/* Customer Selector */}
-          <div className="relative mb-2">
+          <div className="relative mb-2 shrink-0">
             <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />
             <select
               value={customerId}
@@ -936,7 +988,7 @@ export default function CashierPOS({ isDarkMode = false }) {
 
           {/* Walk-in Name (for rewards tracking) */}
           {!customerId && (
-            <div className="relative mb-3">
+            <div className="relative mb-3 shrink-0">
               <UserPlus size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />
               <input
                 type="text"
@@ -950,7 +1002,7 @@ export default function CashierPOS({ isDarkMode = false }) {
 
           {/* Customer Tier Badge (for registered customers) */}
           {selectedCustomer && (
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between shrink-0">
               <CustomerTierBadge tier={selectedCustomer.loyalty_tier || 'BRONZE'} size="md" />
               {selectedCustomer.total_spent > 0 && (
                 <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -971,7 +1023,7 @@ export default function CashierPOS({ isDarkMode = false }) {
           )}
 
           {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto mb-3">
+          <div className="flex-1 overflow-y-auto mb-3 min-h-0">
             {cart.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <ShoppingBag size={32} className="mx-auto mb-2 opacity-30" />
@@ -1038,7 +1090,7 @@ export default function CashierPOS({ isDarkMode = false }) {
           </div>
 
           {/* Totals */}
-          <div className={`border-t pt-3 space-y-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className={`border-t pt-3 space-y-2 shrink-0 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
             <div className="flex justify-between text-[10px] text-slate-500">
               <span>Total Items</span>
               <span className="font-semibold">{totalItems}</span>
@@ -1093,7 +1145,7 @@ export default function CashierPOS({ isDarkMode = false }) {
           </div>
 
           {/* Payment Section */}
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-2 shrink-0">
             <div className="grid grid-cols-4 gap-1">
               {[20, 50, 100, 200].map((amt) => (
                 <button
