@@ -8,6 +8,16 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    host: '0.0.0.0',  // Bind to all interfaces - accessible from any host on the network
+    port: 5173,
+    strictPort: false,
+    allowedHosts: true,  // Disable host check - allow any tunnel/proxy (Cloudflare, ngrok, etc.)
+  },
+  preview: {
+    host: '0.0.0.0',  // Same for vite preview (production preview mode)
+    port: 4173,
+  },
   test: {
     environment: 'jsdom',
     globals: true,

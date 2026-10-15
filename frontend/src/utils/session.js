@@ -47,6 +47,27 @@ export const applyBusinessHeader = (config) => {
   return config;
 };
 
+// ============================================================
+// SHARED ROLE CONSTANTS
+// Single source of truth — avoids drift between components.
+// These must match api/access/models.py UserAccess.COMPANY_ROLES.
+// ============================================================
+
+/** Roles that operate across all businesses (no business FK on their grant). */
+export const COMPANY_WIDE_ROLES = new Set([
+  'SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT',
+]);
+
+/** Roles that are scoped to one business and its branches. */
+export const OUTLET_ROLES = new Set([
+  'BUSINESS_MANAGER', 'SUPERVISOR', 'CASHIER', 'STAFF',
+]);
+
+/** Returns true when the given role code is company-wide. */
+export const isCompanyWideRole = (roleCode) =>
+  COMPANY_WIDE_ROLES.has(String(roleCode || '').replace(/[\s_]+/g, '_').toUpperCase());
+
+
 /**
  * The API origin. Configurable per environment via `VITE_API_BASE_URL`
  * (put it in `.env`, or `.env.local` for a local override) so the same build

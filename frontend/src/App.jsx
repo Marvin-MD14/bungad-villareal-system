@@ -6,6 +6,8 @@ import AdministrationPage from './components/AdministrationPage';
 import CashierPOS from './components/CashierPOS';
 import CustomersRewardsPage from './components/CustomersRewardsPage';
 import DocumentationPage from './components/DocumentationPage';
+import AvailabilityMatrixPage from './components/AvailabilityMatrixPage';
+import BusinessContextBadge from './components/BusinessContextBadge';
 import LandingPage from './components/LandingPage';
 import {
   applyBusinessHeader, getActiveBusinessSlug, getGrantedBusinesses,
@@ -73,12 +75,9 @@ const roleCodeFromLabel = (label) => {
 
 const ROLE_CAPABILITIES = {};
 
-const FALLBACK_CAPABILITIES = [
-  'dashboard', 'sales', 'clients', 'client_manage', 'customer_rewards',
-  'administration', 'users', 'user_manage', 'rooms', 'room_manage',
-  'inventory', 'inventory_manage', 'catalog', 'catalog_manage', 'audit',
-  'documentation',
-];
+// Fallback capabilities when the API is unreachable — fail closed (dashboard only).
+// Real capabilities are always fetched from /auth/capabilities/ after login.
+const FALLBACK_CAPABILITIES = ['dashboard', 'documentation'];
 
 const FALLBACK_ROLE_OPTIONS = [
   { code: 'CASHIER', label: 'Cashier' },
@@ -334,7 +333,7 @@ function RadialMetric({ label, value, display, color, isDarkMode }) {
 }
 
 // ============ SIDEBAR COMPONENT ============
-function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, isDarkMode, toggleDarkMode, onLogout }) {
+function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, isDarkMode, toggleDarkMode, onLogout, capabilitiesTick: _tick }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Activity size={16} /> },
     { id: 'sales', label: 'Sales & POS', icon: <CreditCard size={16} /> },
@@ -344,9 +343,10 @@ function Sidebar({ sidebarCollapsed, setActiveTab, activeTab, currentUserRole, i
     { id: 'users', label: 'User Profiling', icon: <Users size={16} /> },
     { id: 'rooms', label: 'Room Status', icon: <DoorOpen size={16} /> },
     { id: 'inventory', label: 'Inventory', icon: <Package size={16} /> },
+    { id: 'catalog_availability', label: 'Availability Matrix', icon: <Layers size={16} /> },
     { id: 'audit_controls', label: 'Audit Logs', icon: <ShieldAlert size={16} /> },
     { id: 'documentation', label: 'Documentation', icon: <BookOpen size={16} /> },
-  ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id));
+  ].filter((item) => canAccess(currentUserRole, item.id === 'audit_controls' ? 'audit' : item.id === 'catalog_availability' ? 'catalog' : item.id));
 
   const productMenus = [
     { path: '/catalog/services', label: 'Services', icon: <Scissors size={14} /> },
@@ -473,9 +473,40 @@ export default function App() {
     setActiveBusiness(activeBusiness);
   }, [activeBusiness]);
 
+
+  // Derived active business name for context indicators (task 2.4)
+  const activeBusinessObj = grantedBusinesses.find(b => b.slug === activeBusiness);
+  const activeBusinessName = activeBusinessObj?.name || '';
+
+  // Update document title on tab/business change (task 2.4)
+  useEffect(() => {
+    const pageLabels = {
+      dashboard: 'Dashboard', sales: 'Sales & POS', clients: 'Clients',
+      customer_rewards: 'Customer Rewards', administration: 'Administration',
+      users: 'User Management', rooms: 'Room Status', inventory: 'Inventory',
+      audit_controls: 'Audit Logs', documentation: 'Documentation',
+      catalog_availability: 'Availability Matrix',
+    };
+    const page = pageLabels[activeTab] || 'Dashboard';
+    const biz = activeBusinessName ? ` - ${activeBusinessName}` : '';
+    document.title = `${page}${biz} | Villareal Management`;
+  }, [activeTab, activeBusinessName]);
+
   const chooseBusiness = (slug) => {
     setActiveBusiness(slug);
     setStoredBusiness(slug);
+    // Reset to dashboard (or role default) when switching business
+    // so stale page content doesn't show before the reload completes
+    const roleCode = normalizeRoleCode(currentUser.role_code || currentUserRole);
+    if (roleCode === 'CASHIER') {
+      setActiveTab('sales');
+    } else if (roleCode === 'STAFF') {
+      setActiveTab('rooms');
+    } else if (roleCode === 'ACCOUNTANT' || roleCode === 'BUSINESS_MANAGER') {
+      setActiveTab('administration');
+    } else {
+      setActiveTab('dashboard');
+    }
   };
 
   useEffect(() => {
@@ -604,11 +635,13 @@ export default function App() {
   const [branches, setBranches] = useState([]);
   const [roleOptions, setRoleOptions] = useState([]);
   const [productForm, setProductForm] = useState({
-    name: '', category: 'Cosmetics', quantity: '', price: ''
+    name: '', category: '', quantity: '', price: ''
   });
 
   const [staffList, setStaffList] = useState([]);
   const [inventoryList, setInventoryList] = useState([]);
+  const [catalogCategories, setCatalogCategories] = useState([]);  // from /catalog/categories/
+  const [catalogServices, setCatalogServices] = useState([]);      // from /catalog/items/?item_type=SERVICE
   const [auditLogs, setAuditLogs] = useState([]);
   const [roomsState, setRoomsState] = useState([]);
   const [roomZones, setRoomZones] = useState([]);
@@ -619,7 +652,7 @@ export default function App() {
   const CHART_COLORS = ['#5d2e6b', '#8bc34a', '#7d4a8b', '#aed581', '#3d1e47'];
   const [productDistribution, setProductDistribution] = useState([]);
   const [dashboard, setDashboard] = useState({});
-  const [, setCapabilitiesTick] = useState(0);
+  const [capabilitiesTick, setCapabilitiesTick] = useState(0);
 
   const [salesByHour, setSalesByHour] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
@@ -734,7 +767,7 @@ export default function App() {
 
     const load = async () => {
       try {
-        const [dash, staffRes, itemRes, levelRes, auditRes, roomRes, capsRes] = await Promise.allSettled([
+        const [dash, staffRes, itemRes, levelRes, auditRes, roomRes, capsRes, catRes, svcRes] = await Promise.allSettled([
           api.get('/dashboard/summary/'),
           api.get('/user-profiles/'),
           api.get('/catalog/items/?item_type=PRODUCT'),
@@ -742,11 +775,22 @@ export default function App() {
           api.get('/audit-logs/'),
           api.get('/rooms/'),
           api.get('/auth/capabilities/'),
+          api.get('/catalog/categories/'),
+          api.get('/catalog/items/?item_type=SERVICE'),
         ]);
         if (cancelled) return;
 
         const dashData = (dash.status === 'fulfilled' && dash.value?.data) || {};
         setDashboard(dashData);
+        // Catalog categories and services — scoped to active business
+        if (catRes.status === 'fulfilled') {
+          const cats = catRes.value?.data?.results ?? catRes.value?.data ?? [];
+          setCatalogCategories(Array.isArray(cats) ? cats : []);
+        }
+        if (svcRes.status === 'fulfilled') {
+          const svcs = svcRes.value?.data?.results ?? svcRes.value?.data ?? [];
+          setCatalogServices(Array.isArray(svcs) ? svcs : []);
+        }
 
         if (capsRes.status === 'fulfilled' && capsRes.value?.data) {
           const { role, capabilities } = capsRes.value.data;
@@ -1135,7 +1179,7 @@ export default function App() {
       });
       await reloadCatalog();
       setShowProductModal(false);
-      setProductForm({ name: '', category: 'Cosmetics', quantity: '', price: '' });
+      setProductForm({ name: '', category: '', quantity: '', price: '' });
       triggerSweetAlert('success', 'Product Added', 'The item has been added to the inventory.');
     } catch (err) {
       triggerSweetAlert('error', 'Could Not Add Product', apiErrorMessage(err, 'The item was not added.'));
@@ -1318,6 +1362,10 @@ export default function App() {
   );
   const myGuide = roleGuides[myRoleCode] || null;
   const isCashier = isCashierRole(currentUser.role_code || currentUserRole);
+  // Company-wide roles can see and act across all businesses
+  const isCompanyWide = ['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT'].includes(myRoleCode);
+  // Business-scoped roles: BUSINESS_MANAGER, SUPERVISOR, CASHIER, STAFF
+  const isBusinessScoped = !isCompanyWide && myRoleCode !== '';
 
   return (
     <BrowserRouter>
@@ -1579,9 +1627,13 @@ export default function App() {
                   <div>
                     <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Service Type</label>
                     <select value={roomForm.serviceType} onChange={(e) => setRoomForm({ ...roomForm, serviceType: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-xs rounded-xl font-medium`}>
-                      <option value="Pedicure & Manicure">Pedicure & Manicure</option>
-                      <option value="Foot Spa Therapy">Foot Spa Therapy</option>
-                      <option value="Therapeutic Massage">Therapeutic Massage</option>
+                       {catalogServices.length > 0 ? catalogServices.map(s => (
+                         <option key={s.id} value={s.name}>{s.name}</option>
+                       )) : [
+                         <option key="p" value="Pedicure & Manicure">Pedicure & Manicure</option>,
+                         <option key="f" value="Foot Spa Therapy">Foot Spa Therapy</option>,
+                         <option key="m" value="Therapeutic Massage">Therapeutic Massage</option>
+                       ]}
                     </select>
                   </div>
                   <div>
@@ -1615,9 +1667,10 @@ export default function App() {
                 <div>
                   <label className={`block text-xs font-semibold uppercase ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Category</label>
                   <select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-purple-50 border-purple-200'} border p-2 text-sm rounded-xl font-medium`}>
-                    <option value="Cosmetics">Cosmetics</option>
-                    <option value="Supplies">Supplies</option>
-                    <option value="Equipment">Equipment</option>
+                    {catalogCategories.filter(c => c.kind === "PRODUCT" || !c.kind).map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                    {catalogCategories.length === 0 && <option value="" disabled>Loading...</option>}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1648,6 +1701,7 @@ export default function App() {
             isDarkMode={isDarkMode}
             toggleDarkMode={toggleDarkMode}
             onLogout={handleLogout}
+            capabilitiesTick={capabilitiesTick}
           />
         )}
 
@@ -1671,28 +1725,36 @@ export default function App() {
                   {activeTab === 'inventory' && "Product & Sales Stock Registry"}
                   {activeTab === 'audit_controls' && "Security Exception Records"}
                   {activeTab === 'documentation' && "System Documentation & Guides"}
+                  {activeTab === 'catalog_availability' && "Catalog Availability Matrix"}
                 </h2>
+                <BusinessContextBadge businessName={activeBusinessName} businessSlug={storedBusiness} isDarkMode={isDarkMode} />
               </div>
 
               <div className="flex items-center space-x-4">
-                {grantedBusinesses.length > 1 && (
+                {grantedBusinesses.length > 0 && (
                   <div className={`flex items-center gap-2 ${isDarkMode ? 'bg-slate-800 border-purple-800' : 'bg-white border-purple-200'} border px-3 py-1.5 rounded-xl text-xs`}>
                     <Building2 size={14} className="text-purple-700 shrink-0" />
                     <label htmlFor="business-switch" className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Business:
+                      {isCompanyWide ? 'Business:' : 'Your Business:'}
                     </label>
-                    <select
-                      id="business-switch"
-                      value={activeBusiness}
-                      onChange={(event) => chooseBusiness(event.target.value)}
-                      className={`bg-transparent font-bold cursor-pointer focus:outline-none ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}
-                    >
-                      {grantedBusinesses.map((b) => (
-                        <option key={b.slug} value={b.slug} className={`${isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'}`}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
+                    {grantedBusinesses.length > 1 ? (
+                      <select
+                        id="business-switch"
+                        value={activeBusiness}
+                        onChange={(event) => chooseBusiness(event.target.value)}
+                        className={`bg-transparent font-bold cursor-pointer focus:outline-none ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}
+                      >
+                        {grantedBusinesses.map((b) => (
+                          <option key={b.slug} value={b.slug} className={`${isDarkMode ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'}`}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}>
+                        {grantedBusinesses[0]?.name || activeBusinessName || '—'}
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -1705,8 +1767,21 @@ export default function App() {
                   <UserCheck size={14} className="text-purple-700" />
                   <span className={`font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Role:</span>
                   <span className={`font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-800'}`}>{currentUserRole || '—'}</span>
-                  {currentUser?.role_code === 'SUPERADMIN' && (
-                    <span className="rounded-full bg-lime-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-700 dark:text-lime-400">Superadmin</span>
+                  {myRoleCode === 'SUPERADMIN' && (
+                    <span className="rounded-full bg-lime-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-700 dark:text-lime-400">Platform</span>
+                  )}
+                  {myRoleCode === 'OWNER' && (
+                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">Owner</span>
+                  )}
+                  {isCompanyWide && myRoleCode !== 'SUPERADMIN' && myRoleCode !== 'OWNER' && (
+                    <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">Company</span>
+                  )}
+                  {isBusinessScoped && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      myRoleCode === 'CASHIER' ? 'bg-cyan-500/20 text-cyan-700' :
+                      myRoleCode === 'STAFF' ? 'bg-emerald-500/20 text-emerald-700' :
+                      'bg-purple-500/20 text-purple-700'
+                    }`}>{activeBusinessName || 'Business'}</span>
                   )}
                 </div>
 
@@ -1769,20 +1844,20 @@ export default function App() {
                   />
                 </div>
               ) : (
-                <SalesPage isDarkMode={isDarkMode} readOnly={currentUserRole === 'Owner'} />
+                <SalesPage isDarkMode={isDarkMode} readOnly={currentUserRole === 'Owner'} activeBusinessName={activeBusinessName} activeBusiness={activeBusiness} isCompanyWide={isCompanyWide} />
               )
             )}
 
             {activeTab === 'clients' && canAccess(currentUserRole, 'clients') && (
-              <ClientsPage isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'client_manage')} />
+              <ClientsPage isDarkMode={isDarkMode} readOnly={!canAccess(currentUserRole, 'client_manage')} currentUserRoleCode={currentUser?.role_code || ''} activeBusinessName={activeBusinessName} activeBusiness={activeBusiness} isCompanyWideUser={isCompanyWide} />
             )}
 
             {activeTab === 'customer_rewards' && canAccess(currentUserRole, 'customer_rewards') && (
-              <CustomersRewardsPage isDarkMode={isDarkMode} />
+              <CustomersRewardsPage isDarkMode={isDarkMode} activeBusinessName={activeBusinessName} activeBusiness={activeBusiness} isCompanyWide={isCompanyWide} />
             )}
 
             {activeTab === 'administration' && canAccess(currentUserRole, 'administration') && (
-              <AdministrationPage isDarkMode={isDarkMode} />
+              <AdministrationPage isDarkMode={isDarkMode} activeBusinessName={activeBusinessName} activeBusinessSlug={activeBusiness} isCompanyWideUser={isCompanyWide} />
             )}
 
             {/* ============================================================
@@ -1820,9 +1895,15 @@ export default function App() {
                           <span className="font-semibold">{myGuide.lands_on_label}</span> — this role covers {myGuide.scope}{' '}
                           Currently in{' '}
                           {grantedBusinesses.length > 1
-                            ? `${grantedBusinesses.length} businesses — switch from the header picker`
-                            : (grantedBusinesses[0]?.name || 'the active business')}
+                            ? `${grantedBusinesses.length} businesses — showing ${activeBusinessName || grantedBusinesses[0]?.name} — switch from the header picker`
+                            : (activeBusinessName || grantedBusinesses[0]?.name || 'the active business')}
                           {currentUser.branch?.name ? ` · ${currentUser.branch.name}` : ''}.
+                        </p>
+                        <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                          <span className="opacity-60">Scope type:</span>{' '}
+                          <span className={`font-semibold text-[11px] px-2 py-0.5 rounded-full ${isCompanyWide ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                            {isCompanyWide ? 'Company-wide — use the business selector to filter' : 'Business-scoped — you see only your assigned business data'}
+                          </span>
                         </p>
                         <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
                           <span className="opacity-60">Can see:</span> {myGuide.sees.join(' · ') || '—'}
@@ -1836,46 +1917,57 @@ export default function App() {
                 )}
 
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-                  <KpiCard
-                    title="Today's Sales"
-                    value={`₱${Number(dashboard.today_sales || 0).toLocaleString()}`}
-                    icon={<DollarSign size={18} />}
-                    color="purple"
-                    subtitle={`vs ₱${(Number(dashboard.month_sales || 0) / 30).toFixed(0)}/day avg`}
-                    isDarkMode={isDarkMode}
-                  />
-                  <KpiCard
-                    title="Month Sales"
-                    value={`₱${Number(dashboard.month_sales || 0).toLocaleString()}`}
-                    icon={<TrendingUp size={18} />}
-                    color="lime"
-                    subtitle="Last 30 days"
-                    isDarkMode={isDarkMode}
-                  />
-                  <KpiCard
-                    title="Net Profit"
-                    value={`₱${Number(dashboard.net_profit || 0).toLocaleString()}`}
-                    icon={<Wallet size={18} />}
-                    color={Number(dashboard.net_profit || 0) >= 0 ? 'lime' : 'red'}
-                    subtitle={`Expenses ₱${Number(dashboard.month_expenses || 0).toLocaleString()}`}
-                    isDarkMode={isDarkMode}
-                  />
-                  <KpiCard
-                    title="Occupied Rooms"
-                    value={`${occupiedRoomsCount} / ${roomsState.length}`}
-                    icon={<DoorOpen size={18} />}
-                    color="purple"
-                    subtitle={`${roomsState.length ? ((occupiedRoomsCount / roomsState.length) * 100).toFixed(0) : 0}% utilization`}
-                    isDarkMode={isDarkMode}
-                  />
-                  <KpiCard
-                    title="Low Stock"
-                    value={lowStockItemsCount}
-                    icon={<AlertTriangle size={18} />}
-                    color={lowStockItemsCount > 10 ? 'red' : 'orange'}
-                    subtitle="Needs restock"
-                    isDarkMode={isDarkMode}
-                  />
+                  {/* Financial KPIs: visible to management roles only */}
+                  {canAccess(currentUserRole, 'sales') && (
+                    <KpiCard
+                      title="Today's Sales"
+                      value={`₱${Number(dashboard.today_sales || 0).toLocaleString()}`}
+                      icon={<DollarSign size={18} />}
+                      color="purple"
+                      subtitle={`vs ₱${(Number(dashboard.month_sales || 0) / 30).toFixed(0)}/day avg`}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
+                  {canAccess(currentUserRole, 'administration') && (
+                    <>
+                      <KpiCard
+                        title="Month Sales"
+                        value={`₱${Number(dashboard.month_sales || 0).toLocaleString()}`}
+                        icon={<TrendingUp size={18} />}
+                        color="lime"
+                        subtitle="Last 30 days"
+                        isDarkMode={isDarkMode}
+                      />
+                      <KpiCard
+                        title="Net Profit"
+                        value={`₱${Number(dashboard.net_profit || 0).toLocaleString()}`}
+                        icon={<Wallet size={18} />}
+                        color={Number(dashboard.net_profit || 0) >= 0 ? 'lime' : 'red'}
+                        subtitle={`Expenses ₱${Number(dashboard.month_expenses || 0).toLocaleString()}`}
+                        isDarkMode={isDarkMode}
+                      />
+                    </>
+                  )}
+                  {canAccess(currentUserRole, 'rooms') && (
+                    <KpiCard
+                      title="Occupied Rooms"
+                      value={`${occupiedRoomsCount} / ${roomsState.length}`}
+                      icon={<DoorOpen size={18} />}
+                      color="purple"
+                      subtitle={`${roomsState.length ? ((occupiedRoomsCount / roomsState.length) * 100).toFixed(0) : 0}% utilization`}
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
+                  {canAccess(currentUserRole, 'inventory') && (
+                    <KpiCard
+                      title="Low Stock"
+                      value={lowStockItemsCount}
+                      icon={<AlertTriangle size={18} />}
+                      color={lowStockItemsCount > 10 ? 'red' : 'orange'}
+                      subtitle="Needs restock"
+                      isDarkMode={isDarkMode}
+                    />
+                  )}
                   <KpiCard
                     title="Avg Rating"
                     value={`${Number(dashboard.average_rating || 0).toFixed(1)} ★`}
@@ -1886,6 +1978,33 @@ export default function App() {
                   />
                 </div>
 
+
+                {/* Quick navigation — only pages this role can access */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {[
+                    { id: 'sales', label: 'Sales & POS', icon: <CreditCard size={20} />, cap: 'sales', color: 'from-purple-500 to-purple-700' },
+                    { id: 'clients', label: 'Clients', icon: <Users size={20} />, cap: 'clients', color: 'from-blue-500 to-blue-700' },
+                    { id: 'customer_rewards', label: 'Rewards', icon: <Crown size={20} />, cap: 'customer_rewards', color: 'from-amber-500 to-amber-600' },
+                    { id: 'rooms', label: 'Room Status', icon: <DoorOpen size={20} />, cap: 'rooms', color: 'from-emerald-500 to-emerald-700' },
+                    { id: 'inventory', label: 'Inventory', icon: <Package size={20} />, cap: 'inventory', color: 'from-orange-500 to-orange-700' },
+                    { id: 'administration', label: 'Admin', icon: <Settings size={20} />, cap: 'administration', color: 'from-slate-600 to-slate-800' },
+                    { id: 'users', label: 'Users', icon: <UserCheck size={20} />, cap: 'users', color: 'from-cyan-500 to-cyan-700' },
+                    { id: 'catalog_availability', label: 'Availability', icon: <Layers size={20} />, cap: 'catalog', color: 'from-indigo-500 to-indigo-700' },
+                    { id: 'audit_controls', label: 'Audit Logs', icon: <ShieldAlert size={20} />, cap: 'audit', color: 'from-rose-500 to-rose-700' },
+                  ].filter(item => canAccess(currentUserRole, item.cap)).map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActiveTab(item.id)}
+                      className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-gradient-to-br ${item.color} text-white shadow-sm hover:shadow-md hover:scale-105 transition-all`}
+                    >
+                      {item.icon}
+                      <span className="text-[11px] font-semibold leading-tight text-center">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {canAccess(currentUserRole, 'administration') && (<>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                   <Card
                     title="Revenue vs Expenses"
@@ -2115,7 +2234,9 @@ export default function App() {
                     </div>
                   </Card>
                 </div>
+                </>)}
 
+                {canAccess(currentUserRole, 'administration') && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                   <Card
                     title="Branch Performance"
@@ -2222,6 +2343,9 @@ export default function App() {
                     </div>
                   </Card>
                 </div>
+                )}
+
+                {canAccess(currentUserRole, 'administration') && (
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                   <Card
@@ -2328,11 +2452,24 @@ export default function App() {
                     </div>
                   </Card>
                 </div>
+                )}
+
               </>
             )}
 
             {canAccess(currentUserRole, 'users') && activeTab === 'users' && (
               <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
+                {activeBusinessName && (
+                  <div className={`flex items-center justify-between gap-2 text-xs mb-3 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-slate-700/60 text-slate-300' : 'bg-purple-50 text-purple-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <Building2 size={13} className="text-purple-600 shrink-0" />
+                      <span>Showing data for <strong>{activeBusinessName}</strong></span>
+                    </div>
+                    {isCompanyWide && (
+                      <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide shrink-0">Company-wide view</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-3">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>User Management Directory</h3>
@@ -2473,7 +2610,18 @@ export default function App() {
                 ============================================================ */}
             {canAccess(currentUserRole, 'rooms') && activeTab === 'rooms' && (
               <div className="space-y-6">
-                {/* ============ SUMMARY CARDS ============ */}
+                {activeBusinessName && (
+                <div className={`flex items-center justify-between gap-2 text-xs mb-2 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-slate-700/60 text-slate-300' : 'bg-purple-50 text-purple-800'}`}>
+                  <div className="flex items-center gap-2">
+                    <Building2 size={13} className="text-purple-600 shrink-0" />
+                    <span>Showing data for <strong>{activeBusinessName}</strong></span>
+                  </div>
+                  {isCompanyWide && (
+                    <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide shrink-0">Company-wide view</span>
+                  )}
+                </div>
+              )}
+              {/* ============ SUMMARY CARDS ============ */}
                 <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-gradient-to-r from-purple-50 via-purple-100 to-purple-50 border-purple-200'} p-5 border rounded-xl shadow-sm`}>
                   <div className="text-center md:border-r border-purple-200">
                     <span className={`text-xs block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Occupied Rooms</span>
@@ -2671,6 +2819,17 @@ export default function App() {
 
             {canAccess(currentUserRole, 'inventory') && activeTab === 'inventory' && (
               <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
+                {activeBusinessName && (
+                  <div className={`flex items-center justify-between gap-2 text-xs mb-3 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-slate-700/60 text-slate-300' : 'bg-purple-50 text-purple-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <Building2 size={13} className="text-purple-600 shrink-0" />
+                      <span>Showing data for <strong>{activeBusinessName}</strong></span>
+                    </div>
+                    {isCompanyWide && (
+                      <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide shrink-0">Company-wide view</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-between items-center border-b pb-3">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Product Warehouse Stock Registry</h3>
@@ -2696,9 +2855,9 @@ export default function App() {
                     <span className="text-[10px] text-slate-400 block uppercase">Category</span>
                     <select value={productCategoryFilter} onChange={(e) => { setProductCategoryFilter(e.target.value); setProductPage(1); }} className={`w-full ${isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-purple-200'} border p-1.5 rounded-lg font-medium outline-none focus:border-purple-500`}>
                       <option value="All">All Categories</option>
-                      <option value="Cosmetics">Cosmetics</option>
-                      <option value="Supplies">Supplies</option>
-                      <option value="Equipment">Equipment</option>
+                      {catalogCategories.filter(c => c.kind === "PRODUCT" || !c.kind).map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="w-full md:w-40 space-y-0.5">
@@ -2786,8 +2945,23 @@ export default function App() {
               </div>
             )}
 
+            {activeTab === 'catalog_availability' && canAccess(currentUserRole, 'catalog') && (
+              <AvailabilityMatrixPage isDarkMode={isDarkMode} activeBusinessName={activeBusinessName} activeBusiness={activeBusiness} isCompanyWide={isCompanyWide} />
+            )}
+
             {canAccess(currentUserRole, 'audit') && activeTab === 'audit_controls' && (
               <div className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-purple-200'} border p-5 rounded-xl shadow-sm space-y-4`}>
+                {activeBusinessName && (
+                  <div className={`flex items-center justify-between gap-2 text-xs mb-3 px-3 py-2 rounded-lg ${isDarkMode ? 'bg-slate-700/60 text-slate-300' : 'bg-purple-50 text-purple-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <Building2 size={13} className="text-purple-600 shrink-0" />
+                      <span>Showing data for <strong>{activeBusinessName}</strong></span>
+                    </div>
+                    {isCompanyWide && (
+                      <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide shrink-0">Company-wide view</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Security Audit Log Records</h3>
@@ -2881,3 +3055,7 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
+
+
+

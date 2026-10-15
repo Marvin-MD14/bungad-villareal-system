@@ -486,9 +486,33 @@ def role_guide_view(request):
 # ============================================================
 
 class UserProfileViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = UserProfile.objects.select_related('user').prefetch_related('skills').all()
+    queryset = UserProfile.objects.select_related('user').prefetch_related('skills', 'user__access_grants__business').all()
     serializer_class = UserProfileSerializer
     permission_classes = [RoleBasedPermission]
+
+    def get_queryset(self):
+        from api.access.context import ensure_business_context
+        from api.access.models import UserAccess
+        ensure_business_context(self.request)
+        qs = super().get_queryset()
+
+        # Company-wide roles and superusers see all users; scoped roles see
+        # only users whose UserAccess grants belong to the active business.
+        if (
+            getattr(self.request.user, 'is_superuser', False)
+            or getattr(self.request, 'company_wide', False)
+        ):
+            return qs
+
+        business = getattr(self.request, 'business', None)
+        if business is None:
+            return qs.none()
+
+        # Filter: only return profiles whose user has a grant for this business
+        user_ids_in_biz = UserAccess.objects.filter(
+            business=business, is_active=True
+        ).values_list('user_id', flat=True)
+        return qs.filter(user_id__in=user_ids_in_biz)
 
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -575,7 +599,7 @@ class BranchViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
 # ============================================================
 
 class ClientProfileViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = ClientProfile.objects.all()
+    queryset = ClientProfile.objects.select_related('business').all()
     serializer_class = ClientProfileSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -657,7 +681,7 @@ class ClientProfileViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelVie
 # ============================================================
 
 class RoomTableViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = RoomTable.objects.all()
+    queryset = RoomTable.objects.select_related('branch', 'assigned_staff').all()
     serializer_class = RoomTableSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -710,7 +734,7 @@ class RoomTableViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet
 # ============================================================
 
 class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Transaction.objects.all()
+    queryset = Transaction.objects.select_related('branch', 'customer', 'staff', 'business').prefetch_related('items')
     serializer_class = TransactionSerializer
     permission_classes = [RoleBasedPermission]
     throttle_classes = [CheckoutThrottle]
@@ -929,7 +953,7 @@ class TransactionViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewS
 # ============================================================
 
 class CustomerRewardViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = CustomerReward.objects.all()
+    queryset = CustomerReward.objects.select_related('customer', 'transaction').all()
     serializer_class = CustomerRewardSerializer
     permission_classes = [RoleBasedPermission]
     # A reward has no business column; it belongs to whoever owns its customer.
@@ -1054,7 +1078,7 @@ class CustomerTierViewSet(viewsets.ViewSet):
 # ============================================================
 
 class AttendanceViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Attendance.objects.all()
+    queryset = Attendance.objects.select_related('user', 'branch').all()
     serializer_class = AttendanceSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -1109,7 +1133,7 @@ class AttendanceViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSe
 # ============================================================
 
 class CustomerFeedbackViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = CustomerFeedback.objects.all()
+    queryset = CustomerFeedback.objects.select_related('customer', 'branch').all()
     serializer_class = CustomerFeedbackSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -1131,7 +1155,7 @@ class CustomerFeedbackViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.Model
 # ============================================================
 
 class ExpenseViewSet(ScopedQuerysetMixin, AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Expense.objects.all()
+    queryset = Expense.objects.select_related('branch', 'business', 'recorded_by').all()
     serializer_class = ExpenseSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -1169,7 +1193,7 @@ class DailySalesViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 # ============================================================
 
 class AuditLogViewSet(ScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = AuditLog.objects.all()
+    queryset = AuditLog.objects.select_related('user', 'branch', 'business').all()
     serializer_class = AuditLogSerializer
     permission_classes = [RoleBasedPermission]
 
@@ -1208,13 +1232,15 @@ class DashboardStatsViewSet(viewsets.ViewSet):
         expenses = auto_scope(Expense.objects.all(), request)
         feedbacks = auto_scope(CustomerFeedback.objects.all(), request)
 
-        # Stock totals per item within the caller's branch scope
-        stock_by_item = {}
-        for level in auto_scope(InventoryLevel.objects.all(), request):
-            stock_by_item[level.item_id] = stock_by_item.get(level.item_id, 0) + level.stock_qty
+        # Stock totals per item within the caller's branch scope — aggregate in DB
+        inventory_qs = auto_scope(InventoryLevel.objects.all(), request)
+        stock_by_item = dict(
+            inventory_qs.values('item_id').annotate(total=Sum('stock_qty')).values_list('item_id', 'total')
+        )
 
         active_rooms = rooms.filter(is_occupied=True).count()
         total_rooms = rooms.count()
+        # Low-stock count: join product min_stock vs aggregated qty in DB
         low_stock_count = sum(
             1 for p in products if stock_by_item.get(p.id, 0) <= p.min_stock
         )
@@ -1314,21 +1340,47 @@ class DashboardStatsViewSet(viewsets.ViewSet):
         today = timezone.localdate()
         month_ago = today - timedelta(days=30)
 
-        branches = Branch.objects.filter(is_active=True)
-        results = []
-        for branch in branches:
-            transactions = Transaction.objects.filter(branch=branch, transaction_type='SALE')
-            today_sales = transactions.filter(created_at__date=today).aggregate(total=Sum('total'))['total'] or 0
-            month_sales = transactions.filter(created_at__date__gte=month_ago).aggregate(total=Sum('total'))['total'] or 0
-            results.append({
+        branches = Branch.objects.filter(is_active=True).order_by('name')
+
+        # Bulk-aggregate today sales per branch (1 query)
+        today_agg = dict(
+            Transaction.objects.filter(
+                transaction_type='SALE', created_at__date=today
+            ).values('branch_id').annotate(total=Sum('total')).values_list('branch_id', 'total')
+        )
+        # Bulk-aggregate month sales per branch (1 query)
+        month_agg = dict(
+            Transaction.objects.filter(
+                transaction_type='SALE', created_at__date__gte=month_ago
+            ).values('branch_id').annotate(total=Sum('total')).values_list('branch_id', 'total')
+        )
+        # Bulk staff counts per branch (1 query)
+        from api.access.models import branch_staff_grants, UserAccess
+        staff_agg = dict(
+            UserAccess.objects.filter(
+                branches__isnull=False, is_active=True,
+                role__in=['CASHIER', 'STAFF', 'BUSINESS_MANAGER', 'SUPERVISOR']
+            ).values('branches_id').annotate(cnt=Count('user_id', distinct=True))
+            .values_list('branches_id', 'cnt')
+        )
+        # Bulk occupied rooms per branch (1 query)
+        rooms_agg = dict(
+            RoomTable.objects.filter(is_occupied=True).values('branch_id')
+            .annotate(cnt=Count('id')).values_list('branch_id', 'cnt')
+        )
+
+        results = [
+            {
                 'branch_id': branch.id,
                 'branch_name': branch.name,
                 'branch_type': branch.branch_type,
-                'today_sales': today_sales,
-                'month_sales': month_sales,
-                'total_staff': staff_count_for_branch(branch),
-                'occupied_rooms': RoomTable.objects.filter(branch=branch, is_occupied=True).count(),
-            })
+                'today_sales': float(today_agg.get(branch.id) or 0),
+                'month_sales': float(month_agg.get(branch.id) or 0),
+                'total_staff': staff_agg.get(branch.id, 0),
+                'occupied_rooms': rooms_agg.get(branch.id, 0),
+            }
+            for branch in branches
+        ]
 
         return Response(results)
 

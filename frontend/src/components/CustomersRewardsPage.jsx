@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   Gift, Loader2, Search, Crown,
-  Award, Star, Shield, ChevronLeft, ChevronRight,
+  Award, Star, Shield, ChevronLeft, ChevronRight, Building2,
 } from 'lucide-react';
 import CustomerTierBadge from './CustomerTierBadge';
 import { api } from '../utils/api';
 
 const records = (response) => response.data.results || response.data;
 
-export default function CustomersRewardsPage({ isDarkMode }) {
+export default function CustomersRewardsPage({ isDarkMode, activeBusinessName, activeBusiness, isCompanyWide = false }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('ALL');
@@ -83,7 +83,18 @@ export default function CustomersRewardsPage({ isDarkMode }) {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {activeBusinessName && (
+        <div className={`flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg mb-3 ${isDarkMode ? "bg-slate-700 text-slate-300" : "bg-purple-50 text-purple-800"}`}>
+          <div className="flex items-center gap-2">
+            <Building2 size={13} className="text-purple-600 shrink-0" />
+            <span>Showing data for <strong>{activeBusinessName}</strong></span>
+          </div>
+          {isCompanyWide && (
+            <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide">Company-wide view</span>
+          )}
+        </div>
+      )}
+            {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
           <h2 className={`text-lg font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>

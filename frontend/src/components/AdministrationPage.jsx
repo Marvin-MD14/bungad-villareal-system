@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, UserCheck, Edit3, Save, X, Search, Users, CheckCircle2, AlertTriangle, Plus, Store, Globe } from 'lucide-react';
-import { getActiveBusinessSlug, getGrantedBusinesses } from '../utils/session';
+import { getActiveBusinessSlug, getGrantedBusinesses, COMPANY_WIDE_ROLES as CW_ROLES, OUTLET_ROLES as OUT_ROLES } from '../utils/session';
 import { api } from '../utils/api';
+import DeactivationModal from './DeactivationModal';
+import BusinessCard from './BusinessCard';
+import BusinessSetupWizard from './BusinessSetupWizard';
 
 const records = (response) => response.data.results || response.data;
 const initialUser = { username: '', first_name: '', last_name: '', email: '', role: '', branch: '', services: [] };
@@ -9,8 +12,9 @@ const initialUser = { username: '', first_name: '', last_name: '', email: '', ro
 // §6.3 role codes. Company-wide roles carry business=NULL; the rest are
 // business roles and are the ones an operator can be assigned at an outlet.
 // (BRANCH_ADMIN is the pre-rename spelling of BUSINESS_MANAGER.)
-const COMPANY_WIDE_ROLES = ['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT'];
-const OUTLET_ROLES = ['BUSINESS_MANAGER', 'SUPERVISOR', 'CASHIER', 'STAFF'];
+// Role sets imported from session.js (single source of truth)
+const COMPANY_WIDE_ROLES = [...CW_ROLES];
+const OUTLET_ROLES = [...OUT_ROLES];
 const initialBranch = { name: '', address: '', contact_number: '', email: '', business: '' };
 const initialBusiness = { name: '', slug: '', business_type: '', description: '', currency: '', tax_rate: '' };
 
@@ -39,7 +43,7 @@ const defaultBusinessId = () => {
   return match ? String(match.id) : '';
 };
 
-export default function AdministrationPage({ isDarkMode = false }) {
+export default function AdministrationPage({ isDarkMode = false, activeBusinessName, activeBusinessSlug, isCompanyWideUser = false }) {
   const [branches, setBranches] = useState([]);
   const [businesses, setBusinesses] = useState(getGrantedBusinesses());
   const [businessTypes, setBusinessTypes] = useState([]);
@@ -61,6 +65,12 @@ export default function AdministrationPage({ isDarkMode = false }) {
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  // Deactivation modal state
+  const [deactivatingBusiness, setDeactivatingBusiness] = useState(null);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  // Setup wizard state
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [newlyCreatedBusiness, setNewlyCreatedBusiness] = useState(null);
 
   const loadOptions = async () => {
     const [branchResponse, serviceResponse, profileResponse, businessResponse, typeResponse, capsResponse] = await Promise.all([
@@ -83,10 +93,26 @@ export default function AdministrationPage({ isDarkMode = false }) {
     // Role list for the assignment dropdown — the API's copy of ROLE_CHOICES.
     const caps = records(capsResponse);
     if (caps.roles) setRoles(caps.roles);
-    const staffingResponses = await Promise.all(
-      records(branchResponse).map((branch) => api.get(`/branches/${branch.id}/staffing/`))
-    );
-    setStaffing(Object.fromEntries(staffingResponses.map((response) => [response.data.branch, response.data])));
+    // Use the conformance endpoint (1 request) instead of N per-branch staffing requests
+    try {
+      const conformanceResponse = await api.get('/branches/conformance/');
+      const conformanceData = records(conformanceResponse);
+      // conformance returns [{branch_name, roles, missing_roles, ready, ...}]
+      // Build the same shape as the old per-branch staffing responses
+      const staffingMap = {};
+      (Array.isArray(conformanceData) ? conformanceData : []).forEach((row) => {
+        staffingMap[row.branch_name || row.branch] = {
+          branch: row.branch_name || row.branch,
+          roles: row.roles || {},
+          missing_roles: row.missing_roles || [],
+          ready: row.ready ?? (row.missing_roles?.length === 0),
+        };
+      });
+      setStaffing(staffingMap);
+    } catch {
+      // Non-critical: staffing badges just won't show
+      setStaffing({});
+    }
   };
 
   useEffect(() => {
@@ -148,6 +174,8 @@ export default function AdministrationPage({ isDarkMode = false }) {
         // wonder why they have to add a branch.
         setMessage(`Business "${response.data.name}" created with its default "Main" branch.`);
         if (response.data?.id) setActiveBusinessId(String(response.data.id));
+        setNewlyCreatedBusiness(response.data);
+        setShowSetupWizard(true);
       }
       setBusinessForm(initialBusiness);
       setShowBusinessForm(false);
@@ -219,6 +247,40 @@ export default function AdministrationPage({ isDarkMode = false }) {
     }
   };
 
+  
+  // Deactivation modal handlers
+  const handleDeactivateClick = (business) => {
+    setDeactivatingBusiness(business);
+    setShowDeactivateModal(true);
+  };
+
+  const confirmDeactivation = async (business) => {
+    setShowDeactivateModal(false);
+    setSaving(true);
+    try {
+      await api.patch(`/businesses/${business.id}/`, { is_active: false });
+      setMessage(`Business "${business.name}" deactivated.`);
+      await loadOptions();
+    } catch (error) {
+      setMessage(error.response?.data?.detail || 'Unable to deactivate the business.');
+    } finally {
+      setSaving(false);
+      setDeactivatingBusiness(null);
+    }
+  };
+
+  const handleReactivate = async (business) => {
+    setSaving(true);
+    try {
+      await api.patch(`/businesses/${business.id}/`, { is_active: true });
+      setMessage(`Business "${business.name}" reactivated.`);
+      await loadOptions();
+    } catch (error) {
+      setMessage(error.response?.data?.detail || 'Unable to reactivate the business.');
+    } finally {
+      setSaving(false);
+    }
+  };
   const assignUser = async (event) => {
     event.preventDefault();
     if (!selectedProfileId) return;
@@ -381,9 +443,15 @@ export default function AdministrationPage({ isDarkMode = false }) {
               <button type="button" onClick={() => startBusinessEdit(activeBusiness)} className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:border-cyan-400">
                 <Edit3 size={14} /> Edit
               </button>
-              <button type="button" disabled={saving} onClick={() => setBusinessActive(activeBusiness, activeBusiness.is_active === false)} className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:border-cyan-400 disabled:opacity-50">
-                {activeBusiness.is_active === false ? 'Reactivate' : 'Deactivate'}
-              </button>
+              {activeBusiness.is_active === false ? (
+                <button type="button" disabled={saving} onClick={() => handleReactivate(activeBusiness)} className="flex items-center gap-1.5 rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 disabled:opacity-50">
+                  Reactivate
+                </button>
+              ) : (
+                <button type="button" disabled={saving} onClick={() => handleDeactivateClick(activeBusiness)} className="flex items-center gap-1.5 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 disabled:opacity-50">
+                  Deactivate
+                </button>
+              )}
               <button type="button" disabled={saving} onClick={() => deleteBusiness(activeBusiness)} className="flex items-center gap-1.5 rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
                 <X size={14} /> Delete
               </button>
@@ -463,6 +531,34 @@ export default function AdministrationPage({ isDarkMode = false }) {
         <div className="mb-3 flex flex-col justify-between gap-3 md:flex-row md:items-center"><div><h4 className="font-bold">User assignments</h4><p className="text-xs text-slate-500">Select an existing account to update its role and services.</p></div><div className="relative w-full md:w-64"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={profileSearch} onChange={(event) => setProfileSearch(event.target.value)} placeholder="Search users" className={`${input} w-full rounded-lg border py-2 pl-8 pr-3 text-xs`} /></div></div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">{filteredProfiles.map((profile) => <button type="button" key={profile.id} onClick={() => startProfileEdit(profile)} className={`flex items-center justify-between rounded-lg border p-3 text-left text-xs transition ${selectedProfileId === String(profile.id) ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200 hover:border-cyan-300'}`}><div><p className="font-semibold">{profile.first_name || profile.username} {profile.last_name} <span className="ml-1 text-cyan-600">{profile.role_display}</span></p><p className="text-slate-500">{profile.username} · {profile.branch_name || 'Organization-wide'}</p><p className="mt-1 text-slate-400">{profile.service_names?.length || 0} assigned services</p></div><Edit3 size={15} className="text-cyan-600" /></button>)}</div>
       </section>
+
+      {/* Deactivation Modal */}
+      <DeactivationModal
+        business={deactivatingBusiness}
+        isOpen={showDeactivateModal}
+        onConfirm={confirmDeactivation}
+        onCancel={() => {
+          setShowDeactivateModal(false);
+          setDeactivatingBusiness(null);
+        }}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Business Setup Wizard */}
+      <BusinessSetupWizard
+        business={newlyCreatedBusiness}
+        isOpen={showSetupWizard}
+        onComplete={() => {
+          setShowSetupWizard(false);
+          setNewlyCreatedBusiness(null);
+          loadOptions();
+        }}
+        onContinueLater={() => {
+          setShowSetupWizard(false);
+        }}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }
+

@@ -6,6 +6,7 @@ import {
   Crown, Sparkles, Building2, Layers, Award,
   Scissors, Users, Mail, ArrowRight,
 } from 'lucide-react';
+import { API_BASE_URL } from '../utils/api';
 
 // -----------------------------------------------------------------------------
 // Marketing landing + role-aware login.
@@ -172,7 +173,7 @@ export default function LandingPage({ onLoginSuccess }) {
     setBusy(true);
     setLoginError('');
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+      const response = await fetch(`${API_BASE_URL}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginForm),
@@ -686,20 +687,31 @@ export default function LandingPage({ onLoginSuccess }) {
 
             <div className="p-6 space-y-4">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Quick Demo Login</p>
-                <div className="grid grid-cols-3 gap-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Demo Accounts — click to fill</p>
+                <div className="space-y-1.5">
                   {QUICK_ACCOUNTS.map((acc) => (
                     <button
                       key={acc.key}
                       type="button"
                       onClick={() => quickPick(acc.key)}
-                      className={`text-[11px] py-2 rounded-lg font-semibold border transition-all flex items-center justify-center gap-1 ${
+                      className={`w-full text-left rounded-xl border px-3 py-2 transition-all flex items-center gap-3 ${
                         loginRole === acc.key
-                          ? 'bg-purple-100 border-purple-300 text-purple-800'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                          ? 'bg-purple-50 border-purple-300 text-purple-900'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-purple-200'
                       }`}
                     >
-                      {acc.icon} {acc.label.split(' ')[0]}
+                      <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${loginRole === acc.key ? 'bg-purple-200 text-purple-700' : 'bg-slate-200 text-slate-500'}`}>
+                        {acc.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold">{acc.label}</span>
+                          {loginRole === acc.key && (
+                            <span className="text-[9px] font-bold text-purple-600 uppercase tracking-wide">Selected</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-mono truncate">{acc.username}</p>
+                      </div>
                     </button>
                   ))}
                 </div>

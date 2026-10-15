@@ -4,6 +4,41 @@ from rest_framework import serializers
 from api.catalog.models import Category, Item, BusinessItem, InventoryLevel, StockMovement
 
 
+class BusinessAvailabilitySerializer(serializers.Serializer):
+    """Availability and pricing for a single Item-Business pair in the matrix."""
+    business_id = serializers.IntegerField()
+    business_name = serializers.CharField()
+    is_available = serializers.BooleanField()
+    effective_price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    price_override = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    business_item_id = serializers.IntegerField(allow_null=True)
+
+
+class MatrixItemSerializer(serializers.Serializer):
+    """An Item with its availability across all accessible businesses."""
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    sku = serializers.CharField()
+    item_type = serializers.CharField()
+    category_id = serializers.IntegerField()
+    category_name = serializers.CharField()
+    selling_price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    business_availability = BusinessAvailabilitySerializer(many=True)
+
+
+class MatrixBusinessSerializer(serializers.Serializer):
+    """A Business for the matrix column headers."""
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.CharField()
+
+
+class AvailabilityMatrixSerializer(serializers.Serializer):
+    """Response format for the availability matrix endpoint."""
+    items = MatrixItemSerializer(many=True)
+    businesses = MatrixBusinessSerializer(many=True)
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -50,6 +85,21 @@ class BusinessItemSerializer(serializers.ModelSerializer):
             'id', 'business', 'item', 'item_id', 'price_override',
             'effective_price', 'is_available', 'sort_order'
         ]
+
+
+class BusinessItemBatchItemSerializer(serializers.Serializer):
+    """Serializer for a single item in the batch request."""
+    item_id = serializers.IntegerField()
+    is_available = serializers.BooleanField(default=True)
+    price_override = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True, default=None
+    )
+
+
+class BusinessItemBatchSerializer(serializers.Serializer):
+    """Serializer for the batch create/update request."""
+    business_id = serializers.IntegerField()
+    items = BusinessItemBatchItemSerializer(many=True)
 
 
 class InventoryLevelSerializer(serializers.ModelSerializer):

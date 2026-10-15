@@ -38,6 +38,7 @@ from api.catalog.views import (  # noqa: E402
     BusinessItemViewSet,
     InventoryLevelViewSet,
     StockMovementViewSet,
+    AvailabilityMatrixViewSet,
 )
 from api.business.views import BusinessViewSet, BusinessTypeViewSet  # noqa: E402
 from api.access.views import UserAccessViewSet  # noqa: E402
@@ -117,6 +118,7 @@ router.register(r'catalog/categories', CategoryViewSet)
 router.register(r'catalog/business-items', BusinessItemViewSet, basename='business-items')
 router.register(r'catalog/inventory', InventoryLevelViewSet, basename='inventory')
 router.register(r'catalog/stock-movements', StockMovementViewSet, basename='stock-movements')
+router.register(r'catalog/availability-matrix', AvailabilityMatrixViewSet, basename='availability-matrix')
 
 # ============================================================
 # BUSINESSES & ACCESS (Phase 2)

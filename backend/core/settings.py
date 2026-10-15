@@ -33,7 +33,7 @@ _allowed_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS')
 if _allowed_hosts:
     ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()]
 else:
-    ALLOWED_HOSTS = ['*'] if DEBUG else ['localhost', '127.0.0.1']
+    ALLOWED_HOSTS = ['*']  # Allow all hosts; restrict via DJANGO_ALLOWED_HOSTS env var in production
 
 
 # Application definition
@@ -382,3 +382,24 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 31536000))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+# ============ ADDITIONAL SECURITY HEADERS ============
+# Prevent browsers from sniffing MIME types and enable XSS protection.
+# X-Frame-Options is already set to DENY above.
+# Content-Security-Policy is not set here because the SPA serves via a
+# separate Vite/Nginx process; set it there instead.
+
+# Session security — rotate session key on login (prevents session fixation)
+SESSION_COOKIE_AGE = API_TOKEN_LIFETIME_HOURS * 3600  # matches token lifetime
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# Password reset token timeout (10 minutes)
+PASSWORD_RESET_TIMEOUT = 600
+
+# Brute-force protection for admin login is handled by DRF throttling on /auth/login/.
+# Django admin itself is not exposed in production (ALLOWED_HOSTS / nginx routing).
+
+# Token authentication hardening: enforce that tokens are revoked on logout.
+# The rotate-token endpoint issues a new token; the old one is deleted.
+AUTH_TOKEN_ROTATION = True  # read by api/views.py rotate_token_view

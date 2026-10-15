@@ -41,7 +41,8 @@ function CodeBlock({ code, isDarkMode }) {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      const t = setTimeout(() => setCopied(false), 1500);
+      return () => clearTimeout(t);
     } catch {
       setCopied(false);
     }

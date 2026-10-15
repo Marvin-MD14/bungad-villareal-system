@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import CustomerRewardsPanel from './CustomerRewardsPanel';
 import CustomerTierBadge from './CustomerTierBadge';
-import { newIdempotencyKey } from '../utils/session';
+import BusinessPicker from './BusinessPicker';
+import { newIdempotencyKey, getActiveBusinessSlug, setActiveBusiness, getGrantedBusinesses } from '../utils/session';
 import { api } from '../utils/api';
 
 const records = (response) => response.data.results || response.data;
@@ -334,6 +335,36 @@ export default function CashierPOS({
   const [notifiedCustomer, setNotifiedCustomer] = useState(null);
   const [notifiedRewards, setNotifiedRewards] = useState([]);
 
+  // Company-wide role business selection
+  const [selectedBusinessId, setSelectedBusinessId] = useState('');
+
+  // ============ COMPANY-WIDE ROLE CHECK ============
+  // Get user role from localStorage to determine if BusinessPicker should be shown
+  const authUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('authUser') || '{}');
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const isCompanyWide = useMemo(() => {
+    return ['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT'].includes(
+      String(authUser?.role_code || authUser?.role || '').replace(/[\s_]+/g, '_').toUpperCase()
+    );
+  }, [authUser]);
+
+  const grantedBusinesses = useMemo(() => getGrantedBusinesses(), []);
+
+  // Handle business selection change for company-wide users
+  const handleBusinessChange = (businessId) => {
+    setSelectedBusinessId(businessId);
+    const selectedBusiness = grantedBusinesses.find((b) => String(b.id) === String(businessId));
+    if (selectedBusiness?.slug) {
+      setActiveBusiness(selectedBusiness.slug);
+    }
+  };
+
   // ============ LIVE CLOCK ============
   useEffect(() => {
     const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
@@ -643,7 +674,8 @@ export default function CashierPOS({
         }
       });
 
-      const res = await api.post('/transactions/checkout/', {
+      // Build checkout payload - include business_id for company-wide users
+      const checkoutPayload = {
         branch: branch.id,
         customer: finalCustomerId || null,
         customer_name: customerName || '',
@@ -653,7 +685,14 @@ export default function CashierPOS({
         apply_tier_discount: true,
         items,
         notes: `Payment: ${paymentMethod}`,
-      }, {
+      };
+
+      // Include business_id for company-wide role users
+      if (isCompanyWide && selectedBusinessId) {
+        checkoutPayload.business_id = selectedBusinessId;
+      }
+
+      const res = await api.post('/transactions/checkout/', checkoutPayload, {
         headers: { 'Idempotency-Key': saleKeyRef.current },
       });
 
@@ -962,6 +1001,19 @@ export default function CashierPOS({
 
         {/* RIGHT: CART & PAYMENT */}
         <div className={`${panel} border rounded-xl p-4 flex flex-col overflow-hidden min-h-0`}>
+          {/* Business Picker for Company-Wide Roles */}
+          {isCompanyWide && (
+            <div className="mb-3 shrink-0">
+              <BusinessPicker
+                value={selectedBusinessId}
+                onChange={handleBusinessChange}
+                businesses={grantedBusinesses}
+                label="Select business for this transaction"
+                isDarkMode={isDarkMode}
+              />
+            </div>
+          )}
+
           {/* Customer Selector */}
           <div className="relative mb-2 shrink-0">
             <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" />

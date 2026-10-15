@@ -60,7 +60,7 @@ class UserAccess(models.Model):
         constraints = [
             # company roles must not carry a business; business roles must have one
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(role__in=['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT'], business__isnull=True)
                     | ~models.Q(role__in=['SUPERADMIN', 'OWNER', 'COMPANY_ADMIN', 'ACCOUNTANT'])
                 ),

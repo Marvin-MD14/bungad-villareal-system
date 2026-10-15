@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { CreditCard, Plus, Receipt, Trash2 } from 'lucide-react';
+import { CreditCard, Plus, Receipt, Trash2, Building2 } from 'lucide-react';
 import { newIdempotencyKey } from '../utils/session';
 import { api } from '../utils/api';
 
 const records = (response) => response.data.results || response.data;
 
-export default function SalesPage({ isDarkMode = false, readOnly = false }) {
+export default function SalesPage({ isDarkMode = false, readOnly = false, activeBusinessName, activeBusiness, isCompanyWide = false }) {
   const [branches, setBranches] = useState([]);
   const [products, setProducts] = useState([]);
   const [services, setServices] = useState([]);
@@ -134,7 +134,18 @@ export default function SalesPage({ isDarkMode = false, readOnly = false }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {activeBusinessName && (
+        <div className={`flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg mb-3 ${isDarkMode ? "bg-slate-700 text-slate-300" : "bg-purple-50 text-purple-800"}`}>
+          <div className="flex items-center gap-2">
+            <Building2 size={13} className="text-purple-600 shrink-0" />
+            <span>Showing data for <strong>{activeBusinessName}</strong></span>
+          </div>
+          {isCompanyWide && (
+            <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide">Company-wide view</span>
+          )}
+        </div>
+      )}
+            <div className="flex items-center justify-between">
         <div>
           <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Sales & POS</h3>
           <p className="text-xs text-slate-500">Create paid transactions and update branch stock safely.</p>

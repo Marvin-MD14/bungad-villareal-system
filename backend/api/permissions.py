@@ -40,6 +40,7 @@ ROLE_ACTIONS = {
         'Item:list', 'Item:retrieve',
         'Category:list', 'Category:retrieve',
         'BusinessItem:list', 'BusinessItem:retrieve',
+        'AvailabilityMatrix:list',
         'InventoryLevel:list', 'InventoryLevel:retrieve', 'InventoryLevel:restock',
         'StockMovement:list', 'StockMovement:retrieve',
         # --- Businesses & access (read) ---
@@ -62,8 +63,8 @@ ROLE_ACTIONS = {
         'DailySales:list', 'DailySales:retrieve',
         # --- Dashboard ---
         'DashboardStats:summary',
-        # --- User Profile (own profile + branch directory) ---
-        'UserProfile:list', 'UserProfile:retrieve', 'UserProfile:me',
+        # --- User Profile (own profile only - STAFF cannot see the full directory) ---
+        'UserProfile:me',
         # --- Attendance (self service) ---
         'Attendance:list', 'Attendance:retrieve',
         'Attendance:today', 'Attendance:my_records', 'Attendance:check_in', 'Attendance:check_out',
@@ -94,6 +95,7 @@ ROLE_ACTIONS = {
         # --- Unified catalog (read) ---
         'Item:list', 'Item:retrieve',
         'Category:list', 'Category:retrieve',
+        'AvailabilityMatrix:list',
         'Business:list', 'Business:retrieve',
         'BusinessType:list', 'BusinessType:retrieve',
         # --- Client (read + lookup) ---
@@ -104,8 +106,8 @@ ROLE_ACTIONS = {
         'RoomTable:occupied', 'RoomTable:check_in', 'RoomTable:check_out',
         # --- Dashboard ---
         'DashboardStats:summary',
-        # --- User Profile (own profile + branch directory) ---
-        'UserProfile:list', 'UserProfile:retrieve', 'UserProfile:me',
+        # --- User Profile (own profile only - STAFF cannot see the full directory) ---
+        'UserProfile:me',
         # --- Attendance (self service) ---
         'Attendance:list', 'Attendance:retrieve',
         'Attendance:today', 'Attendance:my_records', 'Attendance:check_in', 'Attendance:check_out',
@@ -140,6 +142,7 @@ ROLE_ACTIONS = {
         'Expense:create', 'Expense:update', 'Expense:partial_update', 'Expense:destroy',
         'Item:list', 'Item:retrieve',
         'Category:list', 'Category:retrieve',
+        'AvailabilityMatrix:list',
         'InventoryLevel:list', 'InventoryLevel:retrieve',
         'StockMovement:list', 'StockMovement:retrieve',
         'Business:list', 'Business:retrieve',
@@ -427,7 +430,7 @@ UI_CAPABILITY_PROBES = {
     # Attendance:list is useless here — a cashier passes both, so the nav would
     # offer Administration to the front desk. Reading the receipt ledger is
     # granted to management/finance and not to front-of-house roles.
-    'administration': 'TransactionItem:list',
+    'administration': 'Expense:create',
     'audit': 'AuditLog:list',
     'documentation': None,  # the in-app handbook is open to every role
 }
@@ -553,3 +556,4 @@ def all_role_guides():
     from api.access.models import UserAccess  # local import: app-loading order
 
     return {code: role_guide_for(code) for code, _label in UserAccess.ROLE_CHOICES}
+

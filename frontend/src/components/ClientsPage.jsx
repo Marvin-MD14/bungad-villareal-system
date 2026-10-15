@@ -1,16 +1,31 @@
-import { useEffect, useState } from 'react';
-import { Search, UserPlus } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Search, UserPlus, Building2 } from 'lucide-react';
 import { api } from '../utils/api';
+import BusinessPicker from './BusinessPicker';
+import { getGrantedBusinesses, COMPANY_WIDE_ROLES } from '../utils/session';
 
 const records = (response) => response.data.results || response.data;
 
-export default function ClientsPage({ isDarkMode = false, readOnly = false }) {
+// COMPANY_WIDE_ROLES imported from session.js (single source of truth)
+
+export default function ClientsPage({ isDarkMode = false, readOnly = false, currentUserRoleCode = '', activeBusinessName, activeBusiness, isCompanyWideUser = false }) {
   const [clients, setClients] = useState([]);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ first_name: '', last_name: '', phone_number: '', email: '', address: '' });
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone_number: '', email: '', address: '', business: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Determine if user is company-wide role (needs to select business explicitly)
+  const isCompanyWide = COMPANY_WIDE_ROLES.has(String(currentUserRoleCode || '').toUpperCase());
+  const grantedBusinesses = useMemo(() => getGrantedBusinesses(), []);
+
+  // Auto-set business for non-company-wide roles (they get their business stamped by backend)
+  useEffect(() => {
+    if (!isCompanyWide && grantedBusinesses.length === 1 && !form.business) {
+      setForm((prev) => ({ ...prev, business: String(grantedBusinesses[0].id) }));
+    }
+  }, [isCompanyWide, grantedBusinesses, form.business]);
 
   const loadClients = async (query = '') => {
     setLoading(true);
@@ -30,11 +45,24 @@ export default function ClientsPage({ isDarkMode = false, readOnly = false }) {
 
   const saveClient = async (event) => {
     event.preventDefault();
+    
+    // Validate business selection for company-wide roles
+    if (isCompanyWide && !form.business) {
+      setMessage('Please select a business for this client.');
+      return;
+    }
+    
     setSaving(true);
     setMessage('');
     try {
-      await api.post('/clients/', form);
-      setForm({ first_name: '', last_name: '', phone_number: '', email: '', address: '' });
+      const payload = { ...form };
+      // Only include business in payload if it's set (company-wide roles)
+      // For scoped roles, backend auto-stamps the business
+      if (!payload.business) {
+        delete payload.business;
+      }
+      await api.post('/clients/', payload);
+      setForm({ first_name: '', last_name: '', phone_number: '', email: '', address: '', business: '' });
       setMessage('Client added successfully.');
       await loadClients(search);
     } catch (error) {
@@ -49,7 +77,18 @@ export default function ClientsPage({ isDarkMode = false, readOnly = false }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {activeBusinessName && (
+        <div className={`flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg mb-3 ${isDarkMode ? "bg-slate-700 text-slate-300" : "bg-purple-50 text-purple-800"}`}>
+          <div className="flex items-center gap-2">
+            <Building2 size={13} className="text-purple-600 shrink-0" />
+            <span>Showing data for <strong>{activeBusinessName}</strong></span>
+          </div>
+          {isCompanyWide && (
+            <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wide">Company-wide view</span>
+          )}
+        </div>
+      )}
+            <div className="flex items-center justify-between">
         <div><h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Clients</h3><p className="text-xs text-slate-500">Find customer history and register walk-in clients.</p></div>
         <Search className="text-cyan-600" size={24} />
       </div>
@@ -58,6 +97,20 @@ export default function ClientsPage({ isDarkMode = false, readOnly = false }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {!readOnly && <form onSubmit={saveClient} className={`${panel} border rounded-xl p-5 space-y-3`}>
           <h4 className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Register Client</h4>
+          
+          {/* BusinessPicker for company-wide roles */}
+          {isCompanyWide && (
+            <BusinessPicker
+              value={form.business}
+              onChange={(value) => setForm({ ...form, business: value })}
+              businesses={grantedBusinesses}
+              isDarkMode={isDarkMode}
+              label="Select the business for this client"
+              placeholder="Choose a business…"
+              required={true}
+            />
+          )}
+          
           {['first_name', 'last_name', 'phone_number', 'email', 'address'].map((field) => <label key={field} className="block text-xs font-semibold capitalize text-slate-500">{field.replace('_', ' ')}<input required={field === 'first_name' || field === 'last_name'} value={form[field]} onChange={(event) => setForm({ ...form, [field]: event.target.value })} className={`${input} mt-1 w-full rounded-lg border p-2`} /></label>)}
           <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-600 py-2 text-sm font-semibold text-white disabled:opacity-50"><UserPlus size={16} />{saving ? 'Saving...' : 'Add Client'}</button>
         </form>}

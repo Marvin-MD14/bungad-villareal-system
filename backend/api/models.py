@@ -409,6 +409,12 @@ class Transaction(BusinessScopedQuerySetModel):
         # A receipt number only has to be unique inside the business that issued
         # it (§3.4 L4); the global `unique=True` was stricter than needed.
         unique_together = ('business', 'transaction_number')
+        indexes = [
+            # Dashboard date-range queries: ORDER BY / WHERE created_at__date
+            models.Index(fields=['created_at'], name='tx_created_at_idx'),
+            # Sales reporting: business + type + date (most common dashboard filter)
+            models.Index(fields=['business', 'transaction_type', 'created_at'], name='tx_biz_type_date_idx'),
+        ]
 
 
 # ============================================================
@@ -638,6 +644,12 @@ class AuditLog(BusinessScopedQuerySetModel):
         ordering = ['-created_at']
         verbose_name = "Audit Log"
         verbose_name_plural = "Audit Logs"
+        indexes = [
+            # Paginated audit log listing: ORDER BY created_at DESC
+            models.Index(fields=['-created_at'], name='audit_created_at_idx'),
+            # Filter by business + time range (common admin query)
+            models.Index(fields=['business', 'created_at'], name='audit_biz_date_idx'),
+        ]
 
     def __str__(self):
         return f"{self.user.username if self.user else 'System'} - {self.action} - {self.model_name}"
