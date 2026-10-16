@@ -1812,16 +1812,6 @@ export default function App() {
             </header>
           )}
 
-          {isPOSFullScreen && (
-            <button
-              onClick={exitPOSToDashboard}
-              className="fixed top-3 right-3 z-[100] bg-slate-900/90 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
-              title="Exit full-screen POS and go to Dashboard"
-            >
-              <X size={14} /> Exit POS
-            </button>
-          )}
-
           <div
             key={activeBusiness || 'default'}
             className={`flex-1 min-h-0 ${

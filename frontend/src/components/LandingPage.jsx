@@ -33,6 +33,21 @@ const ROLE_ORDER = ['admin', 'owner', 'manager', 'cashier', 'staff'];
 
 const QUICK_ACCOUNTS = ROLE_ORDER.map((key) => ({ key, ...DEMO_ACCOUNTS[key] }));
 
+// Wide container: uses almost the whole desktop viewport instead of a narrow 7xl column.
+const CONTAINER = 'w-full max-w-[1760px] mx-auto px-5 sm:px-8 lg:px-14 2xl:px-24';
+
+// Subtle dot-grid used on dark sections.
+const DOT_GRID = {
+  backgroundImage: 'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px)',
+  backgroundSize: '26px 26px',
+};
+
+// Subtle dot-grid used on light sections.
+const DOT_GRID_LIGHT = {
+  backgroundImage: 'radial-gradient(rgba(109,40,217,0.10) 1px, transparent 1px)',
+  backgroundSize: '28px 28px',
+};
+
 // ---- Reveal-on-scroll wrapper -----------------------------------------------
 function Reveal({ children, delay = 0, className = '' }) {
   const ref = useRef(null);
@@ -82,30 +97,50 @@ function NavLink({ icon, label, targetId, onClick }) {
     <button
       type="button"
       onClick={handle}
-      className="flex items-center gap-1.5 text-sm text-slate-700 hover:text-purple-700 transition-colors"
+      className="flex items-center gap-1.5 text-sm font-medium text-purple-100/80 hover:text-amber-300 transition-colors"
     >
       {icon} {label}
     </button>
   );
 }
 
+function SectionHeading({ eyebrow, title, align = 'center', dark = false }) {
+  return (
+    <div className={`max-w-3xl ${align === 'center' ? 'mx-auto text-center' : ''}`}>
+      <span
+        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] ${
+          dark ? 'bg-white/10 text-amber-300 border border-white/15' : 'bg-purple-100 text-purple-700 border border-purple-200'
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${dark ? 'bg-amber-300' : 'bg-purple-600'}`} />
+        {eyebrow}
+      </span>
+      <h2 className={`mt-4 text-3xl md:text-4xl 2xl:text-5xl font-black leading-tight ${dark ? 'text-white' : 'text-slate-900'}`}>
+        {title}
+      </h2>
+    </div>
+  );
+}
+
 function FeatureCard({ icon, title, description, tone = 'purple', delay = 0 }) {
   const tones = {
-    purple: 'bg-purple-100 text-purple-700',
-    lime: 'bg-lime-100 text-lime-700',
-    amber: 'bg-amber-100 text-amber-700',
-    rose: 'bg-rose-100 text-rose-700',
-    blue: 'bg-blue-100 text-blue-700',
-    emerald: 'bg-emerald-100 text-emerald-700',
+    purple: { icon: 'bg-purple-100 text-purple-700', bar: 'from-purple-500 to-fuchsia-500' },
+    lime: { icon: 'bg-lime-100 text-lime-700', bar: 'from-lime-400 to-emerald-500' },
+    amber: { icon: 'bg-amber-100 text-amber-700', bar: 'from-amber-300 to-orange-400' },
+    rose: { icon: 'bg-rose-100 text-rose-700', bar: 'from-rose-400 to-pink-500' },
+    blue: { icon: 'bg-blue-100 text-blue-700', bar: 'from-blue-400 to-indigo-500' },
+    emerald: { icon: 'bg-emerald-100 text-emerald-700', bar: 'from-emerald-400 to-teal-500' },
   };
+  const t = tones[tone] || tones.purple;
   return (
-    <Reveal delay={delay}>
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all h-full">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${tones[tone] || tones.purple}`}>
+    <Reveal delay={delay} className="h-full">
+      <div className="group relative h-full overflow-hidden rounded-2xl border border-purple-100 bg-white p-7 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-purple-900/10">
+        <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${t.bar}`} />
+        <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${t.icon} transition-transform duration-300 group-hover:scale-110`}>
           {icon}
         </div>
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-        <p className="mt-2 text-xs leading-relaxed text-slate-500">{description}</p>
+        <h3 className="text-base font-bold text-slate-900">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">{description}</p>
       </div>
     </Reveal>
   );
@@ -113,15 +148,13 @@ function FeatureCard({ icon, title, description, tone = 'purple', delay = 0 }) {
 
 function Step({ number, title, description, delay = 0 }) {
   return (
-    <Reveal delay={delay}>
-      <div className="flex gap-4">
-        <div className="shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-purple-800 text-white font-bold flex items-center justify-center shadow-md">
+    <Reveal delay={delay} className="h-full">
+      <div className="relative h-full rounded-2xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm transition-all hover:bg-white/10">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-lg font-black text-purple-950 shadow-lg shadow-amber-500/30">
           {number}
         </div>
-        <div>
-          <h4 className="text-sm font-bold text-slate-800">{title}</h4>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">{description}</p>
-        </div>
+        <h4 className="mt-5 text-base font-bold text-white">{title}</h4>
+        <p className="mt-2 text-sm leading-relaxed text-purple-100/70">{description}</p>
       </div>
     </Reveal>
   );
@@ -198,24 +231,26 @@ export default function LandingPage({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f5f0ff] font-sans text-slate-800 overflow-x-clip">
       {/* ============ HEADER ============ */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-purple-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Full logo, no box: height fixed, width auto so nothing is cropped */}
-            <img
-              src="/villareal-logo.png"
-              alt="Villareal"
-              className="h-16 w-auto max-w-[240px] object-contain"
-            />
-            <div className="border-l border-slate-200 pl-3">
-              <h1 className="text-slate-900 font-bold text-lg leading-none">Bungad &amp; Villareal</h1>
-              <p className="text-purple-700 text-[10px] font-semibold tracking-[0.2em] mt-1">MANAGEMENT SYSTEM</p>
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-gradient-to-r from-[#1b0838]/95 via-purple-950/95 to-indigo-950/95 backdrop-blur-md shadow-lg shadow-purple-950/30">
+        <div className={`${CONTAINER} py-3 flex items-center justify-between`}>
+          <div className="flex items-center gap-4">
+            {/* Logo sits on a soft white plate so the dark "SALON & SPA" text stays readable on the dark header */}
+            <div className="rounded-2xl bg-white px-4 py-2 shadow-lg shadow-black/20 ring-2 ring-amber-300/60">
+              <img
+                src="/villareal-logo.png"
+                alt="Villareal Salon & Spa"
+                className="h-12 w-auto max-w-[210px] object-contain"
+              />
+            </div>
+            <div className="hidden sm:block border-l border-white/20 pl-4">
+              <h1 className="text-white font-extrabold text-xl leading-none">Bungad &amp; Villareal</h1>
+              <p className="text-amber-300 text-[10px] font-semibold tracking-[0.25em] mt-1.5">MANAGEMENT SYSTEM</p>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-8 lg:gap-10">
             <NavLink icon={<Home size={16} />} label="Home" targetId="home" />
             <NavLink icon={<Info size={16} />} label="About" targetId="about" />
             <NavLink icon={<Grid size={16} />} label="Features" targetId="features" />
@@ -224,7 +259,7 @@ export default function LandingPage({ onLoginSuccess }) {
             <button
               type="button"
               onClick={() => openLogin('cashier')}
-              className="bg-amber-400 hover:bg-amber-500 text-purple-900 font-bold px-6 py-2 rounded-lg flex items-center gap-2 transition-all shadow-md"
+              className="bg-gradient-to-r from-amber-300 to-amber-400 hover:from-amber-400 hover:to-amber-500 text-purple-950 font-bold px-7 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-amber-500/30"
             >
               <LogIn size={16} /> Login
             </button>
@@ -233,23 +268,23 @@ export default function LandingPage({ onLoginSuccess }) {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden text-purple-900"
+            className="md:hidden text-white"
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-purple-100 bg-white px-4 py-3 space-y-3 shadow-lg">
-            <button type="button" onClick={() => scrollTo('home')} className="block w-full text-left text-sm font-medium text-slate-700 hover:text-purple-700">Home</button>
-            <button type="button" onClick={() => scrollTo('about')} className="block w-full text-left text-sm font-medium text-slate-700 hover:text-purple-700">About</button>
-            <button type="button" onClick={() => scrollTo('features')} className="block w-full text-left text-sm font-medium text-slate-700 hover:text-purple-700">Features</button>
-            <button type="button" onClick={() => scrollTo('how')} className="block w-full text-left text-sm font-medium text-slate-700 hover:text-purple-700">How It Works</button>
-            <button type="button" onClick={() => scrollTo('contact')} className="block w-full text-left text-sm font-medium text-slate-700 hover:text-purple-700">Contact</button>
+          <div className="md:hidden border-t border-white/10 bg-purple-950 px-4 py-3 space-y-3 shadow-lg">
+            <button type="button" onClick={() => scrollTo('home')} className="block w-full text-left text-sm font-medium text-purple-100 hover:text-amber-300">Home</button>
+            <button type="button" onClick={() => scrollTo('about')} className="block w-full text-left text-sm font-medium text-purple-100 hover:text-amber-300">About</button>
+            <button type="button" onClick={() => scrollTo('features')} className="block w-full text-left text-sm font-medium text-purple-100 hover:text-amber-300">Features</button>
+            <button type="button" onClick={() => scrollTo('how')} className="block w-full text-left text-sm font-medium text-purple-100 hover:text-amber-300">How It Works</button>
+            <button type="button" onClick={() => scrollTo('contact')} className="block w-full text-left text-sm font-medium text-purple-100 hover:text-amber-300">Contact</button>
             <button
               type="button"
               onClick={() => { setMobileMenuOpen(false); openLogin('cashier'); }}
-              className="w-full bg-amber-400 text-purple-900 font-bold py-2 rounded-lg flex items-center justify-center gap-2"
+              className="w-full bg-amber-400 text-purple-950 font-bold py-2.5 rounded-lg flex items-center justify-center gap-2"
             >
               <LogIn size={16} /> Login
             </button>
@@ -258,108 +293,147 @@ export default function LandingPage({ onLoginSuccess }) {
       </header>
 
       {/* ============ HERO ============ */}
-      <section id="home" className="max-w-7xl mx-auto px-4 py-16 grid md:grid-cols-2 gap-12 items-center">
-        <Reveal>
-          <div>
-            <div className="inline-flex items-center gap-2 bg-white border border-purple-200 rounded-full px-4 py-2 mb-6 shadow-sm">
-              <MapPin size={14} className="text-amber-400" />
-              <span className="text-purple-800 text-xs font-semibold tracking-wide">BUNGAD &amp; VILLAREAL — OFFICIAL SYSTEM</span>
-            </div>
+      <section
+        id="home"
+        className="relative overflow-hidden bg-gradient-to-br from-[#1b0838] via-purple-900 to-indigo-950 pb-28 lg:pb-36"
+      >
+        {/* decorative layers */}
+        <div className="pointer-events-none absolute inset-0 opacity-60" style={DOT_GRID} />
+        <div className="pointer-events-none absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-fuchsia-600/30 blur-[120px]" />
+        <div className="pointer-events-none absolute top-1/3 -right-40 h-[560px] w-[560px] rounded-full bg-indigo-500/30 blur-[130px]" />
+        <div className="pointer-events-none absolute -bottom-40 left-1/3 h-[420px] w-[420px] rounded-full bg-amber-400/15 blur-[120px]" />
 
-            <h2 className="text-4xl md:text-6xl font-extrabold text-slate-950 mb-4 leading-tight tracking-tight">
-              Bungad &amp; Villareal{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-fuchsia-700">
-                Management System
-              </span>
-            </h2>
-
-            <p className="text-slate-600 text-base md:text-lg mb-8 leading-relaxed">
-              A modern, AI-powered management platform for the Bungad &amp; Villareal Group.
-              Manage POS, inventory, loyalty, and staff — all in one secure system.
-            </p>
-
-            <div className="flex flex-wrap gap-4 mb-8">
-              <button
-                type="button"
-                onClick={() => openLogin('cashier')}
-                className="bg-amber-400 hover:bg-amber-500 text-purple-900 font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all shadow-lg"
-              >
-                <LogIn size={18} /> Login to Your Account
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTo('features')}
-                className="border-2 border-purple-200 hover:border-purple-700 text-purple-800 hover:bg-purple-50 font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all"
-              >
-                <Grid size={18} /> Explore Features
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 max-w-md">
-              {[
-                { icon: <Zap size={18} />, label: 'Real-Time POS' },
-                { icon: <MessageSquare size={18} />, label: 'SMS Notifications' },
-                { icon: <LineChart size={18} />, label: 'Real-Time Analytics' },
-                { icon: <Lock size={18} />, label: 'Secure Records' },
-              ].map((f, i) => (
-                <div key={i} className="bg-white border border-purple-100 rounded-xl px-4 py-3 flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow">
-                  <span className="text-amber-400">{f.icon}</span>
-                  <span className="text-slate-700 text-sm font-semibold">{f.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal delay={150}>
-          <div className="bg-white border border-purple-100 rounded-3xl p-6 md:p-8 shadow-xl shadow-purple-900/5">
-            <div className="text-center">
-              {/* Full logo, no box / no padding frame: shown at its natural proportions */}
-              <img
-                src="/villareal-logo.png"
-                alt="Bungad & Villareal"
-                className="w-full max-w-lg h-auto object-contain mx-auto mb-6 scale-110"
-              />
-              <h3 className="text-slate-900 font-bold text-xl mb-6">Bungad &amp; Villareal Group</h3>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-left">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">System Status</span>
-                  <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full"></span> Online
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Response Time</span>
-                  <span className="text-amber-400 text-xs font-bold">&lt; 24 hours</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Coverage</span>
-                  <span className="text-amber-400 text-xs font-bold">Bungad, Villareal</span>
-                </div>
+        <div className={`${CONTAINER} relative grid lg:grid-cols-[1.1fr_0.9fr] gap-12 xl:gap-20 items-center pt-14 lg:pt-20`}>
+          <Reveal>
+            <div>
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-2 mb-7 backdrop-blur-sm">
+                <MapPin size={14} className="text-amber-300" />
+                <span className="text-purple-100 text-xs font-semibold tracking-wide">BUNGAD &amp; VILLAREAL — OFFICIAL SYSTEM</span>
               </div>
 
-              <p className="text-slate-500 text-xs mt-6 flex items-center justify-center gap-1">
-                <Lock size={12} /> SSL Secured • 24/7 Available
+              <h2 className="text-5xl md:text-6xl xl:text-7xl 2xl:text-8xl font-extrabold text-white mb-6 leading-[1.05] tracking-tight">
+                Bungad &amp; Villareal{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-300 to-fuchsia-300">
+                  Management System
+                </span>
+              </h2>
+
+              <p className="text-purple-100/80 text-base md:text-lg xl:text-xl mb-9 leading-relaxed max-w-2xl">
+                A modern, AI-powered management platform for the Bungad &amp; Villareal Group.
+                Manage POS, inventory, loyalty, and staff — all in one secure system.
               </p>
+
+              <div className="flex flex-wrap gap-4 mb-10">
+                <button
+                  type="button"
+                  onClick={() => openLogin('cashier')}
+                  className="bg-gradient-to-r from-amber-300 to-amber-400 hover:from-amber-400 hover:to-amber-500 text-purple-950 font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-xl shadow-amber-500/30 hover:-translate-y-0.5"
+                >
+                  <LogIn size={18} /> Login to Your Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollTo('features')}
+                  className="border-2 border-white/25 hover:border-amber-300 text-white hover:bg-white/10 font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all backdrop-blur-sm"
+                >
+                  <Grid size={18} /> Explore Features
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 max-w-xl">
+                {[
+                  { icon: <Zap size={18} />, label: 'Real-Time POS' },
+                  { icon: <MessageSquare size={18} />, label: 'SMS Notifications' },
+                  { icon: <LineChart size={18} />, label: 'Real-Time Analytics' },
+                  { icon: <Lock size={18} />, label: 'Secure Records' },
+                ].map((f, i) => (
+                  <div
+                    key={i}
+                    className="bg-white/10 border border-white/15 rounded-xl px-4 py-3.5 flex items-center gap-3 backdrop-blur-sm hover:bg-white/15 transition-colors"
+                  >
+                    <span className="text-amber-300">{f.icon}</span>
+                    <span className="text-white text-sm font-semibold">{f.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </Reveal>
+          </Reveal>
+
+          <Reveal delay={150}>
+            <div className="relative mx-auto w-full max-w-[680px]">
+              {/* glow behind the card */}
+              <div className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-fuchsia-500/40 via-purple-500/30 to-amber-300/40 blur-2xl" />
+              {/* decorative rings */}
+              <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full border-2 border-amber-300/40" />
+              <div className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full border-2 border-lime-300/30" />
+
+              {/* gradient border frame */}
+              <div className="relative rounded-[2rem] bg-gradient-to-br from-amber-300 via-fuchsia-400 to-lime-300 p-[3px] shadow-2xl shadow-black/40">
+                <div className="rounded-[calc(2rem-3px)] bg-white p-6 md:p-10">
+                  <div className="text-center">
+                    {/* Logo on a soft lavender spotlight, full proportions, no cropping */}
+                    <div className="relative mb-6 rounded-3xl bg-gradient-to-b from-purple-50 via-white to-purple-50 px-4 py-8 md:px-8 md:py-12 ring-1 ring-purple-100">
+                      <div className="pointer-events-none absolute inset-0 rounded-3xl opacity-70" style={DOT_GRID_LIGHT} />
+                      <img
+                        src="/villareal-logo.png"
+                        alt="Bungad & Villareal"
+                        className="relative mx-auto h-auto w-full max-w-[520px] object-contain drop-shadow-[0_12px_24px_rgba(88,28,135,0.25)]"
+                      />
+                    </div>
+
+                    <h3 className="text-slate-900 font-extrabold text-2xl mb-1">Bungad &amp; Villareal Group</h3>
+                    <p className="text-purple-700 text-[11px] font-bold uppercase tracking-[0.25em] mb-6">
+                      Salon • Spa • Cosmetics • Bakery
+                    </p>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3 text-left">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 text-xs">System Status</span>
+                        <span className="text-emerald-500 text-xs font-bold flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                          </span>
+                          Online
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 text-xs">Response Time</span>
+                        <span className="text-amber-500 text-xs font-bold">&lt; 24 hours</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 text-xs">Coverage</span>
+                        <span className="text-amber-500 text-xs font-bold">Bungad, Villareal</span>
+                      </div>
+                    </div>
+
+                    <p className="text-slate-500 text-xs mt-5 flex items-center justify-center gap-1">
+                      <Lock size={12} /> SSL Secured • 24/7 Available
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
-      {/* ============ STATS STRIP ============ */}
-      <section className="max-w-7xl mx-auto px-4 pb-16">
+      {/* ============ STATS STRIP (overlaps hero) ============ */}
+      <section className={`${CONTAINER} relative z-10 -mt-14 lg:-mt-20 pb-20`}>
         <Reveal>
-          <div className="bg-white rounded-2xl shadow-2xl grid grid-cols-2 md:grid-cols-4 gap-0 overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-2xl shadow-purple-900/20 ring-1 ring-purple-100 grid grid-cols-2 md:grid-cols-4 overflow-hidden">
             {[
-              { icon: <FileText size={28} />, label: 'Manage POS', color: 'purple' },
-              { icon: <CheckCircle size={28} />, label: 'Track Inventory', color: 'emerald' },
-              { icon: <Clock size={28} />, label: 'Loyalty Rewards', color: 'amber' },
-              { icon: <AlertTriangle size={28} />, label: 'Staff Management', color: 'rose' },
+              { icon: <FileText size={30} />, label: 'Manage POS', sub: 'Fast, touch-first checkout', color: 'purple' },
+              { icon: <CheckCircle size={30} />, label: 'Track Inventory', sub: 'Audit-ready stock ledger', color: 'emerald' },
+              { icon: <Clock size={30} />, label: 'Loyalty Rewards', sub: 'Tiers, points & free items', color: 'amber' },
+              { icon: <AlertTriangle size={30} />, label: 'Staff Management', sub: 'Role-scoped access', color: 'rose' },
             ].map((stat, i) => (
-              <div key={i} className="p-6 text-center border-r last:border-r-0 border-slate-100">
+              <div
+                key={i}
+                className="p-7 lg:p-9 text-center border-r last:border-r-0 border-purple-50 hover:bg-purple-50/50 transition-colors"
+              >
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 ${
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
                     stat.color === 'purple' ? 'bg-purple-100 text-purple-600' :
                     stat.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' :
                     stat.color === 'amber' ? 'bg-amber-100 text-amber-600' :
@@ -368,7 +442,8 @@ export default function LandingPage({ onLoginSuccess }) {
                 >
                   {stat.icon}
                 </div>
-                <p className="text-slate-800 font-bold text-sm">{stat.label}</p>
+                <p className="text-slate-900 font-bold text-base">{stat.label}</p>
+                <p className="text-slate-500 text-xs mt-1">{stat.sub}</p>
               </div>
             ))}
           </div>
@@ -376,15 +451,17 @@ export default function LandingPage({ onLoginSuccess }) {
       </section>
 
       {/* ============ ABOUT ============ */}
-      <section id="about" className="bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 py-20">
+      <section id="about" className="relative scroll-mt-24 bg-gradient-to-b from-[#f5f0ff] to-white">
+        <div className="pointer-events-none absolute inset-0 opacity-50" style={DOT_GRID_LIGHT} />
+        <div className={`${CONTAINER} relative py-20 lg:py-24`}>
           <Reveal>
-            <div className="max-w-2xl">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-purple-700">About</p>
-              <h2 className="mt-3 text-3xl md:text-4xl font-black text-slate-800">
-                Built for the way the company runs every day.
-              </h2>
-              <p className="mt-4 text-sm leading-relaxed text-slate-500">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-end">
+              <SectionHeading
+                align="left"
+                eyebrow="About"
+                title="Built for the way the company runs every day."
+              />
+              <p className="text-base leading-relaxed text-slate-600">
                 Bungad &amp; Villareal operates several businesses under one roof — a spa, a
                 cosmetics line, a bakery, a menu kitchen, and more. The system isolates
                 each business so their books, staff, and customers never mix, while the
@@ -393,19 +470,19 @@ export default function LandingPage({ onLoginSuccess }) {
             </div>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { icon: <Scissors size={20} />, title: 'Multi-Business', text: 'One company, many outlets. Switch tenants in one click without ever crossing data.' },
-              { icon: <Clock size={20} />, title: 'Real-Time Operations', text: 'Rooms, shifts, stock and sales update the moment they happen — no batch imports.' },
-              { icon: <Award size={20} />, title: 'Loyalty & Rewards', text: 'Automatic tier upgrades, points ledger, and free-item thresholds per business.' },
+              { icon: <Scissors size={22} />, title: 'Multi-Business', text: 'One company, many outlets. Switch tenants in one click without ever crossing data.' },
+              { icon: <Clock size={22} />, title: 'Real-Time Operations', text: 'Rooms, shifts, stock and sales update the moment they happen — no batch imports.' },
+              { icon: <Award size={22} />, title: 'Loyalty & Rewards', text: 'Automatic tier upgrades, points ledger, and free-item thresholds per business.' },
             ].map((card, i) => (
-              <Reveal key={card.title} delay={i * 100}>
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 h-full">
-                  <div className="w-11 h-11 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+              <Reveal key={card.title} delay={i * 100} className="h-full">
+                <div className="h-full rounded-2xl border border-purple-100 bg-white/90 p-8 shadow-sm backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/10">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-600/30">
                     {card.icon}
                   </div>
-                  <h3 className="mt-4 text-sm font-bold text-slate-800">{card.title}</h3>
-                  <p className="mt-2 text-xs leading-relaxed text-slate-500">{card.text}</p>
+                  <h3 className="mt-5 text-base font-bold text-slate-900">{card.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-500">{card.text}</p>
                 </div>
               </Reveal>
             ))}
@@ -414,55 +491,53 @@ export default function LandingPage({ onLoginSuccess }) {
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section id="features" className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-20">
+      <section id="features" className="relative scroll-mt-24 bg-gradient-to-b from-white via-purple-50/60 to-[#f5f0ff]">
+        <div className={`${CONTAINER} py-20 lg:py-24`}>
           <Reveal>
-            <div className="text-center max-w-2xl mx-auto">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-purple-700">Features</p>
-              <h2 className="mt-3 text-3xl md:text-4xl font-black text-slate-800">
-                Everything the front desk, back office, and owner need.
-              </h2>
-            </div>
+            <SectionHeading
+              eyebrow="Features"
+              title="Everything the front desk, back office, and owner need."
+            />
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <FeatureCard
-              icon={<LineChart size={22} />}
+              icon={<LineChart size={24} />}
               title="Point of Sale"
               description="Fast touch-first checkout with split payments, hold/resume, loyalty discounts, and a printable receipt."
               tone="purple"
               delay={0}
             />
             <FeatureCard
-              icon={<FileText size={22} />}
+              icon={<FileText size={24} />}
               title="Inventory Ledger"
               description="Every sale, restock, transfer and void writes an append-only stock movement so balances are always auditable."
               tone="lime"
               delay={80}
             />
             <FeatureCard
-              icon={<Crown size={22} />}
+              icon={<Crown size={24} />}
               title="Loyalty & Rewards"
               description="Tiered discounts, points earned per peso, free items per threshold, and per-business reward rules."
               tone="amber"
               delay={160}
             />
             <FeatureCard
-              icon={<Users size={22} />}
+              icon={<Users size={24} />}
               title="Staff & Access"
               description="Role-scoped grants: cashiers see only their till, managers see their business, owners see the whole company."
               tone="blue"
               delay={0}
             />
             <FeatureCard
-              icon={<Layers size={22} />}
+              icon={<Layers size={24} />}
               title="Multi-Business Isolation"
               description="Every business is a separate tenant. A cashier can never read another tenant's sales, stock or customers."
               tone="purple"
               delay={80}
             />
             <FeatureCard
-              icon={<Shield size={22} />}
+              icon={<Shield size={24} />}
               title="Audit & Compliance"
               description="Every write is stamped with user, business, branch and request id — filterable, exportable, immutable."
               tone="rose"
@@ -472,19 +547,25 @@ export default function LandingPage({ onLoginSuccess }) {
         </div>
       </section>
 
-      {/* ============ HOW IT WORKS ============ */}
-      <section id="how" className="bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 py-20">
+      {/* ============ HOW IT WORKS (dark band) ============ */}
+      <section
+        id="how"
+        className="relative scroll-mt-24 overflow-hidden bg-gradient-to-br from-[#1b0838] via-purple-900 to-indigo-950"
+      >
+        <div className="pointer-events-none absolute inset-0 opacity-50" style={DOT_GRID} />
+        <div className="pointer-events-none absolute -top-32 right-0 h-[420px] w-[420px] rounded-full bg-fuchsia-600/25 blur-[120px]" />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-[420px] w-[420px] rounded-full bg-amber-400/15 blur-[120px]" />
+
+        <div className={`${CONTAINER} relative py-20 lg:py-24`}>
           <Reveal>
-            <div className="text-center max-w-2xl mx-auto">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-purple-700">How It Works</p>
-              <h2 className="mt-3 text-3xl md:text-4xl font-black text-slate-800">
-                Three steps from login to closing the till.
-              </h2>
-            </div>
+            <SectionHeading
+              dark
+              eyebrow="How It Works"
+              title="Three steps from login to closing the till."
+            />
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
             <Step
               number="1"
               title="Sign in with your role"
@@ -510,28 +591,28 @@ export default function LandingPage({ onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => openLogin('admin')}
-                className="rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-5 py-3 transition-all"
+                className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs px-6 py-3.5 transition-all backdrop-blur-sm"
               >
                 Login as Superadmin
               </button>
               <button
                 type="button"
                 onClick={() => openLogin('owner')}
-                className="rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-5 py-3 transition-all"
+                className="rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold text-xs px-6 py-3.5 transition-all shadow-lg shadow-purple-900/40"
               >
                 Login as Owner
               </button>
               <button
                 type="button"
                 onClick={() => openLogin('cashier')}
-                className="rounded-xl bg-gradient-to-r from-amber-300 to-amber-400 hover:from-amber-400 hover:to-amber-500 text-purple-900 font-bold text-xs px-5 py-3 shadow-md transition-all"
+                className="rounded-xl bg-gradient-to-r from-amber-300 to-amber-400 hover:from-amber-400 hover:to-amber-500 text-purple-950 font-bold text-xs px-6 py-3.5 shadow-lg shadow-amber-500/30 transition-all"
               >
                 Login as Cashier
               </button>
               <button
                 type="button"
                 onClick={() => openLogin('staff')}
-                className="rounded-xl border border-slate-300 hover:border-slate-400 text-slate-700 font-bold text-xs px-5 py-3 transition-all"
+                className="rounded-xl border border-white/30 hover:border-amber-300 hover:text-amber-300 text-white font-bold text-xs px-6 py-3.5 transition-all"
               >
                 Login as Staff
               </button>
@@ -541,60 +622,48 @@ export default function LandingPage({ onLoginSuccess }) {
       </section>
 
       {/* ============ CONTACT ============ */}
-      <section id="contact" className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-20 grid grid-cols-1 lg:grid-cols-2 gap-10">
+      <section id="contact" className="relative scroll-mt-24 bg-gradient-to-b from-[#f5f0ff] to-white">
+        <div className="pointer-events-none absolute inset-0 opacity-40" style={DOT_GRID_LIGHT} />
+        <div className={`${CONTAINER} relative py-20 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start`}>
           <Reveal>
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-purple-700">Contact</p>
-              <h2 className="mt-3 text-3xl md:text-4xl font-black text-slate-800">Talk to the team.</h2>
-              <p className="mt-4 text-sm leading-relaxed text-slate-500">
+              <SectionHeading align="left" eyebrow="Contact" title="Talk to the team." />
+              <p className="mt-5 text-base leading-relaxed text-slate-600 max-w-xl">
                 For account access, business onboarding, or a walkthrough of the system, reach
                 out during business hours.
               </p>
 
-              <div className="mt-8 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                    <MapPin size={18} />
+              <div className="mt-8 space-y-5">
+                {[
+                  { icon: <MapPin size={20} />, title: 'Head Office', text: 'Bungad & Villareal, Philippines' },
+                  { icon: <Mail size={20} />, title: 'Email', text: 'support@bungad-villareal.local' },
+                  { icon: <Phone size={20} />, title: 'Phone', text: 'Available on request' },
+                ].map((row) => (
+                  <div key={row.title} className="flex items-center gap-4 rounded-2xl border border-purple-100 bg-white p-4 shadow-sm">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-purple-600/25">
+                      {row.icon}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{row.title}</p>
+                      <p className="text-sm text-slate-500">{row.text}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">Head Office</p>
-                    <p className="text-xs text-slate-500">Bungad &amp; Villareal, Philippines</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                    <Mail size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">Email</p>
-                    <p className="text-xs text-slate-500">support@bungad-villareal.local</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                    <Phone size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">Phone</p>
-                    <p className="text-xs text-slate-500">Available on request</p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </Reveal>
 
           <Reveal delay={150}>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-              <h3 className="text-sm font-bold text-slate-800">Quick logins</h3>
-              <p className="mt-1 text-xs text-slate-500">Pick a role to open the prefilled sign-in screen.</p>
-              <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-3xl border border-purple-100 bg-white p-8 shadow-xl shadow-purple-900/10">
+              <h3 className="text-lg font-bold text-slate-900">Quick logins</h3>
+              <p className="mt-1 text-sm text-slate-500">Pick a role to open the prefilled sign-in screen.</p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
                 {QUICK_ACCOUNTS.map((row) => (
                   <button
                     key={row.key}
                     type="button"
                     onClick={() => openLogin(row.key)}
-                    className="rounded-xl font-bold text-xs px-3 py-3 transition-all bg-white border border-slate-200 hover:border-purple-400 hover:text-purple-800 text-slate-700 flex items-center justify-center gap-2"
+                    className="rounded-xl font-bold text-sm px-3 py-4 transition-all bg-purple-50/60 border border-purple-100 hover:border-purple-400 hover:bg-purple-100 hover:text-purple-800 text-slate-700 flex items-center justify-center gap-2"
                   >
                     {row.icon} {row.label}
                   </button>
@@ -607,16 +676,16 @@ export default function LandingPage({ onLoginSuccess }) {
 
       {/* ============ FOOTER ============ */}
       <footer className="bg-slate-950 text-slate-300 border-t-4 border-purple-600">
-        <div className="max-w-7xl mx-auto px-4 pt-12 pb-8">
+        <div className={`${CONTAINER} pt-14 pb-8`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             <div className="lg:col-span-2">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {/* Footer is dark, so the logo keeps a white plate, but it now fits the whole image */}
-                <div className="rounded-xl bg-white px-3 py-2 shadow-lg">
-                  <img src="/villareal-logo.png" alt="Villareal Salon & Spa" className="h-12 w-auto max-w-[170px] object-contain" />
+                <div className="rounded-2xl bg-white px-4 py-2.5 shadow-lg ring-2 ring-amber-300/50">
+                  <img src="/villareal-logo.png" alt="Villareal Salon & Spa" className="h-14 w-auto max-w-[200px] object-contain" />
                 </div>
                 <div>
-                  <p className="text-base font-extrabold text-white">Bungad &amp; Villareal</p>
+                  <p className="text-lg font-extrabold text-white">Bungad &amp; Villareal</p>
                   <p className="text-[10px] uppercase tracking-[0.2em] text-purple-300 mt-1">Management System</p>
                 </div>
               </div>

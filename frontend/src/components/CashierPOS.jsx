@@ -815,44 +815,6 @@ export default function CashierPOS({
         : 'h-[calc(100vh-140px)]'
     }`}>
 
-      {/* ============ FLOATING FULL-SCREEN CONTROLS ============ */}
-      <div className="fixed top-3 right-3 z-[100] flex items-center gap-2">
-        {isFullScreen ? (
-          <>
-            {/* Exit Full-Screen (bumalik sa normal view, hindi lumalabas sa POS) */}
-            <button
-              type="button"
-              onClick={() => onToggleFullScreen?.()}
-              className="bg-slate-900/90 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
-              title="Exit full-screen (ESC)"
-            >
-              <Minimize2 size={14} /> Exit Full-Screen
-            </button>
-
-            {/* Exit POS → Dashboard (kung binigay ang onExitPOS prop) */}
-            {onExitPOS && (
-              <button
-                type="button"
-                onClick={() => onExitPOS?.()}
-                className="bg-red-600/90 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
-                title="Close POS and go to Dashboard"
-              >
-                <X size={14} /> Exit POS
-              </button>
-            )}
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onToggleFullScreen?.()}
-            className="bg-cyan-600/90 hover:bg-cyan-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-2xl flex items-center gap-1.5 transition-all border border-white/20 backdrop-blur"
-            title="Full-screen (F11)"
-          >
-            <Maximize2 size={14} /> Full-Screen
-          </button>
-        )}
-      </div>
-
       {/* HEADER */}
       <div className={`${panel} border rounded-xl p-3 flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3">
@@ -886,6 +848,21 @@ export default function CashierPOS({
             className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 disabled:opacity-40"
           >
             <Clock size={14} /> Hold
+          </button>
+
+          {/* ============ FULL-SCREEN / EXIT ICON BUTTONS (katabi ng Hold) ============ */}
+          <button
+            type="button"
+            onClick={() => onToggleFullScreen?.()}
+            title={isFullScreen ? 'Exit Full-Screen (Esc)' : 'Full-Screen (F11)'}
+            aria-label={isFullScreen ? 'Exit Full-Screen' : 'Full-Screen'}
+            className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border transition-all ${
+              isDarkMode
+                ? 'bg-slate-700 border-slate-600 text-cyan-400 hover:bg-slate-600'
+                : 'bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-100'
+            }`}
+          >
+            {isFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
       </div>
